@@ -107,7 +107,7 @@ export default function HomePage() {
           </div>
 
           <section className="py-6 text-center">
-            <h2 className="text-2xl font-bold">اكتشف شوبس: أحدث إضافاتنا!</h2>
+            <h2 className="text-2xl font-bold">العروض مميزة</h2>
             <p className="text-muted-foreground">
               توصيل في اليوم التالي من خلال بريدفاست
             </p>
