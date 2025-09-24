@@ -4,13 +4,16 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, Gift, PlusCircle, Loader2, CheckCircle, PartyPopper, Bot, FileQuestion } from 'lucide-react';
+import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, Gift, PlusCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
+
 
 const initialTransactions = [
   { id: 1, type: 'شحن رصيد', amount: 200.00, date: '25 يوليو 2024' },
@@ -18,6 +21,11 @@ const initialTransactions = [
   { id: 3, type: 'هدية من صديق', amount: 50.00, date: '22 يوليو 2024' },
   { id: 4, type: 'طلب رقم #1211', amount: -120.00, date: '21 يوليو 2024' },
 ];
+
+const getImage = (id: string) => {
+    const image = PlaceHolderImages.find((img) => img.id === id);
+    return image ? image.imageUrl : 'https://picsum.photos/seed/placeholder/200/200';
+};
 
 export default function WalletPage() {
   const { toast } = useToast();
@@ -74,22 +82,20 @@ export default function WalletPage() {
     }, 2000);
   }
 
-  const isLoading = rechargeStatus === 'verifying' || rechargeStatus === 'charging';
-
   const getLoadingContent = () => {
       switch (rechargeStatus) {
           case 'verifying':
-              return { icon: FileQuestion, message: 'جاري التحقق من كرت التعبئة...', spin: true };
+              return { imageId: 'recharge-verifying', message: 'جاري التحقق من كرت التعبئة...', hint: '3d character thinking' };
           case 'charging':
-              return { icon: Loader2, message: 'جاري شحن المحفظة...', spin: true };
+              return { imageId: 'recharge-verifying', message: 'جاري شحن المحفظة...', hint: '3d character thinking' };
           case 'success':
-              return { icon: PartyPopper, message: 'تمت إضافة الرصيد بنجاح!', spin: false };
+              return { imageId: 'recharge-celebrating', message: 'تمت إضافة الرصيد بنجاح!', hint: '3d character celebrating' };
           default:
-              return { icon: Bot, message: 'أدخل رمز كرت التعبئة لشحن محفظتك.', spin: false };
+              return { imageId: 'recharge-waiting', message: 'أدخل رمز كرت التعبئة لشحن محفظتك.', hint: '3d character waiting' };
       }
   }
 
-  const { icon: StatusIcon, message: statusMessage, spin } = getLoadingContent();
+  const { imageId, message: statusMessage, hint } = getLoadingContent();
 
   return (
     <div className="bg-background text-foreground font-sans" dir="rtl">
@@ -132,8 +138,15 @@ export default function WalletPage() {
                         <DialogTitle className="text-2xl">شحن الرصيد</DialogTitle>
                     </DialogHeader>
                     <div className="flex flex-col items-center justify-center gap-4 py-6 text-center">
-                        <div className={cn("flex h-24 w-24 items-center justify-center rounded-full bg-accent text-primary transition-all", rechargeStatus === 'success' && 'bg-green-100 text-green-600')}>
-                            <StatusIcon className={cn("h-12 w-12", spin && "animate-spin")} />
+                        <div className="relative h-32 w-32">
+                           <Image
+                            src={getImage(imageId)}
+                            alt={hint}
+                            fill
+                            className="object-contain"
+                            data-ai-hint={hint}
+                            unoptimized
+                            />
                         </div>
                         <p className="min-h-[40px] text-muted-foreground">{statusMessage}</p>
                     </div>
