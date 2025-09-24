@@ -118,7 +118,7 @@ export default function CartPage() {
             </a>
             <a
               href="/cart"
-              className="flex flex-col items-center text-xs font-medium text-purple-600"
+              className="flex flex-col items-center text-xs font-medium text-primary"
             >
               <ShoppingCart className="mb-1 h-6 w-6" />
               السلة

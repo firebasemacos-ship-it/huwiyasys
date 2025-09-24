@@ -58,7 +58,7 @@ export default function HomePage() {
         <header className="sticky top-0 z-40 w-full border-b bg-background/95 p-4 backdrop-blur">
           <div className="flex items-center justify-between">
             <div>
-              <Button variant="ghost" className="flex items-center gap-2 p-0 text-base font-bold text-purple-600">
+              <Button variant="ghost" className="flex items-center gap-2 p-0 text-base font-bold text-primary">
                 الإسماعيلية
                 <ChevronDown className="h-5 w-5" />
               </Button>
@@ -67,7 +67,7 @@ export default function HomePage() {
               </p>
             </div>
             <Button variant="ghost" size="icon">
-              <MessageSquare className="h-6 w-6 text-purple-600" />
+              <MessageSquare className="h-6 w-6 text-primary" />
             </Button>
           </div>
         </header>
@@ -161,7 +161,7 @@ export default function HomePage() {
           <nav className="flex items-center justify-around p-2">
             <a
               href="/"
-              className="flex flex-col items-center text-xs font-medium text-purple-600"
+              className="flex flex-col items-center text-xs font-medium text-primary"
             >
               <Home className="mb-1 h-6 w-6" />
               الرئيسية

@@ -37,7 +37,7 @@ export default function SearchPage() {
             </a>
             <a
               href="/search"
-              className="flex flex-col items-center text-xs font-medium text-purple-600"
+              className="flex flex-col items-center text-xs font-medium text-primary"
             >
               <SearchIcon className="mb-1 h-6 w-6" />
               البحث

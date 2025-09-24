@@ -27,7 +27,7 @@ export default function WalletPage() {
         </header>
 
         <main className="flex-1 overflow-y-auto bg-muted/20 p-4 pb-24">
-          <Card className="mb-6 overflow-hidden rounded-xl bg-purple-600 text-primary-foreground shadow-lg">
+          <Card className="mb-6 overflow-hidden rounded-xl bg-primary text-primary-foreground shadow-lg">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -108,7 +108,7 @@ export default function WalletPage() {
             </a>
             <a
               href="/wallet"
-              className="flex flex-col items-center text-xs font-medium text-purple-600"
+              className="flex flex-col items-center text-xs font-medium text-primary"
             >
               <WalletIcon className="mb-1 h-6 w-6" />
               باي
