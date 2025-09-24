@@ -28,7 +28,7 @@ export default function CartPage() {
       <div className="flex min-h-screen flex-col">
         <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b bg-background/95 p-4 backdrop-blur">
           <h1 className="text-xl font-bold">السلة</h1>
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" onClick={() => window.history.back()}>
             <ArrowLeft className="h-6 w-6" />
           </Button>
         </header>

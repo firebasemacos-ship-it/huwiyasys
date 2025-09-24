@@ -4,16 +4,13 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, Gift, PlusCircle } from 'lucide-react';
+import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, Gift, PlusCircle, LoaderCircle, CheckCircle2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import Image from 'next/image';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
-
 
 const initialTransactions = [
   { id: 1, type: 'شحن رصيد', amount: 200.00, date: '25 يوليو 2024' },
@@ -21,11 +18,6 @@ const initialTransactions = [
   { id: 3, type: 'هدية من صديق', amount: 50.00, date: '22 يوليو 2024' },
   { id: 4, type: 'طلب رقم #1211', amount: -120.00, date: '21 يوليو 2024' },
 ];
-
-const getImage = (id: string) => {
-    const image = PlaceHolderImages.find((img) => img.id === id);
-    return image ? image.imageUrl : 'https://picsum.photos/seed/placeholder/200/200';
-};
 
 export default function WalletPage() {
   const { toast } = useToast();
@@ -82,27 +74,26 @@ export default function WalletPage() {
     }, 2000);
   }
 
-  const getLoadingContent = () => {
+  const { Icon, message } = useMemo(() => {
       switch (rechargeStatus) {
           case 'verifying':
-              return { imageId: 'recharge-verifying', message: 'جاري التحقق من كرت التعبئة...', hint: '3d character thinking' };
+              return { Icon: () => <LoaderCircle className="h-16 w-16 animate-spin text-primary" />, message: 'جاري التحقق من كرت التعبئة...' };
           case 'charging':
-              return { imageId: 'recharge-verifying', message: 'جاري شحن المحفظة...', hint: '3d character thinking' };
+              return { Icon: () => <LoaderCircle className="h-16 w-16 animate-spin text-primary" />, message: 'جاري شحن المحفظة...' };
           case 'success':
-              return { imageId: 'recharge-celebrating', message: 'تمت إضافة الرصيد بنجاح!', hint: '3d character celebrating' };
+              return { Icon: () => <CheckCircle2 className="h-16 w-16 text-green-500" />, message: 'تمت إضافة الرصيد بنجاح!' };
           default:
-              return { imageId: 'recharge-waiting', message: 'أدخل رمز كرت التعبئة لشحن محفظتك.', hint: '3d character waiting' };
+              return { Icon: () => <Gift className="h-16 w-16 text-muted-foreground" />, message: 'أدخل رمز كرت التعبئة لشحن محفظتك.' };
       }
-  }
+  }, [rechargeStatus]);
 
-  const { imageId, message: statusMessage, hint } = getLoadingContent();
 
   return (
     <div className="bg-background text-foreground font-sans" dir="rtl">
       <div className="flex min-h-screen flex-col">
         <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b bg-background/95 p-4 backdrop-blur">
           <h1 className="text-xl font-bold">المحفظة</h1>
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" onClick={() => window.history.back()}>
             <ArrowLeft className="h-6 w-6" />
           </Button>
         </header>
@@ -138,17 +129,10 @@ export default function WalletPage() {
                         <DialogTitle className="text-2xl">شحن الرصيد</DialogTitle>
                     </DialogHeader>
                     <div className="flex flex-col items-center justify-center gap-4 py-6 text-center">
-                        <div className="relative h-32 w-32">
-                           <Image
-                            src={getImage(imageId)}
-                            alt={hint}
-                            fill
-                            className="object-contain"
-                            data-ai-hint={hint}
-                            unoptimized
-                            />
+                        <div className="flex h-32 w-32 items-center justify-center">
+                           <Icon />
                         </div>
-                        <p className="min-h-[40px] text-muted-foreground">{statusMessage}</p>
+                        <p className="min-h-[40px] text-muted-foreground">{message}</p>
                     </div>
 
                     <div className={cn("grid gap-4", rechargeStatus !== 'idle' && 'opacity-0')}>
@@ -168,8 +152,8 @@ export default function WalletPage() {
                     </div>
                     <DialogFooter>
                         <Button type="submit" className="w-full" onClick={handleRecharge} disabled={rechargeStatus !== 'idle'}>
-                            <PlusCircle className="ml-2 h-4 w-4" />
-                            شحن
+                           {rechargeStatus === 'idle' ? <PlusCircle className="ml-2 h-4 w-4" /> : <LoaderCircle className="ml-2 h-4 w-4 animate-spin" />}
+                           {rechargeStatus === 'idle' ? 'شحن' : 'جاري الشحن...'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
