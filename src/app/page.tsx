@@ -84,7 +84,7 @@ export default function HomePage() {
               <CarouselContent>
                 {promoImages.map((promo) => (
                     <CarouselItem key={promo.id} className="basis-5/6 pl-2">
-                        <Card className="overflow-hidden rounded-lg relative">
+                        <Card className="overflow-hidden rounded-xl relative">
                         <CardContent className="p-0">
                             <Image
                             src={getImage(promo.id)}
