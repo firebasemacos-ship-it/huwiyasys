@@ -4,7 +4,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, Gift, PlusCircle } from 'lucide-react';
+import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, Gift, PlusCircle, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,6 +23,7 @@ export default function WalletPage() {
   const [transactions, setTransactions] = useState(initialTransactions);
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [rechargeCode, setRechargeCode] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const currentBalance = transactions.reduce((acc, t) => acc + t.amount, 0);
 
@@ -35,22 +36,30 @@ export default function WalletPage() {
         });
         return;
     }
+    
+    setIsLoading(true);
 
-    // For demo purposes, any code adds 100 LYD
-    const rechargeAmount = 100.00;
-    const newTransaction = {
-        id: transactions.length + 1,
-        type: 'شحن رصيد',
-        amount: rechargeAmount,
-        date: new Date().toLocaleDateString('ar-LY', { year: 'numeric', month: 'long', day: 'numeric' })
-    };
-    setTransactions([newTransaction, ...transactions]);
-    setDialogOpen(false);
-    setRechargeCode('');
-    toast({
-        title: "تم الشحن بنجاح",
-        description: `تمت إضافة ${rechargeAmount.toFixed(2)} دينار ليبي إلى محفظتك.`,
-    });
+    // Simulate network request
+    setTimeout(() => {
+        // For demo purposes, any code adds 100 LYD
+        const rechargeAmount = 100.00;
+        const newTransaction = {
+            id: transactions.length + 1,
+            type: 'شحن رصيد',
+            amount: rechargeAmount,
+            date: new Date().toLocaleDateString('ar-LY', { year: 'numeric', month: 'long', day: 'numeric' })
+        };
+        setTransactions([newTransaction, ...transactions]);
+        
+        setIsLoading(false);
+        setDialogOpen(false);
+        setRechargeCode('');
+
+        toast({
+            title: "تم الشحن بنجاح",
+            description: `تمت إضافة ${rechargeAmount.toFixed(2)} دينار ليبي إلى محفظتك.`,
+        });
+    }, 1500); // 1.5 second delay
   }
 
   return (
@@ -98,11 +107,19 @@ export default function WalletPage() {
                                 className="col-span-3"
                                 value={rechargeCode}
                                 onChange={(e) => setRechargeCode(e.target.value)}
+                                disabled={isLoading}
                             />
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button type="submit" className="w-full" onClick={handleRecharge}>شحن</Button>
+                        <Button type="submit" className="w-full" onClick={handleRecharge} disabled={isLoading}>
+                            {isLoading ? (
+                                <>
+                                    <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                                    الرجاء الانتظار
+                                </>
+                            ) : "شحن"}
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -192,5 +209,3 @@ export default function WalletPage() {
     </div>
   );
 }
-
-    
