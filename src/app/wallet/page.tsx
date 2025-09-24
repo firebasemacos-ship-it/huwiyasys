@@ -4,13 +4,15 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, Gift, PlusCircle, LoaderCircle, CheckCircle2 } from 'lucide-react';
+import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, Gift, PlusCircle, LoaderCircle, CheckCircle2, Wifi } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useState, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { Logo } from '@/components/icons';
+
 
 const initialTransactions = [
   { id: 1, type: 'شحن رصيد', amount: 200.00, date: '25 يوليو 2024' },
@@ -99,69 +101,86 @@ export default function WalletPage() {
         </header>
 
         <main className="flex-1 overflow-y-auto bg-muted/20 p-4 pb-24">
-          <Card className="mb-6 overflow-hidden rounded-xl bg-primary text-primary-foreground shadow-lg">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm opacity-80">الرصيد الحالي</p>
-                  <p className="text-3xl font-bold">{currentBalance.toFixed(2)} دينار ليبي</p>
-                </div>
-                <WalletIcon className="h-12 w-12 opacity-50" />
-              </div>
-              <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
-                  setDialogOpen(isOpen);
-                  if (!isOpen) {
-                    // Reset state if dialog is closed manually
-                    setTimeout(() => {
-                        setRechargeStatus('idle');
-                        setRechargeCode('');
-                    }, 500);
-                  }
-              }}>
-                <DialogTrigger asChild>
-                    <Button size="lg" className="mt-4 w-full bg-primary-foreground text-primary hover:bg-primary-foreground/90">
-                        <PlusCircle className="ml-2 h-5 w-5" />
-                        شحن الرصيد
-                    </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md" dir="rtl">
-                    <DialogHeader className="text-center">
-                        <DialogTitle className="text-2xl">شحن الرصيد</DialogTitle>
-                    </DialogHeader>
-                    <div className="flex flex-col items-center justify-center gap-4 py-6 text-center">
-                        <div className="flex h-32 w-32 items-center justify-center">
-                           <Icon />
+          <div className="mb-6">
+            <Card className="relative aspect-[1.586] w-full overflow-hidden rounded-xl bg-primary text-primary-foreground shadow-lg transition-transform duration-300 hover:scale-105 hover:shadow-2xl">
+                <CardContent className="flex h-full flex-col justify-between p-6">
+                    <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-2">
+                          <Logo className="h-8 w-8 text-primary-foreground" />
+                          <span className="text-lg font-bold">Mobile Mate</span>
                         </div>
-                        <p className="min-h-[40px] text-muted-foreground">{message}</p>
+                        <Wifi className="h-6 w-6 -rotate-90 opacity-70" />
                     </div>
 
-                    <div className={cn("grid gap-4", rechargeStatus !== 'idle' && 'opacity-0')}>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="recharge-code" className="text-right">
-                                رمز الكرت
-                            </Label>
-                            <Input
-                                id="recharge-code"
-                                placeholder="XXXX-XXXX-XXXX-XXXX"
-                                className="col-span-3"
-                                value={rechargeCode}
-                                onChange={(e) => setRechargeCode(e.target.value)}
-                                disabled={rechargeStatus !== 'idle'}
-                            />
-                        </div>
+                    <div className="text-left">
+                        <p className="font-mono text-xl tracking-widest">
+                            **** **** **** 3456
+                        </p>
                     </div>
-                    <DialogFooter>
-                        <Button type="submit" className="w-full" onClick={handleRecharge} disabled={rechargeStatus !== 'idle'}>
-                           {rechargeStatus === 'idle' ? <PlusCircle className="ml-2 h-4 w-4" /> : <LoaderCircle className="ml-2 h-4 w-4 animate-spin" />}
-                           {rechargeStatus === 'idle' ? 'شحن' : 'جاري الشحن...'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </CardContent>
-          </Card>
+
+                    <div className="flex items-end justify-between">
+                        <div>
+                            <p className="text-sm opacity-80">الرصيد الحالي</p>
+                            <p className="text-3xl font-bold leading-tight">{currentBalance.toFixed(2)}</p>
+                            <p className="text-sm font-medium opacity-90">دينار ليبي</p>
+                        </div>
+                        <p className="text-sm font-semibold">08/28</p>
+                    </div>
+                </CardContent>
+            </Card>
+          </div>
           
-          <div className="mb-6 grid grid-cols-2 gap-4">
+          <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
+              setDialogOpen(isOpen);
+              if (!isOpen) {
+                setTimeout(() => {
+                    setRechargeStatus('idle');
+                    setRechargeCode('');
+                }, 500);
+              }
+          }}>
+            <DialogTrigger asChild>
+                <Button size="lg" className="w-full">
+                    <PlusCircle className="ml-2 h-5 w-5" />
+                    شحن الرصيد
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md" dir="rtl">
+                <DialogHeader className="text-center">
+                    <DialogTitle className="text-2xl">شحن الرصيد</DialogTitle>
+                </DialogHeader>
+                <div className="flex flex-col items-center justify-center gap-4 py-6 text-center">
+                    <div className="flex h-32 w-32 items-center justify-center">
+                       <Icon />
+                    </div>
+                    <p className="min-h-[40px] text-muted-foreground">{message}</p>
+                </div>
+
+                <div className={cn("grid gap-4", rechargeStatus !== 'idle' && 'opacity-0')}>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="recharge-code" className="text-right">
+                            رمز الكرت
+                        </Label>
+                        <Input
+                            id="recharge-code"
+                            placeholder="XXXX-XXXX-XXXX-XXXX"
+                            className="col-span-3"
+                            value={rechargeCode}
+                            onChange={(e) => setRechargeCode(e.target.value)}
+                            disabled={rechargeStatus !== 'idle'}
+                        />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="submit" className="w-full" onClick={handleRecharge} disabled={rechargeStatus !== 'idle'}>
+                       {rechargeStatus === 'idle' ? <PlusCircle className="ml-2 h-4 w-4" /> : <LoaderCircle className="ml-2 h-4 w-4 animate-spin" />}
+                       {rechargeStatus === 'idle' ? 'شحن' : 'جاري الشحن...'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <div className="my-6 grid grid-cols-2 gap-4">
              <Card className="overflow-hidden rounded-xl">
                 <CardContent className="flex flex-col items-center justify-center p-4 text-center">
                     <CreditCard className="mb-2 h-8 w-8 text-primary" />
@@ -244,3 +263,5 @@ export default function WalletPage() {
     </div>
   );
 }
+
+    
