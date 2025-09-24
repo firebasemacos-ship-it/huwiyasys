@@ -8,7 +8,7 @@ import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, Arrow
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/icons';
@@ -27,8 +27,32 @@ export default function WalletPage() {
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [rechargeCode, setRechargeCode] = useState('');
   const [rechargeStatus, setRechargeStatus] = useState('idle'); // idle, verifying, charging, success
+  const [displayBalance, setDisplayBalance] = useState(0);
 
-  const currentBalance = transactions.reduce((acc, t) => acc + t.amount, 0);
+  const currentBalance = useMemo(() => transactions.reduce((acc, t) => acc + t.amount, 0), [transactions]);
+
+  useEffect(() => {
+    let animationFrameId: number;
+    let current = 0;
+    const target = currentBalance;
+    const increment = (target - current) / 100; // Animate over ~100 frames
+
+    const animate = () => {
+        current += increment;
+        if (current >= target) {
+            setDisplayBalance(target);
+            cancelAnimationFrame(animationFrameId);
+        } else {
+            setDisplayBalance(current);
+            animationFrameId = requestAnimationFrame(animate);
+        }
+    };
+    
+    animationFrameId = requestAnimationFrame(animate);
+
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [currentBalance]);
+
 
   const handleRecharge = () => {
     if (!rechargeCode.trim()) {
@@ -101,7 +125,7 @@ export default function WalletPage() {
         </header>
 
         <main className="flex-1 overflow-y-auto bg-muted/20 p-4 pb-24">
-          <div className="mb-6 mx-auto max-w-md">
+          <div className="mb-6 mx-auto max-w-sm">
             <Card className="relative aspect-[1.586] w-full overflow-hidden rounded-xl bg-primary text-primary-foreground shadow-lg transition-transform duration-300 hover:scale-105 hover:shadow-2xl">
                 <CardContent className="flex h-full flex-col justify-between p-6">
                     <div className="flex items-start justify-between">
@@ -121,7 +145,7 @@ export default function WalletPage() {
                     <div className="flex items-end justify-between">
                         <div>
                             <p className="text-sm opacity-80">الرصيد الحالي</p>
-                            <p className="text-3xl font-bold leading-tight">{currentBalance.toFixed(2)}</p>
+                            <p className="text-3xl font-bold leading-tight">{displayBalance.toFixed(2)}</p>
                             <p className="text-sm font-medium opacity-90">دينار ليبي</p>
                         </div>
                         <p className="text-sm font-semibold">08/28</p>
@@ -263,5 +287,4 @@ export default function WalletPage() {
     </div>
   );
 }
-
     
