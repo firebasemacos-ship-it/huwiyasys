@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Input } from '@/components/ui/input';
@@ -49,7 +50,7 @@ export default function SearchPage() {
               السلة
             </a>
             <a
-              href="#"
+              href="/wallet"
               className="flex flex-col items-center text-xs text-muted-foreground"
             >
               <Wallet className="mb-1 h-6 w-6" />

@@ -181,13 +181,13 @@ export default function HomePage() {
               السلة
             </a>
             <a
-              href="#"
+              href="/wallet"
               className="flex flex-col items-center text-xs text-muted-foreground"
             >
               <Wallet className="mb-1 h-6 w-6" />
               باي
             </a>
-a            <a
+            <a
               href="#"
               className="flex flex-col items-center text-xs text-muted-foreground"
             >
