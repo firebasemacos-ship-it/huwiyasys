@@ -174,7 +174,7 @@ export default function HomePage() {
               البحث
             </a>
             <a
-              href="#"
+              href="/cart"
               className="flex flex-col items-center text-xs text-muted-foreground"
             >
               <ShoppingCart className="mb-1 h-6 w-6" />

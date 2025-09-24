@@ -113,6 +113,18 @@
       "imageUrl": "https://images.unsplash.com/photo-1560963614-153d4432f741?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxiYWtlcnklMjBwYXN0cnl8ZW58MHx8fHwxNzU4NjQ3OTQ1fDA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "bakery pastry",
       "description": "Bakery and pastries category image"
+    },
+    {
+      "id": "category-dairy",
+      "imageUrl": "https://images.unsplash.com/photo-1628087989446-73a8031d27a4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxkYWlyeXxlbnwwfHx8fDE3NTkwMDU0MjV8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "dairy products",
+      "description": "Image of various dairy products"
+    },
+    {
+      "id": "category-eggs",
+      "imageUrl": "https://images.unsplash.com/photo-1599923533927-995482a0b12c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxlZ2dzfGVufDB8fHx8MTc1OTAwNTQyNnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "carton eggs",
+      "description": "Image of eggs in a carton"
     }
   ]
 }

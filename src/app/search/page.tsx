@@ -1,7 +1,7 @@
 'use client';
 
 import { Input } from '@/components/ui/input';
-import { Search as SearchIcon, ArrowRight, Home, ShoppingCart, Wallet, MoreHorizontal } from 'lucide-react';
+import { Search as SearchIcon, Home, ShoppingCart, Wallet, MoreHorizontal } from 'lucide-react';
 
 export default function SearchPage() {
   return (
@@ -42,7 +42,7 @@ export default function SearchPage() {
               البحث
             </a>
             <a
-              href="#"
+              href="/cart"
               className="flex flex-col items-center text-xs text-muted-foreground"
             >
               <ShoppingCart className="mb-1 h-6 w-6" />
