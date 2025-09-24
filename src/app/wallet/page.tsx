@@ -8,8 +8,10 @@ import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, Arrow
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
-const transactions = [
+const initialTransactions = [
   { id: 1, type: 'شحن رصيد', amount: 200.00, date: '25 يوليو 2024' },
   { id: 2, type: 'طلب رقم #1234', amount: -75.50, date: '24 يوليو 2024' },
   { id: 3, type: 'هدية من صديق', amount: 50.00, date: '22 يوليو 2024' },
@@ -17,7 +19,39 @@ const transactions = [
 ];
 
 export default function WalletPage() {
+  const { toast } = useToast();
+  const [transactions, setTransactions] = useState(initialTransactions);
+  const [isDialogOpen, setDialogOpen] = useState(false);
+  const [rechargeCode, setRechargeCode] = useState('');
+
   const currentBalance = transactions.reduce((acc, t) => acc + t.amount, 0);
+
+  const handleRecharge = () => {
+    if (!rechargeCode.trim()) {
+        toast({
+            variant: "destructive",
+            title: "خطأ",
+            description: "الرجاء إدخال رمز كرت التعبئة.",
+        });
+        return;
+    }
+
+    // For demo purposes, any code adds 100 LYD
+    const rechargeAmount = 100.00;
+    const newTransaction = {
+        id: transactions.length + 1,
+        type: 'شحن رصيد',
+        amount: rechargeAmount,
+        date: new Date().toLocaleDateString('ar-LY', { year: 'numeric', month: 'long', day: 'numeric' })
+    };
+    setTransactions([newTransaction, ...transactions]);
+    setDialogOpen(false);
+    setRechargeCode('');
+    toast({
+        title: "تم الشحن بنجاح",
+        description: `تمت إضافة ${rechargeAmount.toFixed(2)} دينار ليبي إلى محفظتك.`,
+    });
+  }
 
   return (
     <div className="bg-background text-foreground font-sans" dir="rtl">
@@ -39,7 +73,7 @@ export default function WalletPage() {
                 </div>
                 <WalletIcon className="h-12 w-12 opacity-50" />
               </div>
-              <Dialog>
+              <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
                 <DialogTrigger asChild>
                     <Button size="lg" className="mt-4 w-full bg-primary-foreground text-primary hover:bg-primary-foreground/90">
                         <PlusCircle className="ml-2 h-5 w-5" />
@@ -62,11 +96,13 @@ export default function WalletPage() {
                                 id="recharge-code"
                                 placeholder="XXXX-XXXX-XXXX-XXXX"
                                 className="col-span-3"
+                                value={rechargeCode}
+                                onChange={(e) => setRechargeCode(e.target.value)}
                             />
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button type="submit" className="w-full">شحن</Button>
+                        <Button type="submit" className="w-full" onClick={handleRecharge}>شحن</Button>
                     </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -156,3 +192,5 @@ export default function WalletPage() {
     </div>
   );
 }
+
+    
