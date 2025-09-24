@@ -5,6 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, Gift, PlusCircle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const transactions = [
   { id: 1, type: 'شحن رصيد', amount: 200.00, date: '25 يوليو 2024' },
@@ -32,14 +35,41 @@ export default function WalletPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm opacity-80">الرصيد الحالي</p>
-                  <p className="text-3xl font-bold">{currentBalance.toFixed(2)} جنيه</p>
+                  <p className="text-3xl font-bold">{currentBalance.toFixed(2)} دينار ليبي</p>
                 </div>
                 <WalletIcon className="h-12 w-12 opacity-50" />
               </div>
-              <Button size="lg" className="mt-4 w-full bg-primary-foreground text-primary hover:bg-primary-foreground/90">
-                <PlusCircle className="ml-2 h-5 w-5" />
-                شحن الرصيد
-              </Button>
+              <Dialog>
+                <DialogTrigger asChild>
+                    <Button size="lg" className="mt-4 w-full bg-primary-foreground text-primary hover:bg-primary-foreground/90">
+                        <PlusCircle className="ml-2 h-5 w-5" />
+                        شحن الرصيد
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]" dir="rtl">
+                    <DialogHeader>
+                        <DialogTitle>شحن الرصيد</DialogTitle>
+                        <DialogDescription>
+                            أدخل رمز كرت التعبئة لشحن محفظتك.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="recharge-code" className="text-right">
+                                رمز الكرت
+                            </Label>
+                            <Input
+                                id="recharge-code"
+                                placeholder="XXXX-XXXX-XXXX-XXXX"
+                                className="col-span-3"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="submit" className="w-full">شحن</Button>
+                    </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </CardContent>
           </Card>
           
@@ -72,7 +102,7 @@ export default function WalletPage() {
                             <p className="text-sm text-muted-foreground">{transaction.date}</p>
                         </div>
                         <p className={`font-bold ${transaction.amount > 0 ? 'text-green-500' : 'text-destructive'}`}>
-                            {transaction.amount > 0 ? '+' : ''}{transaction.amount.toFixed(2)} جنيه
+                            {transaction.amount > 0 ? '+' : ''}{transaction.amount.toFixed(2)} دينار ليبي
                         </p>
                     </div>
                     {index < transactions.length - 1 && <Separator />}

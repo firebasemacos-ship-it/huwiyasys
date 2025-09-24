@@ -49,7 +49,7 @@ export default function CartPage() {
                     />
                     <div className="flex-1">
                       <p className="font-semibold">{item.name}</p>
-                      <p className="font-bold text-primary">{item.price.toFixed(2)} جنيه</p>
+                      <p className="font-bold text-primary">{item.price.toFixed(2)} دينار ليبي</p>
                       <div className="mt-2 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Button variant="outline" size="icon" className="h-8 w-8 rounded-full">
@@ -83,15 +83,15 @@ export default function CartPage() {
             <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                     <span>المجموع الفرعي</span>
-                    <span>{subtotal.toFixed(2)} جنيه</span>
+                    <span>{subtotal.toFixed(2)} دينار ليبي</span>
                 </div>
                 <div className="flex justify-between">
                     <span>رسوم التوصيل</span>
-                    <span>{deliveryFee.toFixed(2)} جنيه</span>
+                    <span>{deliveryFee.toFixed(2)} دينار ليبي</span>
                 </div>
                 <div className="flex justify-between text-base font-bold">
                     <span>المجموع الكلي</span>
-                    <span>{total.toFixed(2)} جنيه</span>
+                    <span>{total.toFixed(2)} دينار ليبي</span>
                 </div>
             </div>
             <Button size="lg" className="mt-4 w-full text-lg">
