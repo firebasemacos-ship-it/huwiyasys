@@ -4,7 +4,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, Gift, PlusCircle, Loader2 } from 'lucide-react';
+import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, Gift, PlusCircle, Loader2, CheckCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,7 +23,7 @@ export default function WalletPage() {
   const [transactions, setTransactions] = useState(initialTransactions);
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [rechargeCode, setRechargeCode] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [rechargeStatus, setRechargeStatus] = useState('idle'); // idle, verifying, charging, success
 
   const currentBalance = transactions.reduce((acc, t) => acc + t.amount, 0);
 
@@ -37,30 +37,57 @@ export default function WalletPage() {
         return;
     }
     
-    setIsLoading(true);
+    setRechargeStatus('verifying');
 
-    // Simulate network request
+    // 1. Simulate verification
     setTimeout(() => {
-        // For demo purposes, any code adds 100 LYD
-        const rechargeAmount = 100.00;
-        const newTransaction = {
-            id: transactions.length + 1,
-            type: 'شحن رصيد',
-            amount: rechargeAmount,
-            date: new Date().toLocaleDateString('ar-LY', { year: 'numeric', month: 'long', day: 'numeric' })
-        };
-        setTransactions([newTransaction, ...transactions]);
-        
-        setIsLoading(false);
-        setDialogOpen(false);
-        setRechargeCode('');
+        setRechargeStatus('charging');
 
-        toast({
-            title: "تم الشحن بنجاح",
-            description: `تمت إضافة ${rechargeAmount.toFixed(2)} دينار ليبي إلى محفظتك.`,
-        });
-    }, 1500); // 1.5 second delay
+        // 2. Simulate charging
+        setTimeout(() => {
+            const rechargeAmount = 100.00;
+            const newTransaction = {
+                id: transactions.length + 1,
+                type: 'شحن رصيد',
+                amount: rechargeAmount,
+                date: new Date().toLocaleDateString('ar-LY', { year: 'numeric', month: 'long', day: 'numeric' })
+            };
+            setTransactions([newTransaction, ...transactions]);
+            
+            setRechargeStatus('success');
+
+            // 3. Show success and close dialog
+            setTimeout(() => {
+                setDialogOpen(false);
+                toast({
+                    title: "تم الشحن بنجاح",
+                    description: `تمت إضافة ${rechargeAmount.toFixed(2)} دينار ليبي إلى محفظتك.`,
+                });
+                // Reset for next time
+                setTimeout(() => {
+                    setRechargeStatus('idle');
+                    setRechargeCode('');
+                }, 500);
+            }, 2000);
+        }, 1500); 
+    }, 1500);
   }
+
+  const isLoading = rechargeStatus === 'verifying' || rechargeStatus === 'charging';
+
+  const getLoadingMessage = () => {
+      switch (rechargeStatus) {
+          case 'verifying':
+              return 'جاري التحقق من كرت التعبئة...';
+          case 'charging':
+              return 'جاري شحن المحفظة...';
+          case 'success':
+              return 'تمت إضافة الرصيد بنجاح!';
+          default:
+              return 'شحن';
+      }
+  }
+
 
   return (
     <div className="bg-background text-foreground font-sans" dir="rtl">
@@ -82,7 +109,16 @@ export default function WalletPage() {
                 </div>
                 <WalletIcon className="h-12 w-12 opacity-50" />
               </div>
-              <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
+              <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
+                  setDialogOpen(isOpen);
+                  if (!isOpen) {
+                    // Reset state if dialog is closed manually
+                    setTimeout(() => {
+                        setRechargeStatus('idle');
+                        setRechargeCode('');
+                    }, 500);
+                  }
+              }}>
                 <DialogTrigger asChild>
                     <Button size="lg" className="mt-4 w-full bg-primary-foreground text-primary hover:bg-primary-foreground/90">
                         <PlusCircle className="ml-2 h-5 w-5" />
@@ -107,18 +143,15 @@ export default function WalletPage() {
                                 className="col-span-3"
                                 value={rechargeCode}
                                 onChange={(e) => setRechargeCode(e.target.value)}
-                                disabled={isLoading}
+                                disabled={isLoading || rechargeStatus === 'success'}
                             />
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button type="submit" className="w-full" onClick={handleRecharge} disabled={isLoading}>
-                            {isLoading ? (
-                                <>
-                                    <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                                    الرجاء الانتظار
-                                </>
-                            ) : "شحن"}
+                        <Button type="submit" className="w-full" onClick={handleRecharge} disabled={isLoading || rechargeStatus === 'success'}>
+                            {isLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                            {rechargeStatus === 'success' && <CheckCircle className="ml-2 h-4 w-4 text-green-500" />}
+                            {getLoadingMessage()}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
