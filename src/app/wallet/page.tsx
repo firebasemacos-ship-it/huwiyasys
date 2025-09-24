@@ -4,12 +4,13 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, Gift, PlusCircle, Loader2, CheckCircle } from 'lucide-react';
+import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, Gift, PlusCircle, Loader2, CheckCircle, PartyPopper, Bot, FileQuestion } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 const initialTransactions = [
   { id: 1, type: 'شحن رصيد', amount: 200.00, date: '25 يوليو 2024' },
@@ -69,25 +70,26 @@ export default function WalletPage() {
                     setRechargeCode('');
                 }, 500);
             }, 2000);
-        }, 1500); 
-    }, 1500);
+        }, 2000); 
+    }, 2000);
   }
 
   const isLoading = rechargeStatus === 'verifying' || rechargeStatus === 'charging';
 
-  const getLoadingMessage = () => {
+  const getLoadingContent = () => {
       switch (rechargeStatus) {
           case 'verifying':
-              return 'جاري التحقق من كرت التعبئة...';
+              return { icon: FileQuestion, message: 'جاري التحقق من كرت التعبئة...', spin: true };
           case 'charging':
-              return 'جاري شحن المحفظة...';
+              return { icon: Loader2, message: 'جاري شحن المحفظة...', spin: true };
           case 'success':
-              return 'تمت إضافة الرصيد بنجاح!';
+              return { icon: PartyPopper, message: 'تمت إضافة الرصيد بنجاح!', spin: false };
           default:
-              return 'شحن';
+              return { icon: Bot, message: 'أدخل رمز كرت التعبئة لشحن محفظتك.', spin: false };
       }
   }
 
+  const { icon: StatusIcon, message: statusMessage, spin } = getLoadingContent();
 
   return (
     <div className="bg-background text-foreground font-sans" dir="rtl">
@@ -125,14 +127,18 @@ export default function WalletPage() {
                         شحن الرصيد
                     </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]" dir="rtl">
-                    <DialogHeader>
-                        <DialogTitle>شحن الرصيد</DialogTitle>
-                        <DialogDescription>
-                            أدخل رمز كرت التعبئة لشحن محفظتك.
-                        </DialogDescription>
+                <DialogContent className="sm:max-w-md" dir="rtl">
+                    <DialogHeader className="text-center">
+                        <DialogTitle className="text-2xl">شحن الرصيد</DialogTitle>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
+                    <div className="flex flex-col items-center justify-center gap-4 py-6 text-center">
+                        <div className={cn("flex h-24 w-24 items-center justify-center rounded-full bg-accent text-primary transition-all", rechargeStatus === 'success' && 'bg-green-100 text-green-600')}>
+                            <StatusIcon className={cn("h-12 w-12", spin && "animate-spin")} />
+                        </div>
+                        <p className="min-h-[40px] text-muted-foreground">{statusMessage}</p>
+                    </div>
+
+                    <div className={cn("grid gap-4", rechargeStatus !== 'idle' && 'opacity-0')}>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="recharge-code" className="text-right">
                                 رمز الكرت
@@ -143,15 +149,14 @@ export default function WalletPage() {
                                 className="col-span-3"
                                 value={rechargeCode}
                                 onChange={(e) => setRechargeCode(e.target.value)}
-                                disabled={isLoading || rechargeStatus === 'success'}
+                                disabled={rechargeStatus !== 'idle'}
                             />
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button type="submit" className="w-full" onClick={handleRecharge} disabled={isLoading || rechargeStatus === 'success'}>
-                            {isLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-                            {rechargeStatus === 'success' && <CheckCircle className="ml-2 h-4 w-4 text-green-500" />}
-                            {getLoadingMessage()}
+                        <Button type="submit" className="w-full" onClick={handleRecharge} disabled={rechargeStatus !== 'idle'}>
+                            <PlusCircle className="ml-2 h-4 w-4" />
+                            شحن
                         </Button>
                     </DialogFooter>
                 </DialogContent>
