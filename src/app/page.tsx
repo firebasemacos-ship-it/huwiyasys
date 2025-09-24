@@ -91,7 +91,7 @@ export default function HomePage() {
                             alt={promo.imageHint}
                             width={600}
                             height={300}
-                            className="aspect-[2/1] w-full object-cover"
+                            className="aspect-[2/1] w-full object-cover rounded-xl"
                             data-ai-hint={promo.imageHint}
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-4 md:p-6">
@@ -107,7 +107,7 @@ export default function HomePage() {
           </div>
 
           <section className="py-6 text-center">
-            <h2 className="text-2xl font-bold">العروض مميزة</h2>
+            <h2 className="text-2xl font-bold">عروض مميزة</h2>
             <p className="text-muted-foreground">
               توصيل في اليوم التالي من خلال بريدفاست
             </p>
@@ -200,3 +200,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
