@@ -41,8 +41,8 @@ const brandLogos = [
 ];
 
 const promoImages = [
-  { id: 'promo-1', imageHint: 'cleaning supplies' },
-  { id: 'promo-2', imageHint: 'water bottles' },
+  { id: 'promo-1', imageHint: 'cleaning supplies', title: 'عروض الصيف', description: 'خصومات تصل إلى 50% على منتجات التنظيف' },
+  { id: 'promo-2', imageHint: 'water bottles', title: 'ابق منتعشاً', description: 'عروض خاصة على عبوات المياه' },
 ];
 
 const getImage = (id: string) => {
@@ -84,7 +84,7 @@ export default function HomePage() {
               <CarouselContent>
                 {promoImages.map((promo) => (
                     <CarouselItem key={promo.id} className="basis-5/6 pl-2">
-                        <Card className="overflow-hidden rounded-lg">
+                        <Card className="overflow-hidden rounded-lg relative">
                         <CardContent className="p-0">
                             <Image
                             src={getImage(promo.id)}
@@ -94,6 +94,10 @@ export default function HomePage() {
                             className="aspect-[2/1] w-full object-cover"
                             data-ai-hint={promo.imageHint}
                             />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-4 md:p-6">
+                              <h3 className="text-white text-xl md:text-2xl font-bold">{promo.title}</h3>
+                              <p className="text-white/90 text-sm md:text-base">{promo.description}</p>
+                            </div>
                         </CardContent>
                         </Card>
                     </CarouselItem>
@@ -196,5 +200,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    
