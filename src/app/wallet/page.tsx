@@ -101,7 +101,7 @@ export default function WalletPage() {
         </header>
 
         <main className="flex-1 overflow-y-auto bg-muted/20 p-4 pb-24">
-          <div className="mb-6">
+          <div className="mb-6 mx-auto max-w-md">
             <Card className="relative aspect-[1.586] w-full overflow-hidden rounded-xl bg-primary text-primary-foreground shadow-lg transition-transform duration-300 hover:scale-105 hover:shadow-2xl">
                 <CardContent className="flex h-full flex-col justify-between p-6">
                     <div className="flex items-start justify-between">
