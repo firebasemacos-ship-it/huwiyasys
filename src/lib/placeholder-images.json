@@ -47,6 +47,72 @@
       "imageUrl": "https://images.unsplash.com/photo-1702261834590-9229f44040b4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxuZXdzJTIwbWFnYXppbmV8ZW58MHx8fHwxNzU4NzUwMzI2fDA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "news magazine",
       "description": "News and magazine app icon"
+    },
+    {
+      "id": "promo-1",
+      "imageUrl": "https://images.unsplash.com/photo-1626379481874-3dc5678fa8ca?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxjbGVhbmluZyUyMHN1cHBsaWVzfGVufDB8fHx8MTc1ODY5ODc3N3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "cleaning supplies",
+      "description": "Promotional banner for cleaning supplies"
+    },
+    {
+      "id": "promo-2",
+      "imageUrl": "https://images.unsplash.com/photo-1706007837232-3b87661717a0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHx3YXRlciUyMGJvdHRsZXN8ZW58MHx8fHwxNzU4NzUxMzYxfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "water bottles",
+      "description": "Promotional banner for water bottles"
+    },
+    {
+      "id": "logo-xprs",
+      "imageUrl": "https://images.unsplash.com/photo-1567291145310-fc740e43312e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHx4cHJzJTIwbG9nb3xlbnwwfHx8fDE3NTg3NTEzNjF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "xprs logo",
+      "description": "XPRS brand logo"
+    },
+    {
+      "id": "logo-tradeline",
+      "imageUrl": "https://images.unsplash.com/photo-1739573665764-eeaf78646bfd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHx0cmFkZWxpbmUlMjBsb2dvfGVufDB8fHx8MTc1ODc1MTM2Mnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "tradeline logo",
+      "description": "Tradeline brand logo"
+    },
+    {
+      "id": "logo-mediatech",
+      "imageUrl": "https://images.unsplash.com/photo-1757314275776-09603d17da2f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxtZWRpYXRlY2glMjBsb2dvfGVufDB8fHx8MTc1ODc1MTM2MXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "mediatech logo",
+      "description": "Mediatech brand logo"
+    },
+    {
+      "id": "category-snacks",
+      "imageUrl": "https://images.unsplash.com/photo-1607289763628-c966b7e1ab90?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxzbmFja3MlMjBwcm9kdWN0c3xlbnwwfHx8fDE3NTg3NTEzNjF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "snacks products",
+      "description": "Snacks and products category image"
+    },
+    {
+      "id": "category-deals",
+      "imageUrl": "https://images.unsplash.com/photo-1575037906080-f69c6fcebd22?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxkZWFscyUyMGNvdXBvbnN8ZW58MHx8fHwxNzU4NzUxMzYyfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "deals coupons",
+      "description": "Deals and coupons category image"
+    },
+    {
+      "id": "category-local",
+      "imageUrl": "https://images.unsplash.com/photo-1640950672909-66c6ab3aa49c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8c2hvcCUyMGxvY2FsfGVufDB8fHx8MTc1ODc1MTM2MXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "shop local",
+      "description": "Made in Egypt category image"
+    },
+    {
+      "id": "category-sweets",
+      "imageUrl": "https://images.unsplash.com/photo-1558862417-37e3640112d0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxzd2VldHMlMjBpY2VjcmVhbXxlbnwwfHx8fDE3NTg3NTEzNjF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "sweets icecream",
+      "description": "Sweets and ice cream category image"
+    },
+    {
+      "id": "category-coffee",
+      "imageUrl": "https://images.unsplash.com/photo-1442550528053-c431ecb55509?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxjb2ZmZWUlMjBiZWFuc3xlbnwwfHx8fDE3NTg2OTA0MTF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "coffee beans",
+      "description": "Coffee category image"
+    },
+    {
+      "id": "category-bakery",
+      "imageUrl": "https://images.unsplash.com/photo-1560963614-153d4432f741?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxiYWtlcnklMjBwYXN0cnl8ZW58MHx8fHwxNzU4NjQ3OTQ1fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "bakery pastry",
+      "description": "Bakery and pastries category image"
     }
   ]
 }
