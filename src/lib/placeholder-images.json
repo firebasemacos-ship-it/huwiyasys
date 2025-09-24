@@ -1,3 +1,52 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "app-icon-1",
+      "imageUrl": "https://images.unsplash.com/photo-1517292987719-0369a794ec0f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxzb2NpYWwlMjBtZWRpYXxlbnwwfHx8fDE3NTg3MzQyNTh8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "social media",
+      "description": "Social media app icon"
+    },
+    {
+      "id": "app-icon-2",
+      "imageUrl": "https://images.unsplash.com/photo-1603015268928-a9f7b3edaf27?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxwcm9kdWN0aXZpdHklMjBhcHB8ZW58MHx8fHwxNzU4NzA2NTY5fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "productivity app",
+      "description": "Productivity app icon"
+    },
+    {
+      "id": "app-icon-3",
+      "imageUrl": "https://images.unsplash.com/photo-1679057001914-59ab4131dfff?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxnYW1pbmclMjBhcHB8ZW58MHx8fHwxNzU4NzUwMzI2fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "gaming app",
+      "description": "Gaming app icon"
+    },
+    {
+      "id": "app-icon-4",
+      "imageUrl": "https://images.unsplash.com/photo-1554260570-c7068c223285?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxmaW5hbmNlJTIwYXBwfGVufDB8fHx8MTc1ODc1MDMyNnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "finance app",
+      "description": "Finance app icon"
+    },
+    {
+      "id": "app-icon-5",
+      "imageUrl": "https://images.unsplash.com/photo-1634144646738-809a0f8897c4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxoZWFsdGglMjBmaXRuZXNzfGVufDB8fHx8MTc1ODYzMjc3M3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "health fitness",
+      "description": "Health and fitness app icon"
+    },
+    {
+      "id": "app-icon-6",
+      "imageUrl": "https://images.unsplash.com/photo-1578125769963-ef5edfa5b0fc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxtdXNpYyUyMGF1ZGlvfGVufDB8fHx8MTc1ODcwMDgxMHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "music audio",
+      "description": "Music and audio app icon"
+    },
+    {
+      "id": "app-icon-7",
+      "imageUrl": "https://images.unsplash.com/photo-1504608524841-42fe6f032b4b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHx3ZWF0aGVyJTIwYXBwfGVufDB8fHx8MTc1ODc1MDMyNnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "weather app",
+      "description": "Weather app icon"
+    },
+    {
+      "id": "app-icon-8",
+      "imageUrl": "https://images.unsplash.com/photo-1702261834590-9229f44040b4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxuZXdzJTIwbWFnYXppbmV8ZW58MHx8fHwxNzU4NzUwMzI2fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "news magazine",
+      "description": "News and magazine app icon"
+    }
+  ]
 }
