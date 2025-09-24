@@ -84,7 +84,7 @@ export default function HomePage() {
               <CarouselContent>
                 {promoImages.map((promo) => (
                     <CarouselItem key={promo.id} className="basis-5/6 pl-2">
-                        <Card className="overflow-hidden rounded-xl relative">
+                        <Card className="overflow-hidden rounded-xl relative border-none shadow-none">
                         <CardContent className="p-0">
                             <Image
                             src={getImage(promo.id)}
@@ -107,7 +107,7 @@ export default function HomePage() {
           </div>
 
           <section className="py-6 text-center">
-            <h2 className="text-2xl font-bold">عروض مميزة</h2>
+            <h2 className="mb-2 text-2xl font-bold">عروض مميزة</h2>
             <p className="text-muted-foreground">
               توصيل في اليوم التالي من خلال بريدفاست
             </p>
@@ -160,14 +160,14 @@ export default function HomePage() {
         <footer className="fixed bottom-0 z-40 w-full border-t bg-background">
           <nav className="flex items-center justify-around p-2">
             <a
-              href="#"
+              href="/"
               className="flex flex-col items-center text-xs font-medium text-purple-600"
             >
               <Home className="mb-1 h-6 w-6" />
               الرئيسية
             </a>
             <a
-              href="#"
+              href="/search"
               className="flex flex-col items-center text-xs text-muted-foreground"
             >
               <Search className="mb-1 h-6 w-6" />
@@ -187,7 +187,7 @@ export default function HomePage() {
               <Wallet className="mb-1 h-6 w-6" />
               باي
             </a>
-            <a
+a            <a
               href="#"
               className="flex flex-col items-center text-xs text-muted-foreground"
             >
@@ -200,5 +200,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    
