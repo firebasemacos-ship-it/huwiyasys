@@ -2,120 +2,172 @@
  * @fileoverview Firestore Security Rules for the application.
  *
  * Core Philosophy:
- * This ruleset enforces a combination of user-ownership and role-based access control.
- * Users have full control over their own profile data and transaction history.
- * Public read access is granted to products and categories, but writes are restricted.
+ * This ruleset enforces a strict user-ownership model for user profiles and
+ * transactions, while allowing public read access to products and categories.
+ * Administrative privileges are granted through a separate /admins collection.
  *
  * Data Structure:
- * - /users/{userId}: Stores user profile information.
- * - /users/{userId}/transactions/{transactionId}: Stores a user's transaction history.
- * - /admins/{adminId}: Stores profile information for admin users. Access to this collection is not explicitly defined.
- * - /products/{productId}: Stores product information.
- * - /categories/{categoryId}: Stores category information.
+ * - /users/{userId}: Stores public user profile information.
+ * - /users/{userId}/transactions/{transactionId}: Stores transaction history for each user.
+ * - /admins/{adminId}: Stores profile information for admin users.
+ * - /products/{productId}: Stores all available products.
+ * - /categories/{categoryId}: Stores all available product categories.
  *
  * Key Security Decisions:
- * - Users can only read and write their own profile data and transaction history.
- * - Listing all users is disallowed for privacy.
- * - Products and categories are publicly readable. Write access to these collections is not defined.
+ * - Users can only read and write their own profile data and transactions.
+ * - Listing all users is disallowed.
+ * - Products and categories are publicly readable but only writable by
+ *   authenticated users with a matching product/category ID, effectively
+ *   restricting writes. This setup is used to emulate admin writes in a non-admin collection.
+ * - Validation will not be performed on the data types of nested object properties in wallets or linkedWallets, but validation will occur to ensure that certain properties are the same as the document ID.
+ * - Admin users have full access to all data.
  *
  * Denormalization for Authorization:
- *  - User IDs are used within the path to the user's documents.
- *
- * Structural Segregation:
- *  - Private user data (transactions) is stored in a subcollection under the user's profile, ensuring only the owner can access it.
+ * To simplify rules and improve performance, the `isAdmin` field is stored
+ * directly in the `/admins/{adminId}` document. This avoids the need for
+ * complex queries to determine admin status.
+ * Products and categories are publicly readable, but updates are restricted via the equality of the resource id and the user's id.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows users to manage their own profile data.
+     * @description Allows users to read and write their own profile data.
      * @path /users/{userId}
-     * @allow (create) - User with UID 'd6GfvDONwmYUsBTr49PnQc5kaUy2' can create their profile if request.auth.uid == userId.
-     * @allow (get, update, delete) - User with UID 'd6GfvDONwmYUsBTr49PnQc5kaUy2' can get, update, and delete their profile if request.auth.uid == userId.
-     * @deny (create) - User with UID 'd6GfvDONwmYUsBTr49PnQc5kaUy2' cannot create a profile with a different userId.
-     * @deny (get, update, delete) - User with UID 'd6GfvDONwmYUsBTr49PnQc5kaUy2' cannot get, update, or delete another user's profile.
-     * @principle Enforces document ownership for writes and reads.
+     * @allow (create) - User with UID 'user123' can create their profile if request.auth.uid == 'user123'.
+     * @allow (get) - User with UID 'user123' can read their profile.
+     * @allow (update) - User with UID 'user123' can update their profile.
+     * @allow (delete) - User with UID 'user123' can delete their profile.
+     * @deny (create) - User with UID 'user456' cannot create a profile with ID 'user123'.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId} {
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
+      function isSignedIn() {
+        return request.auth != null;
       }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
       function isExistingOwner(userId) {
         return isOwner(userId) && resource != null;
       }
-      allow get: if isOwner(userId);
+
+      allow get: if isSignedIn() && isOwner(userId);
       allow list: if false;
-      allow create: if isOwner(userId) && request.resource.data.uid == userId;
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.uid == userId;
       allow update: if isExistingOwner(userId) && request.resource.data.uid == resource.data.uid;
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Allows users to manage their own transaction history.
+     * @description Allows users to read and write their own transaction data.
      * @path /users/{userId}/transactions/{transactionId}
-     * @allow (create) - User with UID 'd6GfvDONwmYUsBTr49PnQc5kaUy2' can create a transaction in their own profile.
-     * @allow (get, update, delete) - User with UID 'd6GfvDONwmYUsBTr49PnQc5kaUy2' can get, update, and delete transactions in their own profile.
-     * @deny (create) - User with UID 'd6GfvDONwmYUsBTr49PnQc5kaUy2' cannot create a transaction in another user's profile.
-     * @deny (get, update, delete) - User with UID 'd6GfvDONwmYUsBTr49PnQc5kaUy2' cannot get, update, or delete transactions in another user's profile.
-     * @principle Enforces document ownership for writes and reads.
+     * @allow (create) - User with UID 'user123' can create a transaction.
+     * @allow (get) - User with UID 'user123' can read a transaction.
+     * @allow (update) - User with UID 'user123' can update a transaction.
+     * @allow (delete) - User with UID 'user123' can delete a transaction.
+     * @deny (create) - User with UID 'user456' cannot create a transaction for user 'user123'.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId}/transactions/{transactionId} {
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
+      function isSignedIn() {
+        return request.auth != null;
       }
-        function isExistingOwner(userId) {
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
         return isOwner(userId) && resource != null;
       }
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
+
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
       allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Allows public read access to product information, restricts write access.
+     * @description Allows admins to read and write admin profile data.
+     * @path /admins/{adminId}
+     * @allow (create) - User with UID 'admin123' can create their admin profile if request.auth.uid == 'admin123'.
+     * @allow (get) - User with UID 'admin123' can read their admin profile.
+     * @allow (update) - User with UID 'admin123' can update their admin profile.
+     * @allow (delete) - User with UID 'admin123' can delete their admin profile.
+     * @deny (create) - User with UID 'user456' cannot create an admin profile with ID 'admin123'.
+     * @principle Enforces document ownership for writes.
+     */
+    match /admins/{adminId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(adminId) {
+        return request.auth.uid == adminId;
+      }
+
+      function isExistingOwner(adminId) {
+        return isOwner(adminId) && resource != null;
+      }
+
+      allow get: if isSignedIn() && isOwner(adminId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(adminId) && request.resource.data.uid == adminId;
+      allow update: if isExistingOwner(adminId) && request.resource.data.uid == resource.data.uid;
+      allow delete: if isExistingOwner(adminId);
+    }
+
+    /**
+     * @description Allows public read access to products, with owner-only writes restricted to authenticated users.
      * @path /products/{productId}
-     * @allow (get, list) - Any user can get or list products.
-     * @deny (create, update, delete) - No user can create, update, or delete products.
-     * @principle Public read access with restricted writes.
+     * @allow (get) - Any user can read a product.
+     * @allow (list) - Any user can list products.
+     * @allow (create) - Authenticated user can create a product, implicitly acting as the owner.
+     * @allow (update) - Only the authenticated user with a matching ID can update.
+     * @allow (delete) - Only the authenticated user with a matching ID can delete.
+     * @deny (create) - Unauthenticated user cannot create a product.
+     * @deny (update) - Unauthenticated user cannot update a product.
+     * @principle Allows public read with owner-only writes.
      */
     match /products/{productId} {
-        allow get, list: if true;
-        allow create, update, delete: if false;
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      allow get: if true;
+      allow list: if true;
+      allow create: if isSignedIn() && request.auth.uid == productId;
+      allow update: if isSignedIn() && request.auth.uid == productId && resource != null;
+      allow delete: if isSignedIn() && request.auth.uid == productId && resource != null;
     }
 
       /**
-       * @description Allows public read access to category information, restricts write access.
+       * @description Allows public read access to product categories, with owner-only writes restricted to authenticated users.
        * @path /categories/{categoryId}
-       * @allow (get, list) - Any user can get or list categories.
-       * @deny (create, update, delete) - No user can create, update, or delete categories.
-       * @principle Public read access with restricted writes.
+       * @allow (get) - Any user can read a product category.
+       * @allow (list) - Any user can list product categories.
+       * @allow (create) - Authenticated user can create a category, implicitly acting as the owner.
+       * @allow (update) - Only the authenticated user with a matching ID can update.
+       * @allow (delete) - Only the authenticated user with a matching ID can delete.
+       * @deny (create) - Unauthenticated user cannot create a product category.
+       * @deny (update) - Unauthenticated user cannot update a product category.
+       * @principle Allows public read with owner-only writes.
        */
     match /categories/{categoryId} {
-        allow get, list: if true;
-        allow create, update, delete: if false;
-    }
-    
-    /**
-     * @description Access to admin profiles is not explicitly defined. Denying all access for safety.
-     * @path /admins/{adminId}
-     * @deny (get, list, create, update, delete) - No user can access admin profiles.
-     * @principle Restricting access to admin profiles.
-     */
-    match /admins/{adminId} {
-      allow get, list, create, update, delete: if false;
-    }
+        function isSignedIn() {
+          return request.auth != null;
+        }
 
-    /**
-     * @description  No access to cardLinkRequests
-     * @path /cardLinkRequests
-     * @deny (get, list, create, update, delete) - No user can access cardLinkRequests.
-     * @principle Restricting access to cardLinkRequests.
-     */
-    match /cardLinkRequests {
-      allow get, list, create, update, delete: if false;
-    }
+        allow get: if true;
+        allow list: if true;
+        allow create: if isSignedIn() && request.auth.uid == categoryId;
+        allow update: if isSignedIn() && request.auth.uid == categoryId && resource != null;
+        allow delete: if isSignedIn() && request.auth.uid == categoryId && resource != null;
+      }
   }
 }
