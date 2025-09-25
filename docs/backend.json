@@ -55,9 +55,14 @@
                 "expiryDate": {
                     "type": "string",
                     "description": "The card's expiration date in MM/YY format."
+                },
+                "status": {
+                    "type": "string",
+                    "enum": ["active", "suspended"],
+                    "description": "The status of the user's wallet card."
                 }
             },
-            "required": ["balance", "cardNumber", "cvv", "expiryDate"]
+            "required": ["balance", "cardNumber", "cvv", "expiryDate", "status"]
         },
         "linkedWallets": {
             "type": "array",

@@ -8,14 +8,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/icons';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/firebase';
+import { useAuth, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import { LoaderCircle } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   const auth = useAuth();
+  const firestore = useFirestore();
 
   const [contractNumber, setContractNumber] = useState('');
   const [password, setPassword] = useState('');
@@ -23,7 +25,7 @@ export default function LoginPage() {
 
   const handleLoginAttempt = async () => {
     setIsLoading(true);
-    if (!auth) {
+    if (!auth || !firestore) {
         toast({
             variant: 'destructive',
             title: 'خطأ في التهيئة',
@@ -35,19 +37,40 @@ export default function LoginPage() {
     const email = contractNumber.includes('@') ? contractNumber : `${contractNumber}@huwiyasys.app`;
 
     try {
-      // Only try to sign in. User creation is handled by the admin panel.
-      await signInWithEmailAndPassword(auth, email, password);
-      toast({
-        title: 'تم تسجيل الدخول بنجاح',
-      });
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
       if (email === 'admin@huwiyasys.app') {
         router.push('/admin');
-      } else {
-        router.push('/shop');
+        toast({ title: 'تم تسجيل الدخول بنجاح' });
+        return;
       }
+      
+      // Check user's card status
+      const userDocRef = doc(firestore, 'users', user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        if (userData.wallet?.status === 'suspended') {
+            await auth.signOut(); // Sign out the user
+            toast({
+                variant: 'destructive',
+                title: 'فشل تسجيل الدخول',
+                description: 'بطاقتك معلقة. يرجى مراجعة الإدارة.',
+            });
+        } else {
+            toast({ title: 'تم تسجيل الدخول بنجاح' });
+            router.push('/shop');
+        }
+      } else {
+          // This case should ideally not happen if user creation is robust
+          await auth.signOut();
+          toast({ variant: 'destructive', title: 'خطأ في الحساب', description: 'لم يتم العثور على بيانات المستخدم.' });
+      }
+
     } catch (error: any) {
         console.error('Login Error:', error);
-        // Provide a clear, simple error message for any login failure.
         toast({
             variant: 'destructive',
             title: 'فشل تسجيل الدخول',

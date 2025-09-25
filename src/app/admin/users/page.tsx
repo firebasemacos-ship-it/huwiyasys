@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import AdminSubPageLayout from '../layout';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Copy, MoreHorizontal } from 'lucide-react';
+import { PlusCircle, Copy, MoreHorizontal, LoaderCircle } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import {
@@ -20,20 +20,103 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useAuth, useUser } from '@/firebase';
-import { collection, setDoc, doc, getDocs, DocumentData } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { collection, setDoc, doc, getDocs, DocumentData, updateDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, updatePassword } from 'firebase/auth';
+import { Badge } from '@/components/ui/badge';
+
+type Wallet = {
+    balance: number;
+    cardNumber: string;
+    cvv: string;
+    expiryDate: string;
+    status: 'active' | 'suspended';
+}
 
 type UserData = {
     id: string;
     displayName?: string;
     contractNumber?: string;
     tempPassword?: string;
+    wallet?: Wallet;
 };
+
+function CardManagementDialog({ user, onUserUpdate }: { user: UserData; onUserUpdate: (updatedUser: UserData) => void }) {
+    const { toast } = useToast();
+    const firestore = useFirestore();
+    const [newPassword, setNewPassword] = useState('');
+    const [amount, setAmount] = useState(0);
+    const [isLoading, setIsLoading] = useState(false);
+
+    if (!user.wallet || !firestore) return null;
+
+    const handleUpdate = async (updateData: Partial<UserData['wallet']>) => {
+        setIsLoading(true);
+        try {
+            const userDocRef = doc(firestore, 'users', user.id);
+            await updateDoc(userDocRef, { wallet: { ...user.wallet, ...updateData } });
+            onUserUpdate({ ...user, wallet: { ...user.wallet, ...updateData } });
+            toast({ title: 'نجاح', description: 'تم تحديث بيانات البطاقة.' });
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'خطأ', description: error.message });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handlePasswordChange = async () => {
+        // This is a simplified example. In a real app, you would need to handle re-authentication.
+        toast({ variant: 'destructive', title: 'غير مدعوم', description: 'تغيير كلمة المرور من هنا غير مدعوم حاليًا لأسباب أمنية.' });
+    };
+    
+    const handleDeposit = () => handleUpdate({ balance: user.wallet!.balance + Number(amount) });
+    const handleWithdraw = () => handleUpdate({ balance: user.wallet!.balance - Number(amount) });
+    const handleToggleStatus = () => handleUpdate({ status: user.wallet!.status === 'active' ? 'suspended' : 'active' });
+
+    return (
+        <DialogContent dir="rtl">
+            <DialogHeader>
+                <DialogTitle>إدارة بطاقة: {user.displayName}</DialogTitle>
+                <DialogDescription>
+                    رقم البطاقة: <span className="font-mono">{user.wallet.cardNumber}</span>
+                    <br />
+                    الرصيد الحالي: <span className="font-bold">{user.wallet.balance.toFixed(2)} د.ل</span>
+                </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label className="text-right">كلمة المرور</Label>
+                    <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} type="password" className="col-span-2" />
+                    <Button onClick={handlePasswordChange} disabled={isLoading} variant="outline">تغيير</Button>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label className="text-right">المبلغ</Label>
+                    <Input value={amount} onChange={(e) => setAmount(Number(e.target.value))} type="number" className="col-span-3" />
+                </div>
+                <div className="flex gap-2">
+                    <Button onClick={handleDeposit} disabled={isLoading} className="flex-1">
+                        {isLoading ? <LoaderCircle className="animate-spin" /> : 'إيداع'}
+                    </Button>
+                    <Button onClick={handleWithdraw} disabled={isLoading} variant="destructive" className="flex-1">
+                        {isLoading ? <LoaderCircle className="animate-spin" /> : 'سحب'}
+                    </Button>
+                </div>
+            </div>
+            <DialogFooter>
+                 <Button onClick={handleToggleStatus} disabled={isLoading} variant={user.wallet.status === 'active' ? 'destructive' : 'secondary'}>
+                    {isLoading && <LoaderCircle className="ml-2 h-4 w-4 animate-spin" />}
+                    {user.wallet.status === 'active' ? 'تعليق البطاقة' : 'تفعيل البطاقة'}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    );
+}
 
 export default function UsersPage() {
     const { toast } = useToast();
     const { user: adminUser, isUserLoading: isAdminLoading } = useUser();
-    const [isDialogOpen, setDialogOpen] = useState(false);
+    const [isAddUserDialogOpen, setAddUserDialogOpen] = useState(false);
+    const [isManageCardDialogOpen, setManageCardDialogOpen] = useState(false);
+    const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
     const [newUserName, setNewUserName] = useState('');
     const [newContractNumber, setNewContractNumber] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -111,6 +194,7 @@ export default function UsersPage() {
                     cardNumber: generateCardNumber(),
                     cvv: generateCvv(),
                     expiryDate: generateExpiryDate(),
+                    status: 'active' as 'active' | 'suspended',
                 }
             };
             
@@ -119,7 +203,7 @@ export default function UsersPage() {
             setUsers(prevUsers => [{ id: user.uid, ...newUserDoc }, ...prevUsers]);
 
             toast({ title: 'تمت إضافة المستخدم بنجاح', description: `تم إنشاء حساب ومستند لـ ${newUserName}.` });
-            setDialogOpen(false);
+            setAddUserDialogOpen(false);
             setNewUserName('');
             setNewContractNumber('');
 
@@ -140,11 +224,20 @@ export default function UsersPage() {
         navigator.clipboard.writeText(text);
         toast({ title: 'تم النسخ!', description: 'تم نسخ كلمة المرور إلى الحافظة.' });
     };
+    
+    const handleManageCardClick = (user: UserData) => {
+        setSelectedUser(user);
+        setManageCardDialogOpen(true);
+    }
+    
+    const handleUserUpdate = (updatedUser: UserData) => {
+        setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
+    }
 
   return (
     <AdminSubPageLayout title="المستخدمون">
         <div className="flex items-center justify-end gap-4">
-            <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
+            <Dialog open={isAddUserDialogOpen} onOpenChange={setAddUserDialogOpen}>
             <DialogTrigger asChild>
                 <Button size="sm" className="h-8 gap-1">
                     <PlusCircle className="h-3.5 w-3.5" />
@@ -194,6 +287,7 @@ export default function UsersPage() {
                     <TableRow>
                         <TableHead>الاسم</TableHead>
                         <TableHead>رقم العقد</TableHead>
+                        <TableHead>حالة البطاقة</TableHead>
                         <TableHead>كلمة المرور المؤقتة</TableHead>
                         <TableHead>
                         <span className="sr-only">الإجراءات</span>
@@ -203,13 +297,18 @@ export default function UsersPage() {
                     <TableBody>
                     {isLoadingUsers || isAdminLoading ? (
                         <TableRow>
-                            <TableCell colSpan={4} className="text-center">جاري تحميل المستخدمين...</TableCell>
+                            <TableCell colSpan={5} className="text-center">جاري تحميل المستخدمين...</TableCell>
                         </TableRow>
                     ) : users && users.length > 0 ? (
                         users.map((user) => (
                             <TableRow key={user.id}>
                                 <TableCell className="font-medium">{user.displayName}</TableCell>
                                 <TableCell>{user.contractNumber}</TableCell>
+                                <TableCell>
+                                    <Badge variant={user.wallet?.status === 'active' ? 'default' : 'destructive'}>
+                                        {user.wallet?.status === 'active' ? 'نشطة' : 'معلقة'}
+                                    </Badge>
+                                </TableCell>
                                 <TableCell>
                                     <div className="flex items-center gap-2">
                                         <span className="font-mono">{user.tempPassword}</span>
@@ -228,8 +327,8 @@ export default function UsersPage() {
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" dir='rtl'>
                                         <DropdownMenuLabel>الإجراءات</DropdownMenuLabel>
-                                        <DropdownMenuItem>تعديل</DropdownMenuItem>
-                                        <DropdownMenuItem>حذف</DropdownMenuItem>
+                                        <DropdownMenuItem onSelect={() => handleManageCardClick(user)}>إدارة البطاقة</DropdownMenuItem>
+                                        <DropdownMenuItem>حذف المستخدم</DropdownMenuItem>
                                     </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableCell>
@@ -237,13 +336,17 @@ export default function UsersPage() {
                         ))
                     ) : (
                         <TableRow>
-                             <TableCell colSpan={4} className="text-center">لا يوجد مستخدمين لعرضهم.</TableCell>
+                             <TableCell colSpan={5} className="text-center">لا يوجد مستخدمين لعرضهم.</TableCell>
                         </TableRow>
                     )}
                     </TableBody>
                 </Table>
             </CardContent>
         </Card>
+
+        <Dialog open={isManageCardDialogOpen} onOpenChange={setManageCardDialogOpen}>
+            {selectedUser && <CardManagementDialog user={selectedUser} onUserUpdate={handleUserUpdate}/>}
+        </Dialog>
     </AdminSubPageLayout>
   );
 }
