@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -42,6 +41,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, DocumentData, query, orderBy } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
@@ -130,9 +130,15 @@ function ProductDialog({ product, categories, onSave, onClose }: { product?: Pro
     const [price, setPrice] = useState(product?.price || 0);
     const [categoryId, setCategoryId] = useState(product?.categoryId || '');
     const [status, setStatus] = useState<'active' | 'draft'>(product?.status || 'active');
-    const [imageUrl, setImageUrl] = useState(product?.imageUrl || '');
+    const [imageFile, setImageFile] = useState<File | null>(null);
     
     const [isLoading, setIsLoading] = useState(false);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            setImageFile(e.target.files[0]);
+        }
+    };
 
     const handleSubmit = async () => {
         if (!name || !price || !categoryId || !firestore) {
@@ -141,21 +147,30 @@ function ProductDialog({ product, categories, onSave, onClose }: { product?: Pro
         }
         setIsLoading(true);
 
-        const selectedCategory = categories.find(c => c.id === categoryId);
-
-        const productData = {
-            name,
-            description,
-            price: Number(price),
-            categoryId,
-            category: selectedCategory?.name || '',
-            status,
-            imageUrl: imageUrl || `https://picsum.photos/seed/${name.replace(/\s/g, '-')}/400/400`,
-            imageHint: name,
-            updatedAt: serverTimestamp(),
-        };
+        let finalImageUrl = product?.imageUrl || '';
 
         try {
+            if (imageFile) {
+                const storage = getStorage();
+                const storageRef = ref(storage, `products/${Date.now()}_${imageFile.name}`);
+                const uploadResult = await uploadBytes(storageRef, imageFile);
+                finalImageUrl = await getDownloadURL(uploadResult.ref);
+            }
+
+            const selectedCategory = categories.find(c => c.id === categoryId);
+
+            const productData = {
+                name,
+                description,
+                price: Number(price),
+                categoryId,
+                category: selectedCategory?.name || '',
+                status,
+                imageUrl: finalImageUrl,
+                imageHint: name,
+                updatedAt: serverTimestamp(),
+            };
+
             if (product) {
                 // Update
                 await updateDoc(doc(firestore, 'products', product.id), productData);
@@ -168,6 +183,7 @@ function ProductDialog({ product, categories, onSave, onClose }: { product?: Pro
             onSave();
             onClose();
         } catch (error: any) {
+            console.error("Error saving product: ", error);
             toast({ variant: 'destructive', title: "خطأ", description: error.message });
         } finally {
             setIsLoading(false);
@@ -221,10 +237,16 @@ function ProductDialog({ product, categories, onSave, onClose }: { product?: Pro
                         </Select>
                     </div>
                      <div className="space-y-2">
-                        <Label htmlFor="product-image">رابط الصورة (اختياري)</Label>
-                        <Input id="product-image" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://..."/>
+                        <Label htmlFor="product-image">صورة المنتج</Label>
+                        <Input id="product-image" type="file" onChange={handleFileChange} accept="image/*" />
                     </div>
                 </div>
+                 {product?.imageUrl && !imageFile && (
+                    <div className="space-y-2">
+                        <Label>الصورة الحالية</Label>
+                        <Image src={product.imageUrl} alt={product.name} width={80} height={80} className="rounded-md object-cover" />
+                    </div>
+                 )}
             </div>
             <DialogFooter>
                 <Button onClick={onClose} variant="outline">إلغاء</Button>
@@ -290,6 +312,7 @@ export default function ProductsPage() {
         if (!itemToDelete || !firestore) return;
         
         try {
+            // Note: This does not delete the image from Firebase Storage.
             await deleteDoc(doc(firestore, itemToDelete.type === 'product' ? 'products' : 'categories', itemToDelete.id));
             toast({ title: `تم الحذف بنجاح` });
             setDeleteDialogOpen(false);
@@ -450,4 +473,3 @@ export default function ProductsPage() {
     </AdminSubPageLayout>
   );
 }
-

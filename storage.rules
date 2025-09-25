@@ -1,0 +1,21 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Function to check if the user is an admin
+    function isSuperAdmin() {
+      return request.auth != null && request.auth.token.email == "admin@huwiyasys.app";
+    }
+
+    // Allow public read access to all files
+    match /{allPaths=**} {
+      allow read: if true;
+    }
+
+    // Allow write access only for admins
+    match /products/{allPaths=**} {
+      allow write: if isSuperAdmin();
+    }
+  }
+}
