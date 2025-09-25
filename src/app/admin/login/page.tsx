@@ -15,7 +15,7 @@ import { LoaderCircle } from 'lucide-react';
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('admin@huwiyasys.app');
-  const [password, setPassword] = useState('gz6dnlh3');
+  const [password, setPassword] = useState('Admin12345!');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
