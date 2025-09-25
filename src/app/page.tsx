@@ -27,7 +27,7 @@ export default function LoginPage() {
   const handleLogoClick = () => {
     const newClickCount = logoClicks + 1;
     setLogoClicks(newClickCount);
-    if (newClickCount >= 20) {
+    if (newClickCount >= 3) {
         router.push('/admin/login');
     }
   };
