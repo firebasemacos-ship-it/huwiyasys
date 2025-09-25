@@ -23,10 +23,18 @@ export default function LoginPage() {
 
   const handleLoginAttempt = async () => {
     setIsLoading(true);
+    if (!auth) {
+        toast({
+            variant: 'destructive',
+            title: 'خطأ في التهيئة',
+            description: 'لم يتم تهيئة خدمات Firebase بعد.',
+        });
+        setIsLoading(false);
+        return;
+    }
     const email = contractNumber.includes('@') ? contractNumber : `${contractNumber}@huwiyasys.app`;
 
     try {
-      // 1. Try to sign in normally
       await signInWithEmailAndPassword(auth, email, password);
       toast({
         title: 'تم تسجيل الدخول بنجاح',
@@ -37,45 +45,44 @@ export default function LoginPage() {
         router.push('/shop');
       }
     } catch (error: any) {
-       // 2. If sign-in fails, check if it's a "user not found" error.
-       // This could mean it's a first-time login with a temporary password.
-       if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+       // This error means it might be the user's first login attempt with a temporary password.
+       // Let's try creating an account for them.
+       if (error.code === 'auth/user-not-found') {
           try {
-            // 3. Try to create a new user with the provided details
             await createUserWithEmailAndPassword(auth, email, password);
             toast({
                 title: 'تم إنشاء الحساب بنجاح',
                 description: 'جاري تسجيل دخولك...',
             });
-            // 4. After creation, push to the appropriate page
+            // After creation, push to the appropriate page
             if (email === 'admin@huwiyasys.app') {
                 router.push('/admin');
             } else {
                 router.push('/shop');
             }
           } catch (creationError: any) {
-              if (creationError.code === 'auth/email-already-in-use') {
-                 toast({
-                    variant: 'destructive',
-                    title: 'فشل تسجيل الدخول',
-                    description: 'رقم العقد أو كلمة المرور غير صحيحة.',
-                });
-              } else {
-                console.error('Registration Error during login:', creationError);
-                toast({
-                    variant: 'destructive',
-                    title: 'فشل إنشاء الحساب',
-                    description: creationError.message || 'حدث خطأ غير متوقع.',
-                });
-              }
+              // This can happen if there's a race condition or other issue.
+              console.error('Registration Error during login:', creationError);
+              toast({
+                  variant: 'destructive',
+                  title: 'فشل إنشاء الحساب',
+                  description: creationError.message || 'حدث خطأ غير متوقع.',
+              });
           }
+       } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
+            // This error means the user exists, but the password was incorrect.
+            toast({
+                variant: 'destructive',
+                title: 'فشل تسجيل الدخول',
+                description: 'رقم العقد أو كلمة المرور غير صحيحة.',
+            });
        } else {
-         // Handle other login errors (e.g., wrong password after user is created)
+         // Handle other login errors
          console.error('Login Error:', error);
          toast({
             variant: 'destructive',
             title: 'فشل تسجيل الدخول',
-            description: 'تأكد من رقم العقد وكلمة المرور.',
+            description: 'حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.',
          });
        }
     } finally {
@@ -85,6 +92,14 @@ export default function LoginPage() {
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!contractNumber || !password) {
+        toast({
+            variant: 'destructive',
+            title: 'بيانات ناقصة',
+            description: 'الرجاء إدخال رقم العقد وكلمة المرور.',
+        });
+        return;
+    }
     handleLoginAttempt();
   }
 
@@ -127,7 +142,7 @@ export default function LoginPage() {
                 </div>
             </CardContent>
             <CardFooter className="flex-col gap-4">
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="w-full" disabled={isLoading || !auth}>
                     {isLoading && <LoaderCircle className="ml-2 h-4 w-4 animate-spin" />}
                     {isLoading ? 'جاري...' : 'تسجيل الدخول'}
                 </Button>
