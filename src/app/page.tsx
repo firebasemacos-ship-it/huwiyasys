@@ -10,8 +10,10 @@ import { Logo } from '@/components/icons';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { LoaderCircle } from 'lucide-react';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('zaki@zetabait.app');
@@ -35,7 +37,7 @@ export default function AdminLoginPage() {
       setIsLoading(false);
       return;
     }
-
+    
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
@@ -45,13 +47,14 @@ export default function AdminLoginPage() {
         displayName: 'المدير العام',
         email: user.email,
         isAdmin: true,
-        createdAt: new Date().toISOString(),
+        createdAt: serverTimestamp(),
       };
       
-      // Using setDoc will create or overwrite the document, ensuring it exists.
-      await setDoc(doc(firestore, 'managers', user.uid), adminData);
-      await setDoc(doc(firestore, 'users', user.uid), adminData);
-
+      const managerDocRef = doc(firestore, 'managers', user.uid);
+      const userDocRef = doc(firestore, 'users', user.uid);
+      
+      await setDoc(managerDocRef, adminData, { merge: true });
+      await setDoc(userDocRef, adminData, { merge: true });
 
       toast({
         title: 'تم تسجيل الدخول بنجاح',
@@ -60,44 +63,48 @@ export default function AdminLoginPage() {
       router.push('/admin');
 
     } catch (error: any) {
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found') {
-        try {
-          const newUserCredential = await createUserWithEmailAndPassword(auth, email, password);
-          const newUser = newUserCredential.user;
+        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found') {
+            try {
+                const newUserCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const newUser = newUserCredential.user;
 
-          const adminData = {
-            uid: newUser.uid,
-            displayName: 'المدير العام',
-            email: newUser.email,
-            isAdmin: true,
-            createdAt: new Date().toISOString(),
-          };
-          
-          await setDoc(doc(firestore, 'managers', newUser.uid), adminData);
-          await setDoc(doc(firestore, 'users', newUser.uid), adminData);
+                const adminData = {
+                    uid: newUser.uid,
+                    displayName: 'المدير العام',
+                    email: newUser.email,
+                    isAdmin: true,
+                    createdAt: serverTimestamp(),
+                };
+                
+                const managerDocRef = doc(firestore, 'managers', newUser.uid);
+                await setDoc(managerDocRef, adminData);
 
-          toast({
-            title: 'تم إنشاء حساب مدير جديد',
-            description: 'تم تسجيل دخولك بنجاح.',
-          });
-          router.push('/admin');
+                const userDocRef = doc(firestore, 'users', newUser.uid);
+                await setDoc(userDocRef, adminData);
 
-        } catch (creationError: any) {
-          toast({
-            variant: 'destructive',
-            title: 'فشل إنشاء الحساب',
-            description: creationError.message,
-          });
+
+                toast({
+                    title: 'تم إنشاء حساب مدير جديد',
+                    description: 'تم تسجيل دخولك بنجاح.',
+                });
+                router.push('/admin');
+
+            } catch (creationError: any) {
+                 toast({
+                    variant: 'destructive',
+                    title: 'فشل إنشاء الحساب',
+                    description: creationError.message,
+                });
+            }
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'فشل تسجيل الدخول',
+                description: error.message,
+            });
         }
-      } else {
-        toast({
-          variant: 'destructive',
-          title: 'فشل تسجيل الدخول',
-          description: error.message,
-        });
-      }
     } finally {
-      setIsLoading(false);
+        setIsLoading(false);
     }
   };
 
@@ -107,9 +114,7 @@ export default function AdminLoginPage() {
         <form onSubmit={handleLogin}>
           <CardHeader className="text-center">
             <div className="mb-4 flex justify-center">
-              <div onClick={() => router.push('/login')} className="cursor-pointer">
-                <Logo className="h-12 w-12 text-primary" />
-              </div>
+               <Logo className="h-12 w-12 text-primary" />
             </div>
             <CardTitle className="text-2xl">دخول المدير</CardTitle>
             <CardDescription>الرجاء تسجيل الدخول للمتابعة إلى لوحة التحكم.</CardDescription>

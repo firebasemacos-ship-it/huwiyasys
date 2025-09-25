@@ -30,7 +30,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useAuth, useUser } from '@/firebase';
-import { collection, setDoc, doc, getDocs, DocumentData, deleteDoc } from 'firebase/firestore';
+import { collection, setDoc, doc, getDocs, DocumentData, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
@@ -51,7 +51,7 @@ type UserData = {
     contractNumber?: string;
     tempPassword?: string;
     wallet?: Wallet;
-    createdAt?: string;
+    createdAt?: any;
     isAdmin?: boolean;
 };
 
@@ -143,7 +143,7 @@ export default function UsersPage() {
                 contractNumber: newContractNumber,
                 email: email,
                 tempPassword: password,
-                createdAt: new Date().toISOString(),
+                createdAt: serverTimestamp(),
                 isAdmin: false,
                 wallet: {
                     balance: 0,
