@@ -6,6 +6,10 @@
       "description": "Represents a user's profile in the application.",
       "type": "object",
       "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The user's unique ID from Firebase Authentication."
+        },
         "displayName": {
           "type": "string",
           "description": "The user's display name."
@@ -33,7 +37,7 @@
             "description": "A temporary password for the user's first login."
         }
       },
-      "required": ["displayName", "email", "createdAt", "contractNumber"]
+      "required": ["uid", "displayName", "email", "createdAt", "contractNumber"]
     },
     "Product": {
       "title": "Product",

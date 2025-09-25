@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -7,8 +8,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/firebase';
+import { useAuth, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 import { Logo } from '@/components/icons';
 import { LoaderCircle } from 'lucide-react';
 
@@ -19,6 +21,28 @@ export default function AdminLoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   const auth = useAuth();
+  const firestore = useFirestore();
+
+  const createAdminFirestoreDocument = async (user: any) => {
+    const userDocRef = doc(firestore, 'users', user.uid);
+    const adminUserData = {
+      uid: user.uid,
+      displayName: 'Admin',
+      email: user.email,
+      isAdmin: true,
+      createdAt: new Date().toISOString(),
+      contractNumber: '0000',
+    };
+
+    setDoc(userDocRef, adminUserData, { merge: true }).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+          path: userDocRef.path,
+          operation: 'write',
+          requestResourceData: adminUserData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +60,8 @@ export default function AdminLoginPage() {
         if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
             try {
                 // Try to create the admin user if they don't exist
-                await createUserWithEmailAndPassword(auth, email, password);
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                await createAdminFirestoreDocument(userCredential.user);
                  // Now try signing in again after creation
                 await signInWithEmailAndPassword(auth, email, password);
 
