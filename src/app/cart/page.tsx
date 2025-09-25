@@ -29,6 +29,7 @@ type WalletInfo = {
     cvv: string;
     expiryDate: string;
     status: 'active' | 'suspended';
+    ownerName?: string;
 };
 
 type UserProfile = {
@@ -234,7 +235,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                              <Label key={wallet.cardNumber} htmlFor={wallet.cardNumber} className="flex items-center gap-4 rounded-md border p-4 hover:bg-accent has-[[data-state=checked]]:border-primary">
                                 <RadioGroupItem value={wallet.cardNumber} id={wallet.cardNumber} />
                                 <div className="flex flex-col">
-                                    <span>بطاقة مرتبطة</span>
+                                    <span>بطاقة {wallet.ownerName}</span>
                                     <span className="text-sm text-muted-foreground font-mono">**** **** **** {wallet.cardNumber.slice(-4)}</span>
                                 </div>
                             </Label>
