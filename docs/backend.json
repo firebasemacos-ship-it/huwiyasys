@@ -35,9 +35,32 @@
         "tempPassword": {
             "type": "string",
             "description": "A temporary password for the user's first login."
+        },
+        "wallet": {
+            "type": "object",
+            "description": "User's internal wallet information.",
+            "properties": {
+                "balance": {
+                    "type": "number",
+                    "description": "The current balance of the wallet."
+                },
+                "cardNumber": {
+                    "type": "string",
+                    "description": "The 16-digit card number for the internal wallet."
+                },
+                "cvv": {
+                    "type": "string",
+                    "description": "The 3-digit CVV code for the card."
+                },
+                "expiryDate": {
+                    "type": "string",
+                    "description": "The card's expiration date in MM/YY format."
+                }
+            },
+            "required": ["balance", "cardNumber", "cvv", "expiryDate"]
         }
       },
-      "required": ["uid", "displayName", "email", "createdAt", "contractNumber"]
+      "required": ["uid", "displayName", "email", "createdAt", "contractNumber", "wallet"]
     },
     "Product": {
       "title": "Product",

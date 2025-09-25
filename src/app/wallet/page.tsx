@@ -1,19 +1,19 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, Gift, PlusCircle, LoaderCircle, CheckCircle2, Wifi } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useState, useMemo, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useMemo, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/icons';
-
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const initialTransactions = [
   { id: 1, type: 'شحن رصيد', amount: 200.00, date: '25 يوليو 2024' },
@@ -22,9 +22,28 @@ const initialTransactions = [
   { id: 4, type: 'طلب رقم #1211', amount: -120.00, date: '21 يوليو 2024' },
 ];
 
+type UserProfile = {
+    displayName: string;
+    wallet: {
+        balance: number;
+        cardNumber: string;
+        cvv: string;
+        expiryDate: string;
+    }
+}
+
 export default function WalletPage() {
   const { toast } = useToast();
-  const router = useRouter();
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
+
+  const userDocRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userData, isLoading: isUserDataLoading } = useDoc<UserProfile>(userDocRef);
+
   const [transactions, setTransactions] = useState(initialTransactions);
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [rechargeCode, setRechargeCode] = useState('');
@@ -32,74 +51,90 @@ export default function WalletPage() {
   const [displayBalance, setDisplayBalance] = useState(0);
   const [isCardFlipped, setIsCardFlipped] = useState(false);
 
-  const currentBalance = useMemo(() => transactions.reduce((acc, t) => acc + t.amount, 0), [transactions]);
+  const currentBalance = userData?.wallet?.balance ?? 0;
 
   useEffect(() => {
     let animationFrameId: number;
-    let current = 0;
-    const target = currentBalance;
-    const step = (target - current) / 100; // Animate over ~100 frames
+    const startBalance = displayBalance;
+    const endBalance = currentBalance;
+    const duration = 1000; // 1 second animation
+    let startTime: number | null = null;
 
-    const animate = () => {
-      current += step;
-      if ((step > 0 && current >= target) || (step < 0 && current <= target)) {
-        setDisplayBalance(target);
-        cancelAnimationFrame(animationFrameId);
-      } else {
-        setDisplayBalance(current);
-        animationFrameId = requestAnimationFrame(animate);
-      }
+    const animate = (timestamp: number) => {
+        if (!startTime) startTime = timestamp;
+        const progress = timestamp - startTime;
+        const percentage = Math.min(progress / duration, 1);
+        
+        const newDisplayBalance = startBalance + (endBalance - startBalance) * percentage;
+        setDisplayBalance(newDisplayBalance);
+
+        if (progress < duration) {
+            animationFrameId = requestAnimationFrame(animate);
+        }
     };
-    
-    if (Math.abs(target - displayBalance) > 0.01) {
-        animationFrameId = requestAnimationFrame(animate);
-    } else {
-        setDisplayBalance(target);
-    }
 
+    // Only start animation if there's a notable difference
+    if (Math.abs(endBalance - startBalance) > 0.01) {
+      animationFrameId = requestAnimationFrame(animate);
+    } else {
+      setDisplayBalance(endBalance);
+    }
 
     return () => cancelAnimationFrame(animationFrameId);
-  }, [currentBalance]);
+  }, [currentBalance]); // Reruns when real balance changes
 
 
-  const handleRecharge = () => {
+  const handleRecharge = async () => {
     if (!rechargeCode.trim()) {
-        toast({
-            variant: "destructive",
-            title: "خطأ",
-            description: "الرجاء إدخال رمز كرت التعبئة.",
-        });
+        toast({ variant: "destructive", title: "خطأ", description: "الرجاء إدخال رمز كرت التعبئة." });
         return;
     }
+    if (!userDocRef || !userData) return;
     
     setRechargeStatus('verifying');
 
+    // Simulate network delay and verification
     setTimeout(() => {
         setRechargeStatus('charging');
-        setTimeout(() => {
-            const rechargeAmount = 100.00;
-            const newTransaction = {
-                id: transactions.length + 1,
-                type: 'شحن رصيد',
-                amount: rechargeAmount,
-                date: new Date().toLocaleDateString('ar-LY', { year: 'numeric', month: 'long', day: 'numeric' })
-            };
-            setTransactions([newTransaction, ...transactions]);
-            
-            setRechargeStatus('success');
-            setTimeout(() => {
-                setDialogOpen(false);
-                toast({
-                    title: "تم الشحن بنجاح",
-                    description: `تمت إضافة ${rechargeAmount.toFixed(2)} دينار ليبي إلى محفظتك.`,
-                });
+        setTimeout(async () => {
+            const rechargeAmount = 100.00; // Assume code is for 100 LYD for now
+            const newBalance = (userData.wallet?.balance ?? 0) + rechargeAmount;
+
+            try {
+                await updateDoc(userDocRef, { 'wallet.balance': newBalance });
+                
+                // Firestore listener in useDoc will update userData automatically
+                // which will trigger the balance animation
+                
+                const newTransaction = {
+                    id: transactions.length + 1,
+                    type: 'شحن رصيد',
+                    amount: rechargeAmount,
+                    date: new Date().toLocaleDateString('ar-LY', { year: 'numeric', month: 'long', day: 'numeric' })
+                };
+                setTransactions([newTransaction, ...transactions]);
+                
+                setRechargeStatus('success');
                 setTimeout(() => {
-                    setRechargeStatus('idle');
-                    setRechargeCode('');
-                }, 500);
-            }, 2000);
-        }, 2000); 
-    }, 2000);
+                    setDialogOpen(false);
+                    toast({
+                        title: "تم الشحن بنجاح",
+                        description: `تمت إضافة ${rechargeAmount.toFixed(2)} دينار ليبي إلى محفظتك.`,
+                    });
+                    setTimeout(() => {
+                        setRechargeStatus('idle');
+                        setRechargeCode('');
+                    }, 500);
+                }, 1500);
+
+            } catch (error) {
+                console.error("Failed to update balance:", error);
+                toast({ variant: "destructive", title: "فشل الشحن", description: "حدث خطأ أثناء تحديث الرصيد." });
+                setRechargeStatus('idle');
+            }
+
+        }, 1500); 
+    }, 1500);
   }
 
   const { Icon, message } = useMemo(() => {
@@ -114,6 +149,11 @@ export default function WalletPage() {
               return { Icon: () => <Gift className="h-16 w-16 text-muted-foreground" />, message: 'أدخل رمز كرت التعبئة لشحن محفظتك.' };
       }
   }, [rechargeStatus]);
+  
+  const formatCardNumber = (num: string | undefined) => {
+    if (!num) return ' '.repeat(16).replace(/(.{4})/g, '$1 ').trim();
+    return num.replace(/(.{4})/g, '$1 ').trim();
+  }
 
 
   return (
@@ -127,57 +167,63 @@ export default function WalletPage() {
         </header>
 
         <main className="flex-1 overflow-y-auto bg-muted/20 p-4 pb-24">
-            <div className="mb-6 mx-auto max-w-sm" style={{ perspective: '1000px' }}>
-                <div 
-                    className={cn("relative w-full aspect-[1.586] transition-transform duration-700")}
-                    style={{ transformStyle: 'preserve-3d', transform: isCardFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
-                    onClick={() => setIsCardFlipped(!isCardFlipped)}
-                >
-                    {/* Card Front */}
-                    <div className="absolute w-full h-full" style={{ backfaceVisibility: 'hidden' }}>
-                        <Card className="relative h-full w-full overflow-hidden rounded-xl bg-primary text-primary-foreground shadow-lg">
-                            <CardContent className="flex h-full flex-col justify-between p-6">
-                                <div className="flex items-start justify-between">
-                                    <div className="flex items-center gap-2 pointer-events-none">
-                                        <Logo className="h-8 w-8 text-primary-foreground" />
-                                        <span className="text-lg font-bold">Mobile Mate</span>
+            {isUserLoading || isUserDataLoading ? (
+                 <div className="mx-auto max-w-sm">
+                    <Skeleton className="w-full aspect-[1.586] rounded-xl" />
+                 </div>
+            ) : (
+                <div className="mb-6 mx-auto max-w-sm" style={{ perspective: '1000px' }}>
+                    <div 
+                        className={cn("relative w-full aspect-[1.586] transition-transform duration-700")}
+                        style={{ transformStyle: 'preserve-3d', transform: isCardFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
+                        onClick={() => setIsCardFlipped(!isCardFlipped)}
+                    >
+                        {/* Card Front */}
+                        <div className="absolute w-full h-full" style={{ backfaceVisibility: 'hidden' }}>
+                            <Card className="relative h-full w-full overflow-hidden rounded-xl bg-primary text-primary-foreground shadow-lg">
+                                <CardContent className="flex h-full flex-col justify-between p-6">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex items-center gap-2 pointer-events-none">
+                                            <Logo className="h-8 w-8 text-primary-foreground" />
+                                            <span className="text-lg font-bold">{userData?.displayName || 'المستخدم'}</span>
+                                        </div>
+                                        <Wifi className="h-6 w-6 -rotate-90 opacity-70" />
                                     </div>
-                                    <Wifi className="h-6 w-6 -rotate-90 opacity-70" />
-                                </div>
-                                <div className="text-left">
-                                    <p className="font-mono text-xl tracking-widest">
-                                        5432 1098 7654 3456
-                                    </p>
-                                </div>
-                                <div className="flex items-end justify-between">
-                                    <div>
-                                        <p className="text-sm opacity-80">الرصيد الحالي</p>
-                                        <p className="text-3xl font-bold leading-tight">{displayBalance.toFixed(2)}</p>
-                                        <p className="text-sm font-medium opacity-90">دينار ليبي</p>
+                                    <div className="text-left">
+                                        <p className="font-mono text-xl tracking-widest">
+                                            {formatCardNumber(userData?.wallet?.cardNumber)}
+                                        </p>
                                     </div>
-                                    <p className="text-sm font-semibold">08/30</p>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
+                                    <div className="flex items-end justify-between">
+                                        <div>
+                                            <p className="text-sm opacity-80">الرصيد الحالي</p>
+                                            <p className="text-3xl font-bold leading-tight">{displayBalance.toFixed(2)}</p>
+                                            <p className="text-sm font-medium opacity-90">دينار ليبي</p>
+                                        </div>
+                                        <p className="text-sm font-semibold">{userData?.wallet?.expiryDate || 'MM/YY'}</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
 
-                    {/* Card Back */}
-                    <div className="absolute w-full h-full" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
-                        <Card className="relative h-full w-full overflow-hidden rounded-xl bg-primary text-primary-foreground shadow-lg">
-                            <div className="h-full flex flex-col justify-between p-4">
-                                <div className="h-12 bg-black mt-4"></div>
-                                <div className="flex justify-end items-center gap-4 px-4 py-2 bg-slate-200 rounded-md">
-                                    <p className="font-mono text-lg text-black italic">123</p>
-                                    <p className="text-sm text-slate-600 flex-1 text-right">CVV</p>
+                        {/* Card Back */}
+                        <div className="absolute w-full h-full" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
+                            <Card className="relative h-full w-full overflow-hidden rounded-xl bg-primary text-primary-foreground shadow-lg">
+                                <div className="h-full flex flex-col justify-between p-4">
+                                    <div className="h-12 bg-black mt-4"></div>
+                                    <div className="flex justify-end items-center gap-4 px-4 py-2 bg-slate-200 rounded-md">
+                                        <p className="font-mono text-lg text-black italic">{userData?.wallet?.cvv || 'XXX'}</p>
+                                        <p className="text-sm text-slate-600 flex-1 text-right">CVV</p>
+                                    </div>
+                                    <div className="text-xs opacity-70 text-left p-2">
+                                        <p>انقر للعودة</p>
+                                    </div>
                                 </div>
-                                <div className="text-xs opacity-70 text-left p-2">
-                                    <p>انقر للعودة</p>
-                                </div>
-                            </div>
-                        </Card>
+                            </Card>
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
           
           <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
               if (!isOpen) {
@@ -189,7 +235,7 @@ export default function WalletPage() {
               setDialogOpen(isOpen);
           }}>
             <DialogTrigger asChild>
-                <Button size="lg" className="w-full">
+                <Button size="lg" className="w-full" disabled={isUserLoading || isUserDataLoading}>
                     <PlusCircle className="ml-2 h-5 w-5" />
                     شحن الرصيد
                 </Button>

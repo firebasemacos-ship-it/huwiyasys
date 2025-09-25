@@ -60,7 +60,6 @@ export default function UsersPage() {
                     setIsLoadingUsers(false);
                 }
             } else if (!isAdminLoading) {
-                // If not admin, don't try to fetch
                 setUsers([]);
                 setIsLoadingUsers(false);
             }
@@ -70,16 +69,22 @@ export default function UsersPage() {
     }, [firestore, adminUser, isAdminLoading, toast]);
 
 
-    const generatePassword = () => {
-        return Math.random().toString(36).slice(-8);
+    const generatePassword = () => Math.random().toString(36).slice(-8);
+    const generateCardNumber = () => `5432${Array.from({ length: 12 }, () => Math.floor(Math.random() * 10)).join('')}`;
+    const generateCvv = () => Math.floor(100 + Math.random() * 900).toString();
+    const generateExpiryDate = () => {
+        const date = new Date();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = (date.getFullYear() + 5).toString().slice(-2);
+        return `${month}/${year}`;
     };
+
 
     const handleAddUser = async () => {
         if (!newUserName || !newContractNumber) {
             toast({ variant: 'destructive', title: 'خطأ', description: 'الرجاء إدخال الاسم ورقم العقد.' });
             return;
         }
-
         if (!firestore || !auth) {
             toast({ variant: 'destructive', title: 'خطأ', description: 'خدمات Firebase غير متاحة.' });
             return;
@@ -90,11 +95,9 @@ export default function UsersPage() {
         const email = `${newContractNumber}@huwiyasys.app`;
 
         try {
-            // Step 1: Create the authentication user
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            // Step 2: Create the Firestore document with the UID from the created auth user
             const newUserDoc = {
                 uid: user.uid,
                 displayName: newUserName,
@@ -103,12 +106,16 @@ export default function UsersPage() {
                 tempPassword: password,
                 createdAt: new Date().toISOString(),
                 isAdmin: false,
+                wallet: {
+                    balance: 0,
+                    cardNumber: generateCardNumber(),
+                    cvv: generateCvv(),
+                    expiryDate: generateExpiryDate(),
+                }
             };
             
-            const userDocRef = doc(firestore, 'users', user.uid);
-            await setDoc(userDocRef, newUserDoc);
+            await setDoc(doc(firestore, 'users', user.uid), newUserDoc);
             
-            // Add user to the local state to update UI immediately
             setUsers(prevUsers => [{ id: user.uid, ...newUserDoc }, ...prevUsers]);
 
             toast({ title: 'تمت إضافة المستخدم بنجاح', description: `تم إنشاء حساب ومستند لـ ${newUserName}.` });
@@ -150,7 +157,7 @@ export default function UsersPage() {
                 <DialogHeader>
                     <DialogTitle>إضافة مستخدم جديد</DialogTitle>
                     <DialogDescription>
-                        أدخل بيانات المستخدم الجديد. سيتم إنشاء كلمة مرور مؤقتة تلقائيًا.
+                        أدخل بيانات المستخدم الجديد. سيتم إنشاء كلمة مرور مؤقتة وبطاقة دفع تلقائيًا.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
