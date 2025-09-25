@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import AdminSubPageLayout from '../layout';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Copy, MoreHorizontal } from 'lucide-react';
@@ -25,20 +25,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useAuth, useFirestore, errorEmitter, FirestorePermissionError, useCollection, useMemoFirebase } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { collection, addDoc } from 'firebase/firestore';
-
-// In a real app, this would come from Firestore
-const initialUsers = [
-    { id: 'user-001', displayName: 'علي محمد', contractNumber: 'C1001', tempPassword: 'password123' },
-    { id: 'user-002', displayName: 'فاطمة أحمد', contractNumber: 'C1002', tempPassword: 'password456' },
-];
 
 
 export default function UsersPage() {
     const { toast } = useToast();
-    const [users, setUsers] = useState(initialUsers);
     const [isDialogOpen, setDialogOpen] = useState(false);
     const [newUserName, setNewUserName] = useState('');
     const [newContractNumber, setNewContractNumber] = useState('');
@@ -46,6 +39,9 @@ export default function UsersPage() {
     
     const auth = useAuth();
     const firestore = useFirestore();
+
+    const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
+    const { data: users, isLoading: isLoadingUsers } = useCollection(usersCollectionRef);
 
     const generatePassword = () => {
         return Math.random().toString(36).slice(-8);
@@ -62,10 +58,10 @@ export default function UsersPage() {
         const email = `${newContractNumber}@huwiyasys.app`;
 
         try {
+            // This part only creates the auth user. The Firestore document is added in a separate step.
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            const usersCollection = collection(firestore, 'users');
             const newUserDoc = {
                 uid: user.uid,
                 displayName: newUserName,
@@ -73,11 +69,12 @@ export default function UsersPage() {
                 email: email,
                 tempPassword: password, // Note: Storing password in Firestore is not recommended for production
                 createdAt: new Date().toISOString(),
+                isAdmin: false, // Default value for new users
             };
-
-            addDoc(usersCollection, newUserDoc)
+            
+            // The useCollection hook will automatically update the UI when this new doc is added.
+            addDoc(usersCollectionRef, newUserDoc)
               .then(() => {
-                  setUsers([...users, { id: user.uid, displayName: newUserName, contractNumber: newContractNumber, tempPassword: password }]);
                   toast({ title: 'تم إضافة المستخدم بنجاح', description: `تم إنشاء حساب لـ ${newUserName}.` });
                   setDialogOpen(false);
                   setNewUserName('');
@@ -85,7 +82,7 @@ export default function UsersPage() {
               })
               .catch(serverError => {
                   const permissionError = new FirestorePermissionError({
-                    path: `users/${user.uid}`,
+                    path: usersCollectionRef.path, // Path for creation is the collection path
                     operation: 'create',
                     requestResourceData: newUserDoc,
                   });
@@ -170,35 +167,45 @@ export default function UsersPage() {
                     </TableRow>
                     </TableHeader>
                     <TableBody>
-                    {users.map((user) => (
-                        <TableRow key={user.id}>
-                            <TableCell className="font-medium">{user.displayName}</TableCell>
-                            <TableCell>{user.contractNumber}</TableCell>
-                            <TableCell>
-                                <div className="flex items-center gap-2">
-                                    <span className="font-mono">{user.tempPassword}</span>
-                                    <Button variant="ghost" size="icon" onClick={() => copyToClipboard(user.tempPassword)}>
-                                        <Copy className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </TableCell>
-                            <TableCell>
-                                <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button aria-haspopup="true" size="icon" variant="ghost">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                    <span className="sr-only">Toggle menu</span>
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" dir='rtl'>
-                                    <DropdownMenuLabel>الإجراءات</DropdownMenuLabel>
-                                    <DropdownMenuItem>تعديل</DropdownMenuItem>
-                                    <DropdownMenuItem>حذف</DropdownMenuItem>
-                                </DropdownMenuContent>
-                                </DropdownMenu>
-                            </TableCell>
+                    {isLoadingUsers ? (
+                        <TableRow>
+                            <TableCell colSpan={4} className="text-center">جاري تحميل المستخدمين...</TableCell>
                         </TableRow>
-                    ))}
+                    ) : users && users.length > 0 ? (
+                        users.map((user) => (
+                            <TableRow key={user.id}>
+                                <TableCell className="font-medium">{user.displayName}</TableCell>
+                                <TableCell>{user.contractNumber}</TableCell>
+                                <TableCell>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-mono">{user.tempPassword}</span>
+                                        <Button variant="ghost" size="icon" onClick={() => copyToClipboard(user.tempPassword)}>
+                                            <Copy className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                                <TableCell>
+                                    <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button aria-haspopup="true" size="icon" variant="ghost">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                        <span className="sr-only">Toggle menu</span>
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" dir='rtl'>
+                                        <DropdownMenuLabel>الإجراءات</DropdownMenuLabel>
+                                        <DropdownMenuItem>تعديل</DropdownMenuItem>
+                                        <DropdownMenuItem>حذف</DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </TableCell>
+                            </TableRow>
+                        ))
+                    ) : (
+                        <TableRow>
+                             <TableCell colSpan={4} className="text-center">لا يوجد مستخدمين لعرضهم.</TableCell>
+                        </TableRow>
+                    )}
                     </TableBody>
                 </Table>
             </CardContent>
@@ -206,3 +213,4 @@ export default function UsersPage() {
     </AdminSubPageLayout>
   );
 }
+    
