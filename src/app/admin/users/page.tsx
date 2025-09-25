@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -86,7 +87,7 @@ export default function UsersPage() {
             // If auth user creation fails, we don't proceed to create firestore doc.
             // Check if the error is due to email already being in use.
             if (error.code === 'auth/email-already-in-use') {
-                toast({ variant: 'destructive', title: 'فشل إضافة المستخدم', description: 'رقم العقد هذا مستخدم بالفعل في نظام المصادقة.' });
+                toast({ variant: 'destructive', title: 'فشل إضافة المستخدم', description: 'رقم العقد هذا مستخدم بالفعل.' });
             } else {
                 toast({ variant: 'destructive', title: 'فشل إضافة المستخدم', description: error.message || 'حدث خطأ غير متوقع عند إنشاء حساب المصادقة.' });
             }
@@ -207,4 +208,6 @@ export default function UsersPage() {
     </AdminSubPageLayout>
   );
 }
+    
+
     
