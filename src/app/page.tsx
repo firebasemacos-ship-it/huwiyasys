@@ -35,16 +35,18 @@ export default function LoginPage() {
         return;
     }
     const email = contractNumber.includes('@') ? contractNumber : `${contractNumber}@huwiyasys.app`;
+    
+    // Redirect admin to the correct login page
+    if (email === 'zaki@zetabait.app') {
+        router.push('/admin/login');
+        toast({ title: 'جاري تحويلك لصفحة المدير', description: 'الرجاء تسجيل الدخول من صفحة الإدارة.' });
+        setIsLoading(false);
+        return;
+    }
 
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-
-      if (email === 'zaki@zetabait.app') {
-        router.push('/admin');
-        toast({ title: 'تم تسجيل الدخول بنجاح' });
-        return;
-      }
       
       // Check user's card status
       const userDocRef = doc(firestore, 'users', user.uid);
