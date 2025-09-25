@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { Logo } from '@/components/icons';
 import { LoaderCircle } from 'lucide-react';
 
@@ -25,6 +25,7 @@ export default function AdminLoginPage() {
     e.preventDefault();
     setIsLoading(true);
     try {
+      // First, try to sign in.
       await signInWithEmailAndPassword(auth, email, password);
       toast({
         title: 'تم تسجيل الدخول بنجاح',
@@ -32,12 +33,31 @@ export default function AdminLoginPage() {
       });
       router.push('/admin');
     } catch (error: any) {
-      console.error('Admin Login Error:', error);
-      toast({
-        variant: 'destructive',
-        title: 'فشل تسجيل الدخول',
-        description: error.message || 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
-      });
+        // If sign in fails because the user is not found, create the user.
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+            try {
+                await createUserWithEmailAndPassword(auth, email, password);
+                toast({
+                    title: 'تم إنشاء حساب المسؤول بنجاح',
+                    description: 'جاري تحويلك إلى لوحة التحكم.',
+                });
+                router.push('/admin');
+            } catch (creationError: any) {
+                console.error('Admin Creation Error:', creationError);
+                toast({
+                    variant: 'destructive',
+                    title: 'فشل إنشاء الحساب',
+                    description: creationError.message || 'حدث خطأ غير متوقع.',
+                });
+            }
+        } else {
+            console.error('Admin Login Error:', error);
+            toast({
+                variant: 'destructive',
+                title: 'فشل تسجيل الدخول',
+                description: error.message || 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
+            });
+        }
     } finally {
       setIsLoading(false);
     }
