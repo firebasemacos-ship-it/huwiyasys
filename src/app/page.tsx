@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -90,7 +89,7 @@ export default function AdminLoginPage() {
             toast({
                 variant: 'destructive',
                 title: 'فشل تسجيل الدخول',
-                description: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
+                description: error.message || 'حدث خطأ غير متوقع.',
             });
         }
     } finally {
@@ -104,7 +103,9 @@ export default function AdminLoginPage() {
         <form onSubmit={handleLogin}>
           <CardHeader className="text-center">
             <div className="mb-4 flex justify-center">
-              <Logo className="h-12 w-12 text-primary" />
+               <div onClick={() => router.push('/login')} className="cursor-pointer">
+                <Logo className="h-12 w-12 text-primary" />
+               </div>
             </div>
             <CardTitle className="text-2xl">دخول المدير</CardTitle>
             <CardDescription>الرجاء تسجيل الدخول للمتابعة إلى لوحة التحكم.</CardDescription>

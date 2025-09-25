@@ -39,7 +39,7 @@ export default function AdminSubPageLayout({ children, title }: { children: Reac
     router.push('/');
   };
 
-  if (isUserLoading || !user) {
+  if (isUserLoading || !user || user.email !== 'zaki@zetabait.app') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <p>جاري التحميل...</p>

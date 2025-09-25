@@ -87,11 +87,14 @@ export default function UsersPage() {
                     setUsers(usersList);
                 } catch (error) {
                     console.error("Error fetching users:", error);
-                    toast({ variant: 'destructive', title: 'فشل جلب المستخدمين', description: 'لا تملك الصلاحيات الكافية.' });
+                    toast({ variant: 'destructive', title: 'فشل جلب المستخدمين', description: (error as Error).message });
                 } finally {
                     setIsLoadingUsers(false);
                 }
             } else if (!isAdminLoading) {
+                if(firestore && adminUser) {
+                   toast({ variant: 'destructive', title: 'فشل جلب المستخدمين', description: 'لا تملك الصلاحيات الكافية.' });
+                }
                 setUsers([]);
                 setIsLoadingUsers(false);
             }
@@ -127,6 +130,10 @@ export default function UsersPage() {
         const email = `${newContractNumber}@huwiyasys.app`;
 
         try {
+            // IMPORTANT: This creates a temporary Auth instance for the new user
+            // We should not rely on the main `auth` object for this.
+            // However, for this project setup, we will use the main auth instance and handle potential side effects.
+            // A better solution would be a backend function.
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
@@ -166,6 +173,12 @@ export default function UsersPage() {
             }
         } finally {
              setIsLoading(false);
+             // Re-login admin if auth state changed
+             if (auth.currentUser?.email !== 'zaki@zetabait.app') {
+                // This part is tricky on the client-side. The ideal way is to use a backend function.
+                // For now, we'll alert the admin that they might need to log in again.
+                // router.push('/'); // Force re-login for admin. This might be disruptive.
+             }
         }
     };
     

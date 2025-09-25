@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -23,15 +22,6 @@ export default function LoginPage() {
   const [contractNumber, setContractNumber] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [logoClicks, setLogoClicks] = useState(0);
-
-  const handleLogoClick = () => {
-    const newClickCount = logoClicks + 1;
-    setLogoClicks(newClickCount);
-    if (newClickCount >= 3) {
-        router.push('/');
-    }
-  };
 
   const handleLoginAttempt = async () => {
     setIsLoading(true);
@@ -103,7 +93,7 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit}>
             <CardHeader className="text-center">
                 <div className="mb-4 flex justify-center">
-                    <div onClick={handleLogoClick} className="cursor-pointer">
+                    <div className="cursor-pointer" onClick={() => router.push('/')}>
                       <Logo className="h-12 w-12 text-primary" />
                     </div>
                 </div>

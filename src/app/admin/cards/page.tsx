@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -200,11 +199,14 @@ export default function CardsPage() {
                     setUsers(usersList.filter(u => u.wallet)); // Only show users with wallets
                 } catch (error) {
                     console.error("Error fetching users:", error);
-                    toast({ variant: 'destructive', title: 'فشل جلب المستخدمين', description: 'لا تملك الصلاحيات الكافية.' });
+                    toast({ variant: 'destructive', title: 'فشل جلب المستخدمين', description: (error as Error).message });
                 } finally {
                     setIsLoadingUsers(false);
                 }
             } else if (!isAdminLoading) {
+                if(firestore && adminUser) { // If there is an admin, but it's not the right one, show error.
+                   toast({ variant: 'destructive', title: 'فشل جلب المستخدمين', description: 'لا تملك الصلاحيات الكافية.' });
+                }
                 setUsers([]);
                 setIsLoadingUsers(false);
             }
@@ -390,5 +392,3 @@ export default function CardsPage() {
         </AdminSubPageLayout>
     );
 }
-
-    
