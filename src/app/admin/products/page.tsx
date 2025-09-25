@@ -39,8 +39,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, DocumentData, query, orderBy } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, useStorage } from '@/firebase';
+import { collection, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, DocumentData, query, orderBy, DocumentReference } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -123,6 +123,7 @@ function CategoryDialog({ category, onSave, onClose }: { category?: Category | n
 // Product Management Dialog
 function ProductDialog({ product, categories, onSave, onClose }: { product?: Product | null, categories: Category[], onSave: () => void, onClose: () => void }) {
     const firestore = useFirestore();
+    const storage = useStorage();
     const { toast } = useToast();
 
     const [name, setName] = useState(product?.name || '');
@@ -139,6 +140,21 @@ function ProductDialog({ product, categories, onSave, onClose }: { product?: Pro
             setImageFile(e.target.files[0]);
         }
     };
+    
+    const uploadImageAndUpdateProduct = async (productDocRef: DocumentReference, image: File) => {
+        if (!storage) return;
+
+        try {
+            const storageRef = ref(storage, `products/${Date.now()}_${image.name}`);
+            const uploadResult = await uploadBytes(storageRef, image);
+            const downloadUrl = await getDownloadURL(uploadResult.ref);
+            await updateDoc(productDocRef, { imageUrl: downloadUrl });
+        } catch (error) {
+            console.error("Image upload failed:", error);
+            // Optionally: Show a non-blocking toast that image upload failed
+        }
+    };
+
 
     const handleSubmit = async () => {
         if (!name || !price || !categoryId || !firestore) {
@@ -147,47 +163,53 @@ function ProductDialog({ product, categories, onSave, onClose }: { product?: Pro
         }
         setIsLoading(true);
 
-        let finalImageUrl = product?.imageUrl || '';
+        const selectedCategory = categories.find(c => c.id === categoryId);
+
+        const productData = {
+            name,
+            description,
+            price: Number(price),
+            categoryId,
+            category: selectedCategory?.name || '',
+            status,
+            imageUrl: product?.imageUrl || '', // Start with existing or empty imageUrl
+            imageHint: name,
+            updatedAt: serverTimestamp(),
+        };
 
         try {
-            if (imageFile) {
-                const storage = getStorage();
-                const storageRef = ref(storage, `products/${Date.now()}_${imageFile.name}`);
-                const uploadResult = await uploadBytes(storageRef, imageFile);
-                finalImageUrl = await getDownloadURL(uploadResult.ref);
-            }
-
-            const selectedCategory = categories.find(c => c.id === categoryId);
-
-            const productData = {
-                name,
-                description,
-                price: Number(price),
-                categoryId,
-                category: selectedCategory?.name || '',
-                status,
-                imageUrl: finalImageUrl,
-                imageHint: name,
-                updatedAt: serverTimestamp(),
-            };
-
             if (product) {
                 // Update
-                await updateDoc(doc(firestore, 'products', product.id), productData);
+                const productDocRef = doc(firestore, 'products', product.id);
+                await updateDoc(productDocRef, productData);
                 toast({ title: "تم تحديث المنتج بنجاح" });
+
+                if (imageFile) {
+                    // Upload image in the background without blocking UI
+                    uploadImageAndUpdateProduct(productDocRef, imageFile);
+                }
+
             } else {
                 // Create
-                await addDoc(collection(firestore, 'products'), { ...productData, createdAt: serverTimestamp() });
+                const productDocRef = await addDoc(collection(firestore, 'products'), { 
+                    ...productData, 
+                    createdAt: serverTimestamp() 
+                });
                 toast({ title: "تمت إضافة المنتج بنجاح" });
+
+                if (imageFile) {
+                     // Upload image in the background without blocking UI
+                    uploadImageAndUpdateProduct(productDocRef, imageFile);
+                }
             }
             onSave();
             onClose();
+
         } catch (error: any) {
             console.error("Error saving product: ", error);
             toast({ variant: 'destructive', title: "خطأ", description: error.message });
-        } finally {
-            setIsLoading(false);
-        }
+            setIsLoading(false); // Only set to false on error, success closes dialog
+        } 
     };
     
     return (
