@@ -27,18 +27,16 @@ export default function AdminLoginPage() {
     const adminDocRef = doc(firestore, 'admins', user.uid);
 
     try {
-        const docSnap = await getDoc(adminDocRef);
-        if (!docSnap.exists()) {
-            const adminUserData = {
-                uid: user.uid,
-                displayName: 'Admin',
-                email: user.email,
-                isAdmin: true,
-                createdAt: new Date().toISOString(),
-                contractNumber: '000000',
-            };
-            await setDoc(adminDocRef, adminUserData);
-        }
+        // Always set/update the doc on login to ensure it's correct
+        const adminUserData = {
+            uid: user.uid,
+            displayName: 'Admin',
+            email: user.email,
+            isAdmin: true, // This is critical for security rules
+            createdAt: new Date().toISOString(),
+            contractNumber: '000000',
+        };
+        await setDoc(adminDocRef, adminUserData, { merge: true });
     } catch (error) {
         console.error("Failed to ensure admin firestore document:", error);
     }
@@ -69,6 +67,7 @@ export default function AdminLoginPage() {
     } catch (error: any) {
         if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
             try {
+                // This will create the admin auth user for the first time
                 const newUserCredential = await createUserWithEmailAndPassword(auth, email, password);
                 await ensureAdminFirestoreDocument(newUserCredential.user);
 

@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AdminSubPageLayout from '../layout';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Copy, MoreHorizontal } from 'lucide-react';
@@ -20,23 +19,56 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLab
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useAuth, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, setDoc, doc } from 'firebase/firestore';
+import { useFirestore, useAuth, useUser } from '@/firebase';
+import { collection, setDoc, doc, getDocs, DocumentData } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 
+type UserData = {
+    id: string;
+    displayName?: string;
+    contractNumber?: string;
+    tempPassword?: string;
+};
 
 export default function UsersPage() {
     const { toast } = useToast();
+    const { user: adminUser, isUserLoading: isAdminLoading } = useUser();
     const [isDialogOpen, setDialogOpen] = useState(false);
     const [newUserName, setNewUserName] = useState('');
     const [newContractNumber, setNewContractNumber] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     
+    const [users, setUsers] = useState<UserData[]>([]);
+    const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+
     const firestore = useFirestore();
     const auth = useAuth();
 
-    const usersCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
-    const { data: users, isLoading: isLoadingUsers } = useCollection(usersCollectionRef);
+    useEffect(() => {
+        const fetchUsers = async () => {
+            if (firestore && adminUser && adminUser.email === 'admin@huwiyasys.app') {
+                setIsLoadingUsers(true);
+                try {
+                    const usersCollectionRef = collection(firestore, 'users');
+                    const querySnapshot = await getDocs(usersCollectionRef);
+                    const usersList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserData));
+                    setUsers(usersList);
+                } catch (error) {
+                    console.error("Error fetching users:", error);
+                    toast({ variant: 'destructive', title: 'فشل جلب المستخدمين', description: 'لا تملك الصلاحيات الكافية.' });
+                } finally {
+                    setIsLoadingUsers(false);
+                }
+            } else if (!isAdminLoading) {
+                // If not admin, don't try to fetch
+                setUsers([]);
+                setIsLoadingUsers(false);
+            }
+        };
+
+        fetchUsers();
+    }, [firestore, adminUser, isAdminLoading, toast]);
+
 
     const generatePassword = () => {
         return Math.random().toString(36).slice(-8);
@@ -64,7 +96,7 @@ export default function UsersPage() {
 
             // Step 2: Create the Firestore document with the UID from the created auth user
             const newUserDoc = {
-                uid: user.uid, // Add UID from auth user
+                uid: user.uid,
                 displayName: newUserName,
                 contractNumber: newContractNumber,
                 email: email,
@@ -73,9 +105,11 @@ export default function UsersPage() {
                 isAdmin: false,
             };
             
-            // Use setDoc with the user's UID as the document ID for strong coupling
             const userDocRef = doc(firestore, 'users', user.uid);
             await setDoc(userDocRef, newUserDoc);
+            
+            // Add user to the local state to update UI immediately
+            setUsers(prevUsers => [{ id: user.uid, ...newUserDoc }, ...prevUsers]);
 
             toast({ title: 'تمت إضافة المستخدم بنجاح', description: `تم إنشاء حساب ومستند لـ ${newUserName}.` });
             setDialogOpen(false);
@@ -84,12 +118,10 @@ export default function UsersPage() {
 
         } catch (error: any) {
             console.error("Error adding user:", error);
-            // If auth user creation fails, we don't proceed to create firestore doc.
-            // Check if the error is due to email already being in use.
             if (error.code === 'auth/email-already-in-use') {
                 toast({ variant: 'destructive', title: 'فشل إضافة المستخدم', description: 'رقم العقد هذا مستخدم بالفعل.' });
             } else {
-                toast({ variant: 'destructive', title: 'فشل إضافة المستخدم', description: error.message || 'حدث خطأ غير متوقع عند إنشاء حساب المصادقة.' });
+                toast({ variant: 'destructive', title: 'فشل إضافة المستخدم', description: error.message || 'حدث خطأ غير متوقع.' });
             }
         } finally {
              setIsLoading(false);
@@ -162,7 +194,7 @@ export default function UsersPage() {
                     </TableRow>
                     </TableHeader>
                     <TableBody>
-                    {isLoadingUsers ? (
+                    {isLoadingUsers || isAdminLoading ? (
                         <TableRow>
                             <TableCell colSpan={4} className="text-center">جاري تحميل المستخدمين...</TableCell>
                         </TableRow>
@@ -174,7 +206,7 @@ export default function UsersPage() {
                                 <TableCell>
                                     <div className="flex items-center gap-2">
                                         <span className="font-mono">{user.tempPassword}</span>
-                                        {user.tempPassword && <Button variant="ghost" size="icon" onClick={() => copyToClipboard(user.tempPassword)}>
+                                        {user.tempPassword && <Button variant="ghost" size="icon" onClick={() => copyToClipboard(user.tempPassword!)}>
                                             <Copy className="h-4 w-4" />
                                         </Button>}
                                     </div>
@@ -208,6 +240,3 @@ export default function UsersPage() {
     </AdminSubPageLayout>
   );
 }
-    
-
-    
