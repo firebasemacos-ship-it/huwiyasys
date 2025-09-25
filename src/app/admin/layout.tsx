@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, ReactNode } from 'react';
@@ -28,7 +27,8 @@ export default function AdminSubPageLayout({ children, title }: { children: Reac
     if (!isUserLoading && !user) {
       router.replace('/');
     }
-    if (!isUserLoading && user && user.email !== 'admin@huwiyasys.app') {
+    // Updated this logic to check for the new admin email
+    if (!isUserLoading && user && user.email !== 'admin@tamweelsys.app') {
       router.replace('/');
     }
   }, [user, isUserLoading, router]);

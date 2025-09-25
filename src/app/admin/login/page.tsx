@@ -14,8 +14,8 @@ import { Logo } from '@/components/icons';
 import { LoaderCircle } from 'lucide-react';
 
 export default function AdminLoginPage() {
-  const [email, setEmail] = useState('admin@huwiyasys.app');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('admin@tamweelsys.app');
+  const [password, setPassword] = useState('0920064400');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
@@ -28,17 +28,15 @@ export default function AdminLoginPage() {
     const userDocRef = doc(firestore, 'users', user.uid);
 
     try {
-        // Check if admin doc exists
         const adminDoc = await getDoc(adminDocRef);
         if (!adminDoc.exists()) {
             const adminUserData = {
                 uid: user.uid,
-                displayName: 'Admin',
+                displayName: 'المدير العام',
                 email: user.email,
-                isAdmin: true, // This is critical for security rules
+                isAdmin: true,
                 createdAt: new Date().toISOString(),
             };
-            // Create documents in both 'admins' and 'users' collections
             await setDoc(adminDocRef, adminUserData);
             await setDoc(userDocRef, adminUserData);
         }
