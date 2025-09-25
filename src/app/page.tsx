@@ -74,7 +74,7 @@ export default function LoginPage() {
         toast({
             variant: 'destructive',
             title: 'فشل تسجيل الدخول',
-            description: 'رقم العقد أو كلمة المرور غير صحيحة.',
+            description: 'بيانات الاعتماد غير صالحة أو الحساب غير موجود.',
         });
     } finally {
         setIsLoading(false);
