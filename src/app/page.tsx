@@ -47,7 +47,7 @@ export default function LoginPage() {
     } catch (error: any) {
        // This error means it might be the user's first login attempt with a temporary password.
        // Let's try creating an account for them.
-       if (error.code === 'auth/user-not-found') {
+       if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
           try {
             await createUserWithEmailAndPassword(auth, email, password);
             toast({
@@ -69,13 +69,6 @@ export default function LoginPage() {
                   description: creationError.message || 'حدث خطأ غير متوقع.',
               });
           }
-       } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
-            // This error means the user exists, but the password was incorrect.
-            toast({
-                variant: 'destructive',
-                title: 'فشل تسجيل الدخول',
-                description: 'رقم العقد أو كلمة المرور غير صحيحة.',
-            });
        } else {
          // Handle other login errors
          console.error('Login Error:', error);
