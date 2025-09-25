@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/icons';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { LoaderCircle } from 'lucide-react';
 
 export default function LoginPage() {
@@ -35,6 +35,7 @@ export default function LoginPage() {
     const email = contractNumber.includes('@') ? contractNumber : `${contractNumber}@huwiyasys.app`;
 
     try {
+      // Only attempt to sign in. User creation is now handled by the admin.
       await signInWithEmailAndPassword(auth, email, password);
       toast({
         title: 'تم تسجيل الدخول بنجاح',
@@ -45,39 +46,21 @@ export default function LoginPage() {
         router.push('/shop');
       }
     } catch (error: any) {
-       // This error means it might be the user's first login attempt with a temporary password.
-       // Let's try creating an account for them.
-       if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-          try {
-            await createUserWithEmailAndPassword(auth, email, password);
+        // Handle login errors
+        console.error('Login Error:', error);
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+             toast({
+                variant: 'destructive',
+                title: 'فشل تسجيل الدخول',
+                description: 'رقم العقد أو كلمة المرور غير صحيحة.',
+             });
+        } else {
             toast({
-                title: 'تم إنشاء الحساب بنجاح',
-                description: 'جاري تسجيل دخولك...',
+                variant: 'destructive',
+                title: 'فشل تسجيل الدخول',
+                description: 'حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.',
             });
-            // After creation, push to the appropriate page
-            if (email === 'admin@huwiyasys.app') {
-                router.push('/admin');
-            } else {
-                router.push('/shop');
-            }
-          } catch (creationError: any) {
-              // This can happen if there's a race condition or other issue.
-              console.error('Registration Error during login:', creationError);
-              toast({
-                  variant: 'destructive',
-                  title: 'فشل إنشاء الحساب',
-                  description: creationError.message || 'حدث خطأ غير متوقع.',
-              });
-          }
-       } else {
-         // Handle other login errors
-         console.error('Login Error:', error);
-         toast({
-            variant: 'destructive',
-            title: 'فشل تسجيل الدخول',
-            description: 'حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.',
-         });
-       }
+        }
     } finally {
         setIsLoading(false);
     }
@@ -145,3 +128,4 @@ export default function LoginPage() {
     </div>
   );
 }
+    
