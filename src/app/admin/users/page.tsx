@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -23,6 +24,7 @@ import { useFirestore, useAuth, useUser } from '@/firebase';
 import { collection, setDoc, doc, getDocs, DocumentData, updateDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, updatePassword } from 'firebase/auth';
 import { Badge } from '@/components/ui/badge';
+import { useRouter } from 'next/navigation';
 
 type Wallet = {
     balance: number;
@@ -34,89 +36,20 @@ type Wallet = {
 
 type UserData = {
     id: string;
+    uid: string;
     displayName?: string;
+    email?: string;
     contractNumber?: string;
     tempPassword?: string;
     wallet?: Wallet;
 };
 
-function CardManagementDialog({ user, onUserUpdate }: { user: UserData; onUserUpdate: (updatedUser: UserData) => void }) {
-    const { toast } = useToast();
-    const firestore = useFirestore();
-    const [newPassword, setNewPassword] = useState('');
-    const [amount, setAmount] = useState(0);
-    const [isLoading, setIsLoading] = useState(false);
-
-    if (!user.wallet || !firestore) return null;
-
-    const handleUpdate = async (updateData: Partial<UserData['wallet']>) => {
-        setIsLoading(true);
-        try {
-            const userDocRef = doc(firestore, 'users', user.id);
-            await updateDoc(userDocRef, { wallet: { ...user.wallet, ...updateData } });
-            onUserUpdate({ ...user, wallet: { ...user.wallet, ...updateData } });
-            toast({ title: 'نجاح', description: 'تم تحديث بيانات البطاقة.' });
-        } catch (error: any) {
-            toast({ variant: 'destructive', title: 'خطأ', description: error.message });
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handlePasswordChange = async () => {
-        // This is a simplified example. In a real app, you would need to handle re-authentication.
-        toast({ variant: 'destructive', title: 'غير مدعوم', description: 'تغيير كلمة المرور من هنا غير مدعوم حاليًا لأسباب أمنية.' });
-    };
-    
-    const handleDeposit = () => handleUpdate({ balance: user.wallet!.balance + Number(amount) });
-    const handleWithdraw = () => handleUpdate({ balance: user.wallet!.balance - Number(amount) });
-    const handleToggleStatus = () => handleUpdate({ status: user.wallet!.status === 'active' ? 'suspended' : 'active' });
-
-    return (
-        <DialogContent dir="rtl">
-            <DialogHeader>
-                <DialogTitle>إدارة بطاقة: {user.displayName}</DialogTitle>
-                <DialogDescription>
-                    رقم البطاقة: <span className="font-mono">{user.wallet.cardNumber}</span>
-                    <br />
-                    الرصيد الحالي: <span className="font-bold">{user.wallet.balance.toFixed(2)} د.ل</span>
-                </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label className="text-right">كلمة المرور</Label>
-                    <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} type="password" className="col-span-2" />
-                    <Button onClick={handlePasswordChange} disabled={isLoading} variant="outline">تغيير</Button>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label className="text-right">المبلغ</Label>
-                    <Input value={amount} onChange={(e) => setAmount(Number(e.target.value))} type="number" className="col-span-3" />
-                </div>
-                <div className="flex gap-2">
-                    <Button onClick={handleDeposit} disabled={isLoading} className="flex-1">
-                        {isLoading ? <LoaderCircle className="animate-spin" /> : 'إيداع'}
-                    </Button>
-                    <Button onClick={handleWithdraw} disabled={isLoading} variant="destructive" className="flex-1">
-                        {isLoading ? <LoaderCircle className="animate-spin" /> : 'سحب'}
-                    </Button>
-                </div>
-            </div>
-            <DialogFooter>
-                 <Button onClick={handleToggleStatus} disabled={isLoading} variant={user.wallet.status === 'active' ? 'destructive' : 'secondary'}>
-                    {isLoading && <LoaderCircle className="ml-2 h-4 w-4 animate-spin" />}
-                    {user.wallet.status === 'active' ? 'تعليق البطاقة' : 'تفعيل البطاقة'}
-                </Button>
-            </DialogFooter>
-        </DialogContent>
-    );
-}
-
 export default function UsersPage() {
     const { toast } = useToast();
+    const router = useRouter();
     const { user: adminUser, isUserLoading: isAdminLoading } = useUser();
     const [isAddUserDialogOpen, setAddUserDialogOpen] = useState(false);
-    const [isManageCardDialogOpen, setManageCardDialogOpen] = useState(false);
-    const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
+    
     const [newUserName, setNewUserName] = useState('');
     const [newContractNumber, setNewContractNumber] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -181,7 +114,8 @@ export default function UsersPage() {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            const newUserDoc = {
+            const newUserDoc: UserData = {
+                id: user.uid,
                 uid: user.uid,
                 displayName: newUserName,
                 contractNumber: newContractNumber,
@@ -200,7 +134,7 @@ export default function UsersPage() {
             
             await setDoc(doc(firestore, 'users', user.uid), newUserDoc);
             
-            setUsers(prevUsers => [{ id: user.uid, ...newUserDoc }, ...prevUsers]);
+            setUsers(prevUsers => [newUserDoc, ...prevUsers]);
 
             toast({ title: 'تمت إضافة المستخدم بنجاح', description: `تم إنشاء حساب ومستند لـ ${newUserName}.` });
             setAddUserDialogOpen(false);
@@ -225,15 +159,6 @@ export default function UsersPage() {
         toast({ title: 'تم النسخ!', description: 'تم نسخ كلمة المرور إلى الحافظة.' });
     };
     
-    const handleManageCardClick = (user: UserData) => {
-        setSelectedUser(user);
-        setManageCardDialogOpen(true);
-    }
-    
-    const handleUserUpdate = (updatedUser: UserData) => {
-        setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
-    }
-
   return (
     <AdminSubPageLayout title="المستخدمون">
         <div className="flex items-center justify-end gap-4">
@@ -269,6 +194,7 @@ export default function UsersPage() {
                 </div>
                 <DialogFooter>
                     <Button onClick={handleAddUser} disabled={isLoading}>
+                        {isLoading && <LoaderCircle className="ml-2 h-4 w-4 animate-spin" />}
                         {isLoading ? 'جاري الإضافة...' : 'إضافة مستخدم'}
                     </Button>
                 </DialogFooter>
@@ -286,7 +212,7 @@ export default function UsersPage() {
                     <TableHeader>
                     <TableRow>
                         <TableHead>الاسم</TableHead>
-                        <TableHead>رقم العقد</TableHead>
+                        <TableHead>رقم العقد / البريد</TableHead>
                         <TableHead>حالة البطاقة</TableHead>
                         <TableHead>كلمة المرور المؤقتة</TableHead>
                         <TableHead>
@@ -303,11 +229,15 @@ export default function UsersPage() {
                         users.map((user) => (
                             <TableRow key={user.id}>
                                 <TableCell className="font-medium">{user.displayName}</TableCell>
-                                <TableCell>{user.contractNumber}</TableCell>
+                                <TableCell>{user.email}</TableCell>
                                 <TableCell>
-                                    <Badge variant={user.wallet?.status === 'active' ? 'default' : 'destructive'}>
+                                   {user.wallet ? (
+                                     <Badge variant={user.wallet?.status === 'active' ? 'default' : 'destructive'}>
                                         {user.wallet?.status === 'active' ? 'نشطة' : 'معلقة'}
                                     </Badge>
+                                   ) : (
+                                    <Badge variant="outline">لا توجد</Badge>
+                                   )}
                                 </TableCell>
                                 <TableCell>
                                     <div className="flex items-center gap-2">
@@ -327,7 +257,7 @@ export default function UsersPage() {
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" dir='rtl'>
                                         <DropdownMenuLabel>الإجراءات</DropdownMenuLabel>
-                                        <DropdownMenuItem onSelect={() => handleManageCardClick(user)}>إدارة البطاقة</DropdownMenuItem>
+                                        <DropdownMenuItem onSelect={() => router.push('/admin/cards')}>إدارة البطاقة</DropdownMenuItem>
                                         <DropdownMenuItem>حذف المستخدم</DropdownMenuItem>
                                     </DropdownMenuContent>
                                     </DropdownMenu>
@@ -336,17 +266,13 @@ export default function UsersPage() {
                         ))
                     ) : (
                         <TableRow>
-                             <TableCell colSpan={5} className="text-center">لا يوجد مستخدمين لعرضهم.</TableCell>
+                             <TableCell colSpan={5} className="text-center h-24">لا يوجد مستخدمين لعرضهم.</TableCell>
                         </TableRow>
                     )}
                     </TableBody>
                 </Table>
             </CardContent>
         </Card>
-
-        <Dialog open={isManageCardDialogOpen} onOpenChange={setManageCardDialogOpen}>
-            {selectedUser && <CardManagementDialog user={selectedUser} onUserUpdate={handleUserUpdate}/>}
-        </Dialog>
     </AdminSubPageLayout>
   );
 }
