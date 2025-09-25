@@ -266,7 +266,7 @@
       },
       "description": "Stores a user's transaction history."
     },
-    "/admins/{adminId}": {
+    "/managers/{managerId}": {
       "schema": {
         "$ref": "#/entities/UserProfile"
       },

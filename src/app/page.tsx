@@ -6,12 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Logo } from '@/components/icons';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
-import { Logo } from '@/components/icons';
 import { LoaderCircle } from 'lucide-react';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { errorEmitter } from '@/firebase/error-emitter';
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('zaki@zetabait.app');
@@ -37,11 +39,9 @@ export default function AdminLoginPage() {
     }
 
     try {
-      // Step 1: Try to sign in the user
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Step 2: Ensure the admin document exists
       const adminData = {
         uid: user.uid,
         displayName: 'المدير العام',
@@ -51,9 +51,9 @@ export default function AdminLoginPage() {
       };
       
       // Using setDoc will create or overwrite the document, ensuring it exists.
-      // This will also create the collections 'admins' and 'users' if they don't exist.
-      await setDoc(doc(firestore, 'admins', user.uid), adminData);
+      await setDoc(doc(firestore, 'managers', user.uid), adminData);
       await setDoc(doc(firestore, 'users', user.uid), adminData);
+
 
       toast({
         title: 'تم تسجيل الدخول بنجاح',
@@ -62,7 +62,6 @@ export default function AdminLoginPage() {
       router.push('/admin');
 
     } catch (error: any) {
-      // Step 3: If sign-in fails (e.g., user not found), create the account
       if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found') {
         try {
           const newUserCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -76,9 +75,26 @@ export default function AdminLoginPage() {
             createdAt: new Date().toISOString(),
           };
 
-          // Create the documents for the new admin user
-          await setDoc(doc(firestore, 'admins', newUser.uid), adminData);
-          await setDoc(doc(firestore, 'users', newUser.uid), adminData);
+          const managerDocRef = doc(firestore, 'managers', newUser.uid);
+          await setDoc(managerDocRef, adminData)
+            .catch(serverError => {
+                 errorEmitter.emit('permission-error', new FirestorePermissionError({
+                    path: managerDocRef.path,
+                    operation: 'create',
+                    requestResourceData: adminData
+                }));
+            });
+
+          const userDocRef = doc(firestore, 'users', newUser.uid);
+          await setDoc(userDocRef, adminData)
+            .catch(serverError => {
+                 errorEmitter.emit('permission-error', new FirestorePermissionError({
+                    path: userDocRef.path,
+                    operation: 'create',
+                    requestResourceData: adminData
+                }));
+            });
+
 
           toast({
             title: 'تم إنشاء حساب مدير جديد',
@@ -94,7 +110,6 @@ export default function AdminLoginPage() {
           });
         }
       } else {
-        // Handle other login errors
         toast({
           variant: 'destructive',
           title: 'فشل تسجيل الدخول',

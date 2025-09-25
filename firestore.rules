@@ -1,29 +1,3 @@
-/**
- * @file Firestore Security Rules
- * @description This ruleset enforces a strict user-ownership model for user profiles and transactions,
- *              while allowing public read access to product and category information.  Card link requests
- *              are secured to ensure only the involved users can create, update, or delete them. Admin
- *              profiles are only accessible to admins.
- *
- * Data Structure:
- * - /users/{userId}: Public user profile information, owned by the user.
- * - /users/{userId}/transactions/{transactionId}: Transaction history for each user, owned by the user.
- * - /admins/{adminId}: Admin user profiles, accessible only to admins.
- * - /products/{productId}: Public product information, write access not yet defined due to missing ownership field.
- * - /categories/{categoryId}: Public product categories.
- * - /cardLinkRequests/{requestId}: Requests for linking payment cards, accessible only to the involved users.
- *
- * Key Security Decisions:
- * - User profiles and transactions are strictly owned by the user.
- * - Listing of user profiles is disallowed for privacy.
- * - Product and category information is publicly readable.
- * - Write access to products is currently disabled because of missing schema info.
- * - Card link requests can only be managed by the requestor and the owner of the card.
- * - Admin profiles are only accessible to admins.
- *
- * Denormalization for Authorization:
- *  - CardLinkRequest contains both requesterId and ownerId for easy authorization.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -32,149 +6,130 @@ service cloud.firestore {
      * @description Controls access to user profile documents.
      * @path /users/{userId}
      * @allow (create) User with matching UID can create their profile.
-     * @allow (get) User can read their own profile.
-     * @allow (update) User can update their own profile.
-     * @allow (delete) User can delete their own profile.
+     * @allow (get, update, delete) User with matching UID can access their profile.
      * @deny (create) User cannot create a profile with a different UID.
-     * @deny (get) User cannot read another user's profile.
-     * @deny (update) User cannot update another user's profile.
-     * @deny (delete) User cannot delete another user's profile.
-     * @principle Enforces document ownership for writes and reads.
+     * @deny (get, update, delete) User cannot access another user's profile.
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
       allow get: if isOwner(userId);
       allow list: if false;
-      allow create: if isOwner(userId) && request.resource.data.uid == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.uid == resource.data.uid;
-      allow delete: if isExistingOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
     }
 
     /**
-     * @description Controls access to transaction history for a user.
+     * @description Controls access to transaction documents within a user's profile.
      * @path /users/{userId}/transactions/{transactionId}
-     * @allow (create) User can create a new transaction in their history.
-     * @allow (get) User can read a transaction in their history.
-     * @allow (update) User can update a transaction in their history.
-     * @allow (delete) User can delete a transaction in their history.
-     * @deny (create) User cannot create a transaction for another user.
-     * @deny (get) User cannot read another user's transaction.
-     * @deny (update) User cannot update another user's transaction.
-     * @deny (delete) User cannot delete another user's transaction.
-     * @principle Restricts access to a user's own data tree.
+     * @allow (create, get, update, delete) User with matching UID can manage their transactions.
+     * @deny (create, get, update, delete) User cannot manage transactions for other users.
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId}/transactions/{transactionId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
       allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
     }
 
     /**
      * @description Controls access to admin profile documents.
      * @path /admins/{adminId}
-     * @allow (create) Only admins can create admin profiles.
-     * @allow (get) Only admins can read admin profiles.
-     * @allow (update) Only admins can update admin profiles.
-     * @allow (delete) Only admins can delete admin profiles.
-     * @deny (create) Non-admins cannot create admin profiles.
-     * @deny (get) Non-admins cannot read admin profiles.
-     * @deny (update) Non-admins cannot update admin profiles.
-     * @deny (delete) Non-admins cannot delete admin profiles.
-     * @principle Restricts access to admin data to admin users only.
+     * @allow (get, update, delete) Only the admin user can access their own document.
+     * @deny (create) No one can create an admin profile via the client.
+     * @deny (get, update, delete) Regular users cannot access admin profiles.
+     * @principle Enforces document ownership for admin profiles.
      */
     match /admins/{adminId} {
-        allow get: if isAdmin();
-        allow list: if false;
-        allow create: if isAdmin() && request.resource.data.uid == request.auth.uid;
-        allow update: if isExistingAdmin() && request.resource.data.uid == resource.data.uid;
-        allow delete: if isExistingAdmin();
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(adminId) {
+        return request.auth.uid == adminId;
+      }
+
+      allow get: if isOwner(adminId);
+      allow list: if false;
+      allow create: if false;
+      allow update: if isSignedIn() && isOwner(adminId);
+      allow delete: if isSignedIn() && isOwner(adminId);
     }
 
     /**
      * @description Controls access to product documents.
      * @path /products/{productId}
-     * @allow (get) Anyone can read product information.
-     * @allow (list) Anyone can list product information.
-     * @deny (create) Only owners can create products. // TODO: Add owner validation once the schema is updated with an ownership field.
-     * @deny (update) Only owners can update products. // TODO: Add owner validation once the schema is updated with an ownership field.
-     * @deny (delete) Only owners can delete products. // TODO: Add owner validation once the schema is updated with an ownership field.
-     * @principle Allows public read access with owner-only writes.
+     * @allow (get, list) All users can read product information.
+     * @deny (create, update, delete) Only administrators can create, update, or delete products.
+     * @principle Allows public read access with restricted write access.
      */
     match /products/{productId} {
       allow get: if true;
       allow list: if true;
-      allow create: if false; // CRITICAL: Cannot implement owner-only writes. The 'Product' entity is missing an 'ownerId' or 'authorId' field.
-      allow update: if false; // CRITICAL: Cannot implement owner-only writes. The 'Product' entity is missing an 'ownerId' or 'authorId' field.
-      allow delete: if false; // CRITICAL: Cannot implement owner-only writes. The 'Product' entity is missing an 'ownerId' or 'authorId' field.
+      allow create: if false; // TODO: Add admin role check
+      allow update: if false; // TODO: Add admin role check
+      allow delete: if false; // TODO: Add admin role check
     }
 
     /**
      * @description Controls access to category documents.
      * @path /categories/{categoryId}
-     * @allow (get) Anyone can read category information.
-     * @allow (list) Anyone can list category information.
-     * @deny (create) No one can create categories.
-     * @deny (update) No one can update categories.
-     * @deny (delete) No one can delete categories.
-     * @principle Allows public read access.
+     * @allow (get, list) All users can read category information.
+     * @deny (create, update, delete) Only administrators can create, update, or delete categories.
+     * @principle Allows public read access with restricted write access.
      */
     match /categories/{categoryId} {
       allow get: if true;
       allow list: if true;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow create: if false; // TODO: Add admin role check
+      allow update: if false; // TODO: Add admin role check
+      allow delete: if false; // TODO: Add admin role check
     }
 
     /**
      * @description Controls access to card link request documents.
      * @path /cardLinkRequests/{requestId}
-     * @allow (create) Only the requester can create a card link request.
-     * @allow (get) Only the requester or owner can read a card link request.
-     * @allow (update) Only the requester or owner can update a card link request.
-     * @allow (delete) Only the requester or owner can delete a card link request.
-     * @deny (create) A user cannot create a request on behalf of another user.
-     * @deny (get) A user cannot read a request they are not involved in.
-     * @deny (update) A user cannot update a request they are not involved in.
-     * @deny (delete) A user cannot delete a request they are not involved in.
-     * @principle Enforces access control based on requestor and owner IDs.
+     * @allow (create) The requesting user can create a request.
+     * @allow (get, update) The owner or requester can read and update the request.
+     * @deny (create, get, update, delete) Other users cannot access or modify the request.
+     * @principle Enforces access control based on requesterId and ownerId.
      */
     match /cardLinkRequests/{requestId} {
-      allow get: if isCardLinkParticipant(resource.data.requesterId, resource.data.ownerId);
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isRequester(requesterId) {
+        return request.auth.uid == requesterId;
+      }
+
+      function isOwner(ownerId) {
+        return request.auth.uid == ownerId;
+      }
+
+      allow get: if isSignedIn() && (isRequester(resource.data.requesterId) || isOwner(resource.data.ownerId));
       allow list: if false;
-      allow create: if request.auth.uid == request.resource.data.requesterId;
-      allow update: if isExistingCardLinkParticipant(resource.data.requesterId, resource.data.ownerId);
-      allow delete: if isExistingCardLinkParticipant(resource.data.requesterId, resource.data.ownerId);
+      allow create: if isSignedIn() && isRequester(request.resource.data.requesterId);
+      allow update: if isSignedIn() && (isRequester(resource.data.requesterId) || isOwner(resource.data.ownerId));
+      allow delete: if false; // Deletion is not permitted.
     }
-  }
-
-  // Helper functions
-  function isSignedIn() {
-    return request.auth != null;
-  }
-
-  function isOwner(userId) {
-    return isSignedIn() && request.auth.uid == userId;
-  }
-
-  function isExistingOwner(userId) {
-    return isOwner(userId) && resource != null;
-  }
-
-    function isAdmin() {
-        return isSignedIn() && request.auth.token.isAdmin == true;
-    }
-
-    function isExistingAdmin() {
-        return isAdmin() && resource != null;
-    }
-
-  function isCardLinkParticipant(requesterId, ownerId) {
-    return isSignedIn() && (request.auth.uid == requesterId || request.auth.uid == ownerId);
-  }
-
-  function isExistingCardLinkParticipant(requesterId, ownerId) {
-      return isCardLinkParticipant(requesterId, ownerId) && resource != null;
   }
 }
