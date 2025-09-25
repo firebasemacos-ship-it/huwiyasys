@@ -7,9 +7,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useFirestore, errorEmitter, FirestorePermissionError, setDocumentNonBlocking } from '@/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, User } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { useAuth, useFirestore } from '@/firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 import { Logo } from '@/components/icons';
 import { LoaderCircle } from 'lucide-react';
 
@@ -22,81 +22,85 @@ export default function AdminLoginPage() {
   const auth = useAuth();
   const firestore = useFirestore();
 
-  const ensureAdminFirestoreDocument = async (user: User) => {
-    if (!firestore) return;
-    const adminDocRef = doc(firestore, 'admins', user.uid);
-    const userDocRef = doc(firestore, 'users', user.uid);
-
-    try {
-        const adminDoc = await getDoc(adminDocRef);
-        if (!adminDoc.exists()) {
-            const adminUserData = {
-                uid: user.uid,
-                displayName: 'المدير العام',
-                email: user.email,
-                isAdmin: true,
-                createdAt: new Date().toISOString(),
-            };
-            
-            // Use non-blocking writes with detailed error handling
-            setDocumentNonBlocking(adminDocRef, adminUserData, {});
-            setDocumentNonBlocking(userDocRef, adminUserData, {});
-
-        }
-    } catch (error: any) {
-        // This catch block is for getDoc errors, which are less likely to be permission errors
-        // compared to writes. The setDoc errors are handled by the non-blocking function.
-        console.error("Failed to ensure admin firestore document:", error);
-        toast({ variant: 'destructive', title: 'خطأ', description: 'فشل التحقق من سجل المدير.' });
-    }
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+
     if (!auth || !firestore) {
-        toast({
-            variant: 'destructive',
-            title: 'خطأ في التهيئة',
-            description: 'لم يتم تهيئة خدمات Firebase بعد.',
-        });
-        setIsLoading(false);
-        return;
+      toast({
+        variant: 'destructive',
+        title: 'خطأ في التهيئة',
+        description: 'لم يتم تهيئة خدمات Firebase بعد.',
+      });
+      setIsLoading(false);
+      return;
     }
 
     try {
+      // Step 1: Try to sign in the user
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      await ensureAdminFirestoreDocument(userCredential.user);
+      const user = userCredential.user;
+
+      // Step 2: Ensure the admin document exists
+      const adminData = {
+        uid: user.uid,
+        displayName: 'المدير العام',
+        email: user.email,
+        isAdmin: true,
+        createdAt: new Date().toISOString(),
+      };
+      
+      // Using setDoc will create or overwrite the document, ensuring it exists.
+      // This will also create the collections 'admins' and 'users' if they don't exist.
+      await setDoc(doc(firestore, 'admins', user.uid), adminData);
+      await setDoc(doc(firestore, 'users', user.uid), adminData);
+
       toast({
         title: 'تم تسجيل الدخول بنجاح',
         description: 'جاري تحويلك إلى لوحة التحكم.',
       });
       router.push('/admin');
+
     } catch (error: any) {
-        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found') {
-            try {
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                await ensureAdminFirestoreDocument(userCredential.user);
-                toast({
-                    title: 'تم إنشاء حساب مدير جديد',
-                    description: 'تم تسجيل دخولك بنجاح.',
-                });
-                router.push('/admin');
-            } catch (creationError: any) {
-                 toast({
-                    variant: 'destructive',
-                    title: 'فشل إنشاء الحساب',
-                    description: creationError.message || 'فشل إنشاء حساب المدير.',
-                });
-            }
-        } else {
-            console.error('Admin Login Error:', error);
-            toast({
-                variant: 'destructive',
-                title: 'فشل تسجيل الدخول',
-                description: error.message || 'حدث خطأ غير متوقع.',
-            });
+      // Step 3: If sign-in fails (e.g., user not found), create the account
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found') {
+        try {
+          const newUserCredential = await createUserWithEmailAndPassword(auth, email, password);
+          const newUser = newUserCredential.user;
+
+          const adminData = {
+            uid: newUser.uid,
+            displayName: 'المدير العام',
+            email: newUser.email,
+            isAdmin: true,
+            createdAt: new Date().toISOString(),
+          };
+
+          // Create the documents for the new admin user
+          await setDoc(doc(firestore, 'admins', newUser.uid), adminData);
+          await setDoc(doc(firestore, 'users', newUser.uid), adminData);
+
+          toast({
+            title: 'تم إنشاء حساب مدير جديد',
+            description: 'تم تسجيل دخولك بنجاح.',
+          });
+          router.push('/admin');
+
+        } catch (creationError: any) {
+          toast({
+            variant: 'destructive',
+            title: 'فشل إنشاء الحساب',
+            description: creationError.message,
+          });
         }
+      } else {
+        // Handle other login errors
+        toast({
+          variant: 'destructive',
+          title: 'فشل تسجيل الدخول',
+          description: error.message,
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -108,9 +112,9 @@ export default function AdminLoginPage() {
         <form onSubmit={handleLogin}>
           <CardHeader className="text-center">
             <div className="mb-4 flex justify-center">
-               <div onClick={() => router.push('/login')} className="cursor-pointer">
+              <div onClick={() => router.push('/login')} className="cursor-pointer">
                 <Logo className="h-12 w-12 text-primary" />
-               </div>
+              </div>
             </div>
             <CardTitle className="text-2xl">دخول المدير</CardTitle>
             <CardDescription>الرجاء تسجيل الدخول للمتابعة إلى لوحة التحكم.</CardDescription>
