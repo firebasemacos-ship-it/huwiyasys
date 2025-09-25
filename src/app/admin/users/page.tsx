@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import AdminSubPageLayout from '../layout';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Copy, MoreHorizontal, LoaderCircle } from 'lucide-react';
+import { PlusCircle, Copy, MoreHorizontal, LoaderCircle, Trash2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import {
@@ -16,13 +16,23 @@ import {
   DialogFooter,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useAuth, useUser } from '@/firebase';
-import { collection, setDoc, doc, getDocs, DocumentData, updateDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, updatePassword } from 'firebase/auth';
+import { collection, setDoc, doc, getDocs, DocumentData, deleteDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 
@@ -42,6 +52,8 @@ type UserData = {
     contractNumber?: string;
     tempPassword?: string;
     wallet?: Wallet;
+    createdAt?: string;
+    isAdmin?: boolean;
 };
 
 export default function UsersPage() {
@@ -56,6 +68,11 @@ export default function UsersPage() {
     
     const [users, setUsers] = useState<UserData[]>([]);
     const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+    
+    const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [userToDelete, setUserToDelete] = useState<UserData | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+
 
     const firestore = useFirestore();
     const auth = useAuth();
@@ -128,7 +145,7 @@ export default function UsersPage() {
                     cardNumber: generateCardNumber(),
                     cvv: generateCvv(),
                     expiryDate: generateExpiryDate(),
-                    status: 'active' as 'active' | 'suspended',
+                    status: 'active',
                 }
             };
             
@@ -150,6 +167,33 @@ export default function UsersPage() {
             }
         } finally {
              setIsLoading(false);
+        }
+    };
+    
+    const confirmDeleteUser = (user: UserData) => {
+        setUserToDelete(user);
+        setDeleteDialogOpen(true);
+    };
+
+    const handleDeleteUser = async () => {
+        if (!userToDelete || !firestore) return;
+        
+        setIsDeleting(true);
+        try {
+            // Note: This only deletes the Firestore document.
+            // Deleting the Firebase Auth user requires admin privileges, typically via a Cloud Function.
+            await deleteDoc(doc(firestore, "users", userToDelete.id));
+
+            setUsers(users.filter(u => u.id !== userToDelete.id));
+            toast({ title: "نجاح", description: `تم حذف بيانات المستخدم ${userToDelete.displayName}.` });
+
+        } catch (error: any) {
+            console.error("Error deleting user:", error);
+            toast({ variant: 'destructive', title: 'فشل حذف المستخدم', description: error.message });
+        } finally {
+            setIsDeleting(false);
+            setDeleteDialogOpen(false);
+            setUserToDelete(null);
         }
     };
 
@@ -258,7 +302,9 @@ export default function UsersPage() {
                                     <DropdownMenuContent align="end" dir='rtl'>
                                         <DropdownMenuLabel>الإجراءات</DropdownMenuLabel>
                                         <DropdownMenuItem onSelect={() => router.push('/admin/cards')}>إدارة البطاقة</DropdownMenuItem>
-                                        <DropdownMenuItem>حذف المستخدم</DropdownMenuItem>
+                                        <DropdownMenuItem onSelect={() => confirmDeleteUser(user)} className="text-destructive">
+                                            حذف المستخدم
+                                        </DropdownMenuItem>
                                     </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableCell>
@@ -273,6 +319,27 @@ export default function UsersPage() {
                 </Table>
             </CardContent>
         </Card>
+         <AlertDialog open={isDeleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <AlertDialogContent dir="rtl">
+                <AlertDialogHeader>
+                <AlertDialogTitle>هل أنت متأكد تماماً؟</AlertDialogTitle>
+                <AlertDialogDescription>
+                    هذا الإجراء سيحذف بيانات المستخدم بشكل نهائي ولا يمكن التراجع عنه.
+                    <br/>
+                    <strong className='py-2 block'>ملاحظة: هذا سيحذف بيانات المستخدم من قاعدة البيانات فقط، وليس حساب المصادقة الخاص به.</strong>
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setUserToDelete(null)} disabled={isDeleting}>إلغاء</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteUser} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+                    {isDeleting ? <LoaderCircle className="ml-2 h-4 w-4 animate-spin" /> : <Trash2 className="ml-2 h-4 w-4" />}
+                    {isDeleting ? 'جاري الحذف...' : 'نعم، قم بالحذف'}
+                </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     </AdminSubPageLayout>
   );
 }
+
+    

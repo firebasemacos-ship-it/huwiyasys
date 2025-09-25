@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import AdminSubPageLayout from '../layout';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, LoaderCircle, Search, ListFilter } from 'lucide-react';
+import { MoreHorizontal, LoaderCircle, Search, ListFilter, Trash2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import {
@@ -15,6 +15,16 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -28,7 +38,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser } from '@/firebase';
-import { collection, getDocs, doc, updateDoc, DocumentData } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, deleteDoc, DocumentData } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -143,6 +153,9 @@ export default function CardsPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<string[]>(['active', 'suspended']);
 
+    const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [userToDelete, setUserToDelete] = useState<UserData | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
         const fetchUsers = async () => {
@@ -185,6 +198,32 @@ export default function CardsPage() {
             prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
         );
     };
+
+    const confirmDeleteUser = (user: UserData) => {
+        setUserToDelete(user);
+        setDeleteDialogOpen(true);
+    };
+
+    const handleDeleteUser = async () => {
+        if (!userToDelete || !firestore) return;
+        
+        setIsDeleting(true);
+        try {
+            await deleteDoc(doc(firestore, "users", userToDelete.id));
+
+            setUsers(users.filter(u => u.id !== userToDelete.id));
+            toast({ title: "نجاح", description: `تم حذف بيانات المستخدم ${userToDelete.displayName}.` });
+
+        } catch (error: any) {
+            console.error("Error deleting user:", error);
+            toast({ variant: 'destructive', title: 'فشل حذف المستخدم', description: error.message });
+        } finally {
+            setIsDeleting(false);
+            setDeleteDialogOpen(false);
+            setUserToDelete(null);
+        }
+    };
+
 
     const filteredUsers = useMemo(() => {
         return users
@@ -279,7 +318,9 @@ export default function CardsPage() {
                                                 <DropdownMenuContent align="end" dir='rtl'>
                                                     <DropdownMenuLabel>الإجراءات</DropdownMenuLabel>
                                                     <DropdownMenuItem onSelect={() => handleManageCardClick(user)}>إدارة البطاقة</DropdownMenuItem>
-                                                    <DropdownMenuItem className="text-destructive">حذف المستخدم</DropdownMenuItem>
+                                                    <DropdownMenuItem onSelect={() => confirmDeleteUser(user)} className="text-destructive">
+                                                        حذف المستخدم
+                                                    </DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </TableCell>
@@ -297,7 +338,26 @@ export default function CardsPage() {
             <Dialog open={isManageCardDialogOpen} onOpenChange={setManageCardDialogOpen}>
                 {selectedUser && <CardManagementDialog user={selectedUser} onUserUpdate={handleUserUpdate} onClose={() => setManageCardDialogOpen(false)} />}
             </Dialog>
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <AlertDialogContent dir="rtl">
+                    <AlertDialogHeader>
+                    <AlertDialogTitle>هل أنت متأكد تماماً؟</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        هذا الإجراء سيحذف بيانات المستخدم بشكل نهائي ولا يمكن التراجع عنه.
+                    </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setUserToDelete(null)} disabled={isDeleting}>إلغاء</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteUser} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+                        {isDeleting ? <LoaderCircle className="ml-2 h-4 w-4 animate-spin" /> : <Trash2 className="ml-2 h-4 w-4" />}
+                        {isDeleting ? 'جاري الحذف...' : 'نعم، قم بالحذف'}
+                    </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </AdminSubPageLayout>
     );
 }
 
+
+    
