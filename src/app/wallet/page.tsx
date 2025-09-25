@@ -157,7 +157,7 @@ export default function WalletPage() {
                             <p className="text-3xl font-bold leading-tight">{displayBalance.toFixed(2)}</p>
                             <p className="text-sm font-medium opacity-90">دينار ليبي</p>
                         </div>
-                        <p className="text-sm font-semibold">08/28</p>
+                        <p className="text-sm font-semibold">08/30</p>
                     </div>
                 </CardContent>
             </Card>
