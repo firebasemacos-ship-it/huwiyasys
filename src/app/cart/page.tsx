@@ -43,7 +43,7 @@ type UserProfile = {
 };
 
 
-function CheckoutDialog({ onPaymentSuccess, cartItems, deliveryFee }: { onPaymentSuccess: () => void, cartItems: typeof initialCartItems, deliveryFee: number }) {
+function CheckoutDialog({ onPaymentSuccess, cartItems }: { onPaymentSuccess: () => void, cartItems: typeof initialCartItems }) {
     const { toast } = useToast();
     const { user } = useUser();
     const firestore = useFirestore();
@@ -63,6 +63,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, deliveryFee }: { onPaymen
     const [newCardCvv, setNewCardCvv] = useState('');
 
     const subtotal = useMemo(() => cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0), [cartItems]);
+    const deliveryFee = 10;
     const totalAmount = subtotal + deliveryFee;
 
     const handlePayment = async () => {
@@ -79,6 +80,10 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, deliveryFee }: { onPaymen
                     paymentCardOwnerId = user.uid;
                     paymentCardOwnerData = userData;
                     cardVerified = true;
+                } else {
+                     toast({ variant: 'destructive', title: 'خطأ في الدفع', description: 'الرصيد في بطاقتك الأساسية غير كافٍ.' });
+                     setPaymentStatus('idle');
+                     return;
                 }
             } else {
                 let cardToVerify: { cardNumber: string; expiryDate?: string; cvv?: string; };
@@ -105,20 +110,32 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, deliveryFee }: { onPaymen
                 const querySnapshot = await getDocs(q);
 
                 if (!querySnapshot.empty) {
-                    querySnapshot.forEach(doc => {
-                        const foundUser = doc.data() as UserProfile;
+                    let cardFound = false;
+                    for (const docSnap of querySnapshot.docs) {
+                        const foundUser = docSnap.data() as UserProfile;
                         const isMatch = (cardToVerify.expiryDate && cardToVerify.cvv)
                             ? foundUser.wallet.expiryDate === cardToVerify.expiryDate && foundUser.wallet.cvv === cardToVerify.cvv
-                            : true; // For already linked cards, trust them
+                            : true; // For already linked cards, we trust them
 
                         if (isMatch) {
+                            cardFound = true;
                             if (foundUser.wallet.balance >= totalAmount) {
-                                paymentCardOwnerId = doc.id;
+                                paymentCardOwnerId = docSnap.id;
                                 paymentCardOwnerData = foundUser;
                                 cardVerified = true;
+                            } else {
+                                toast({ variant: 'destructive', title: 'خطأ في الدفع', description: 'رصيد البطاقة المحددة غير كافٍ.' });
+                                setPaymentStatus('idle');
+                                return;
                             }
+                            break; 
                         }
-                    });
+                    }
+                    if(!cardFound) {
+                        toast({ variant: 'destructive', title: 'خطأ في الدفع', description: 'بيانات البطاقة غير صحيحة.' });
+                        setPaymentStatus('idle');
+                        return;
+                    }
                 }
             }
 
@@ -141,7 +158,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, deliveryFee }: { onPaymen
                 type: 'شراء',
                 amount: -totalAmount,
                 date: serverTimestamp(),
-                description: `شراء من قبل ${userData?.displayName || 'مستخدم'} (رقم العقد: ${user.uid.substring(0,6)})`
+                description: `شراء من قبل ${userData?.displayName || 'مستخدم'}`
             });
             
             // 3. Create transaction for the buyer (if different from owner)
@@ -265,7 +282,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, deliveryFee }: { onPaymen
             </div>
 
             <DialogFooter>
-                <Button onClick={handlePayment} disabled={paymentStatus === 'processing'} size="lg" className="w-full">
+                <Button onClick={handlePayment} disabled={paymentStatus === 'processing' || isUserDataLoading} size="lg" className="w-full">
                     ادفع الآن
                 </Button>
             </DialogFooter>
@@ -366,7 +383,7 @@ export default function CartPage() {
                             إتمام الطلب
                         </Button>
                     </DialogTrigger>
-                    {isCheckoutOpen && <CheckoutDialog cartItems={cartItems} deliveryFee={deliveryFee} onPaymentSuccess={handlePaymentSuccess} />}
+                    {isCheckoutOpen && <CheckoutDialog cartItems={cartItems} onPaymentSuccess={handlePaymentSuccess} />}
                 </Dialog>
             </div>
         )}
