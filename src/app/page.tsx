@@ -12,8 +12,6 @@ import { useAuth, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { LoaderCircle } from 'lucide-react';
-import { FirestorePermissionError } from '@/firebase/errors';
-import { errorEmitter } from '@/firebase/error-emitter';
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('zaki@zetabait.app');
@@ -74,27 +72,9 @@ export default function AdminLoginPage() {
             isAdmin: true,
             createdAt: new Date().toISOString(),
           };
-
-          const managerDocRef = doc(firestore, 'managers', newUser.uid);
-          await setDoc(managerDocRef, adminData)
-            .catch(serverError => {
-                 errorEmitter.emit('permission-error', new FirestorePermissionError({
-                    path: managerDocRef.path,
-                    operation: 'create',
-                    requestResourceData: adminData
-                }));
-            });
-
-          const userDocRef = doc(firestore, 'users', newUser.uid);
-          await setDoc(userDocRef, adminData)
-            .catch(serverError => {
-                 errorEmitter.emit('permission-error', new FirestorePermissionError({
-                    path: userDocRef.path,
-                    operation: 'create',
-                    requestResourceData: adminData
-                }));
-            });
-
+          
+          await setDoc(doc(firestore, 'managers', newUser.uid), adminData);
+          await setDoc(doc(firestore, 'users', newUser.uid), adminData);
 
           toast({
             title: 'تم إنشاء حساب مدير جديد',

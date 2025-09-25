@@ -130,10 +130,9 @@ export default function UsersPage() {
         const email = `${newContractNumber}@huwiyasys.app`;
 
         try {
-            // IMPORTANT: This creates a temporary Auth instance for the new user
-            // We should not rely on the main `auth` object for this.
-            // However, for this project setup, we will use the main auth instance and handle potential side effects.
-            // A better solution would be a backend function.
+            // This is a simplified approach for demonstration. 
+            // In a real-world scenario, you should use a backend function (e.g., Firebase Cloud Function)
+            // to create users to avoid auth state conflicts on the admin client.
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
@@ -173,12 +172,6 @@ export default function UsersPage() {
             }
         } finally {
              setIsLoading(false);
-             // Re-login admin if auth state changed
-             if (auth.currentUser?.email !== 'zaki@zetabait.app') {
-                // This part is tricky on the client-side. The ideal way is to use a backend function.
-                // For now, we'll alert the admin that they might need to log in again.
-                // router.push('/'); // Force re-login for admin. This might be disruptive.
-             }
         }
     };
     

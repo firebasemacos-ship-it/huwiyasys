@@ -9,6 +9,7 @@ import { getAuth, signOut } from 'firebase/auth';
 import { LayoutDashboard, LogOut, Menu, Box, Users, ShoppingBag, CreditCard, Image as ImageIcon, Settings } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Logo } from '@/components/icons';
+import { LoaderCircle } from 'lucide-react';
 
 const dashboardItems = [
     { href: '/admin/products', title: 'المنتجات', icon: Box },
@@ -42,7 +43,10 @@ export default function AdminSubPageLayout({ children, title }: { children: Reac
   if (isUserLoading || !user || user.email !== 'zaki@zetabait.app') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <p>جاري التحميل...</p>
+        <div className="flex items-center gap-2">
+            <LoaderCircle className="h-6 w-6 animate-spin" />
+            <p>جاري التحميل والتحقق من الصلاحيات...</p>
+        </div>
       </div>
     );
   }
