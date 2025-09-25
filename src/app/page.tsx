@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useFirestore } from '@/firebase';
+import { useAuth, useFirestore, errorEmitter, FirestorePermissionError, setDocumentNonBlocking } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, User } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { Logo } from '@/components/icons';
@@ -37,12 +37,17 @@ export default function AdminLoginPage() {
                 isAdmin: true,
                 createdAt: new Date().toISOString(),
             };
-            await setDoc(adminDocRef, adminUserData);
-            await setDoc(userDocRef, adminUserData);
+            
+            // Use non-blocking writes with detailed error handling
+            setDocumentNonBlocking(adminDocRef, adminUserData, {});
+            setDocumentNonBlocking(userDocRef, adminUserData, {});
+
         }
-    } catch (error) {
+    } catch (error: any) {
+        // This catch block is for getDoc errors, which are less likely to be permission errors
+        // compared to writes. The setDoc errors are handled by the non-blocking function.
         console.error("Failed to ensure admin firestore document:", error);
-        toast({ variant: 'destructive', title: 'خطأ', description: 'فشل إنشاء سجل المدير.' });
+        toast({ variant: 'destructive', title: 'خطأ', description: 'فشل التحقق من سجل المدير.' });
     }
   };
 
