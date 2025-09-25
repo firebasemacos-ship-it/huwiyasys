@@ -23,9 +23,17 @@
         "isAdmin": {
           "type": "boolean",
           "description": "Flag to indicate if the user is an administrator."
+        },
+        "contractNumber": {
+            "type": "string",
+            "description": "The user's unique contract number."
+        },
+        "tempPassword": {
+            "type": "string",
+            "description": "A temporary password for the user's first login."
         }
       },
-      "required": ["displayName", "email", "createdAt"]
+      "required": ["displayName", "email", "createdAt", "contractNumber"]
     },
     "Product": {
       "title": "Product",

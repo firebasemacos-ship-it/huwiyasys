@@ -1,10 +1,195 @@
+'use client';
 
+import { useState } from 'react';
 import AdminSubPageLayout from '../layout';
+import { Button } from '@/components/ui/button';
+import { PlusCircle, Copy, MoreHorizontal } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth, useFirestore } from '@/firebase';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { collection, addDoc } from 'firebase/firestore';
+
+// In a real app, this would come from Firestore
+const initialUsers = [
+    { id: 'user-001', displayName: 'علي محمد', contractNumber: 'C1001', tempPassword: 'password123' },
+    { id: 'user-002', displayName: 'فاطمة أحمد', contractNumber: 'C1002', tempPassword: 'password456' },
+];
+
 
 export default function UsersPage() {
+    const { toast } = useToast();
+    const [users, setUsers] = useState(initialUsers);
+    const [isDialogOpen, setDialogOpen] = useState(false);
+    const [newUserName, setNewUserName] = useState('');
+    const [newContractNumber, setNewContractNumber] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    
+    const auth = useAuth();
+    const firestore = useFirestore();
+
+    const generatePassword = () => {
+        return Math.random().toString(36).slice(-8);
+    };
+
+    const handleAddUser = async () => {
+        if (!newUserName || !newContractNumber) {
+            toast({ variant: 'destructive', title: 'خطأ', description: 'الرجاء إدخال الاسم ورقم العقد.' });
+            return;
+        }
+
+        setIsLoading(true);
+        const password = generatePassword();
+        const email = `${newContractNumber}@huwiyasys.app`;
+
+        try {
+            // 1. Create user in Firebase Auth
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
+            
+            // 2. Save user details in Firestore
+            const usersCollection = collection(firestore, 'users');
+            const newUserDoc = {
+                uid: user.uid,
+                displayName: newUserName,
+                contractNumber: newContractNumber,
+                email: email,
+                tempPassword: password, // Note: Storing password in Firestore is not recommended for production
+                createdAt: new Date().toISOString(),
+            };
+            await addDoc(usersCollection, newUserDoc);
+
+            // 3. Update local state to show the new user
+            setUsers([...users, { id: user.uid, displayName: newUserName, contractNumber: newContractNumber, tempPassword: password }]);
+
+            toast({ title: 'تم إضافة المستخدم بنجاح', description: `تم إنشاء حساب لـ ${newUserName}.` });
+            setDialogOpen(false);
+            setNewUserName('');
+            setNewContractNumber('');
+
+        } catch (error: any) {
+            console.error("Error adding user:", error);
+            if (error.code === 'auth/email-already-in-use') {
+                 toast({ variant: 'destructive', title: 'فشل إضافة المستخدم', description: 'رقم العقد هذا مستخدم بالفعل.' });
+            } else {
+                 toast({ variant: 'destructive', title: 'فشل إضافة المستخدم', description: error.message });
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+
+    const copyToClipboard = (text: string) => {
+        navigator.clipboard.writeText(text);
+        toast({ title: 'تم النسخ!', description: 'تم نسخ كلمة المرور إلى الحافظة.' });
+    };
+
   return (
     <AdminSubPageLayout title="المستخدمون">
-        <p>هنا يمكنك عرض وإدارة حسابات المستخدمين.</p>
+        <div className="flex items-center justify-end gap-4">
+            <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+                <Button size="sm" className="h-8 gap-1">
+                    <PlusCircle className="h-3.5 w-3.5" />
+                    <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                        إضافة مستخدم
+                    </span>
+                </Button>
+            </DialogTrigger>
+            <DialogContent dir="rtl">
+                <DialogHeader>
+                    <DialogTitle>إضافة مستخدم جديد</DialogTitle>
+                    <DialogDescription>
+                        أدخل بيانات المستخدم الجديد. سيتم إنشاء كلمة مرور تلقائيًا.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="name" className="text-right">
+                            الاسم
+                        </Label>
+                        <Input id="name" value={newUserName} onChange={(e) => setNewUserName(e.target.value)} className="col-span-3" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="contract-number" className="text-right">
+                            رقم العقد
+                        </Label>
+                        <Input id="contract-number" value={newContractNumber} onChange={(e) => setNewContractNumber(e.target.value)} className="col-span-3" />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button onClick={handleAddUser} disabled={isLoading}>
+                        {isLoading ? 'جاري الإضافة...' : 'إضافة مستخدم'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+            </Dialog>
+        </div>
+
+        <Card className="mt-4">
+            <CardHeader>
+                <CardTitle>قائمة المستخدمين</CardTitle>
+                <CardDescription>عرض وإدارة حسابات المستخدمين.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead>الاسم</TableHead>
+                        <TableHead>رقم العقد</TableHead>
+                        <TableHead>كلمة المرور المؤقتة</TableHead>
+                        <TableHead>
+                        <span className="sr-only">الإجراءات</span>
+                        </TableHead>
+                    </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                    {users.map((user) => (
+                        <TableRow key={user.id}>
+                            <TableCell className="font-medium">{user.displayName}</TableCell>
+                            <TableCell>{user.contractNumber}</TableCell>
+                            <TableCell>
+                                <div className="flex items-center gap-2">
+                                    <span className="font-mono">{user.tempPassword}</span>
+                                    <Button variant="ghost" size="icon" onClick={() => copyToClipboard(user.tempPassword)}>
+                                        <Copy className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </TableCell>
+                            <TableCell>
+                                <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button aria-haspopup="true" size="icon" variant="ghost">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    <span className="sr-only">Toggle menu</span>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" dir='rtl'>
+                                    <DropdownMenuLabel>الإجراءات</DropdownMenuLabel>
+                                    <DropdownMenuItem>تعديل</DropdownMenuItem>
+                                    <DropdownMenuItem>حذف</DropdownMenuItem>
+                                </DropdownMenuContent>
+                                </DropdownMenu>
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
     </AdminSubPageLayout>
   );
 }
