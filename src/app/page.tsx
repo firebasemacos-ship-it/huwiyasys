@@ -22,6 +22,15 @@ export default function LoginPage() {
   const [contractNumber, setContractNumber] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [logoClicks, setLogoClicks] = useState(0);
+
+  const handleLogoClick = () => {
+    const newClickCount = logoClicks + 1;
+    setLogoClicks(newClickCount);
+    if (newClickCount >= 20) {
+        router.push('/admin/login');
+    }
+  };
 
   const handleLoginAttempt = async () => {
     setIsLoading(true);
@@ -103,7 +112,9 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit}>
             <CardHeader className="text-center">
                 <div className="mb-4 flex justify-center">
-                    <Logo className="h-12 w-12 text-primary" />
+                    <div onClick={handleLogoClick} className="cursor-pointer">
+                      <Logo className="h-12 w-12 text-primary" />
+                    </div>
                 </div>
                 <CardTitle className="text-2xl">مرحباً بك</CardTitle>
                 <CardDescription>سجل الدخول للمتابعة.</CardDescription>
