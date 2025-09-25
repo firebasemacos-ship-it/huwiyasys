@@ -14,8 +14,8 @@ import { Logo } from '@/components/icons';
 import { LoaderCircle } from 'lucide-react';
 
 export default function AdminLoginPage() {
-  const [email, setEmail] = useState('admin@tamweelsys.app');
-  const [password, setPassword] = useState('0920064400');
+  const [email, setEmail] = useState('admin@huwiyasys.app');
+  const [password, setPassword] = useState('password123');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
