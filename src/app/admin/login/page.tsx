@@ -24,6 +24,7 @@ export default function AdminLoginPage() {
   const firestore = useFirestore();
 
   const createAdminFirestoreDocument = async (user: any) => {
+    if (!firestore) return;
     const userDocRef = doc(firestore, 'users', user.uid);
     const adminUserData = {
       uid: user.uid,
@@ -34,7 +35,14 @@ export default function AdminLoginPage() {
       contractNumber: '0000',
     };
 
+    // We use setDoc with merge to create or update the admin document.
+    // This write operation needs to be allowed by security rules.
+    // We assume a rule exists that allows a user to write to their own document,
+    // or a special rule for the admin email.
     setDoc(userDocRef, adminUserData, { merge: true }).catch(serverError => {
+        // If this fails, it's likely a security rule issue.
+        // We still proceed with login, but admin functionality might be limited.
+        console.error("Failed to create admin firestore document:", serverError);
         const permissionError = new FirestorePermissionError({
           path: userDocRef.path,
           operation: 'write',
@@ -47,9 +55,21 @@ export default function AdminLoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    if (!auth || !firestore) {
+        toast({
+            variant: 'destructive',
+            title: 'خطأ في التهيئة',
+            description: 'لم يتم تهيئة خدمات Firebase بعد.',
+        });
+        setIsLoading(false);
+        return;
+    }
+
     try {
       // First, try to sign in.
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      // Ensure the admin document exists after login
+      await createAdminFirestoreDocument(userCredential.user);
       toast({
         title: 'تم تسجيل الدخول بنجاح',
         description: 'جاري تحويلك إلى لوحة التحكم.',
@@ -60,10 +80,9 @@ export default function AdminLoginPage() {
         if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
             try {
                 // Try to create the admin user if they don't exist
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                await createAdminFirestoreDocument(userCredential.user);
-                 // Now try signing in again after creation
-                await signInWithEmailAndPassword(auth, email, password);
+                const newUserCredential = await createUserWithEmailAndPassword(auth, email, password);
+                // After creating the auth user, create their Firestore document
+                await createAdminFirestoreDocument(newUserCredential.user);
 
                 toast({
                     title: 'تم إنشاء حساب المسؤول وتسجيل الدخول',
@@ -128,7 +147,7 @@ export default function AdminLoginPage() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading || !auth}>
               {isLoading && <LoaderCircle className="ml-2 h-4 w-4 animate-spin" />}
               {isLoading ? 'جاري تسجيل الدخول...' : 'تسجيل الدخول'}
             </Button>
