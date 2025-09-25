@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -16,19 +15,12 @@ import {
   DialogFooter,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useFirestore, errorEmitter, FirestorePermissionError, useCollection, useMemoFirebase } from '@/firebase';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { collection, addDoc, doc, setDoc } from 'firebase/firestore';
+import { useFirestore, errorEmitter, FirestorePermissionError, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, addDoc } from 'firebase/firestore';
 
 
 export default function UsersPage() {
@@ -38,10 +30,9 @@ export default function UsersPage() {
     const [newContractNumber, setNewContractNumber] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     
-    const auth = useAuth();
     const firestore = useFirestore();
 
-    const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
+    const usersCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
     const { data: users, isLoading: isLoadingUsers } = useCollection(usersCollectionRef);
 
     const generatePassword = () => {
@@ -49,7 +40,7 @@ export default function UsersPage() {
     };
 
     const handleAddUser = async () => {
-        if (!newUserName || !newContractNumber) {
+        if (!newUserName || !newContractNumber || !usersCollectionRef) {
             toast({ variant: 'destructive', title: 'خطأ', description: 'الرجاء إدخال الاسم ورقم العقد.' });
             return;
         }
@@ -59,7 +50,6 @@ export default function UsersPage() {
         const email = `${newContractNumber}@huwiyasys.app`;
 
         const newUserDoc = {
-            // We don't have the UID yet, but Firestore will generate an ID for the document
             displayName: newUserName,
             contractNumber: newContractNumber,
             email: email,
@@ -68,10 +58,10 @@ export default function UsersPage() {
             isAdmin: false,
         };
 
-        // We are no longer creating an auth user here. We just add the user's
-        // details to the database. The auth user will be created on first login by the user.
+        // We only add the user document to Firestore.
+        // The Auth user will be created by the user on their first login attempt.
         addDoc(usersCollectionRef, newUserDoc)
-          .then(() => {
+          .then((docRef) => {
               toast({ title: 'تم إضافة المستخدم بنجاح', description: `تم إنشاء بيانات لـ ${newUserName}.` });
               setDialogOpen(false);
               setNewUserName('');
@@ -79,7 +69,7 @@ export default function UsersPage() {
           })
           .catch(serverError => {
               const permissionError = new FirestorePermissionError({
-                path: usersCollectionRef.path, // Path for creation is the collection path
+                path: usersCollectionRef.path,
                 operation: 'create',
                 requestResourceData: newUserDoc,
               });
@@ -203,6 +193,3 @@ export default function UsersPage() {
     </AdminSubPageLayout>
   );
 }
-    
-
-    
