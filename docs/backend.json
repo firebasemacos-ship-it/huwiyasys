@@ -26,6 +26,40 @@
         }
       },
       "required": ["displayName", "email", "createdAt"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Represents a product in the store.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the product."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the product."
+        },
+        "price": {
+          "type": "number",
+          "description": "The price of the product."
+        },
+        "category": {
+          "type": "string",
+          "description": "The category the product belongs to."
+        },
+        "imageUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL of the product image."
+        },
+        "status": {
+            "type": "string",
+            "enum": ["active", "draft", "archived"],
+            "description": "The status of the product."
+        }
+      },
+      "required": ["name", "price", "category", "status"]
     }
   },
   "auth": {
@@ -39,8 +73,12 @@
         "$ref": "#/entities/UserProfile"
       },
       "description": "Stores public profile information for each user."
+    },
+    "/products/{productId}": {
+        "schema": {
+            "$ref": "#/entities/Product"
+        },
+        "description": "Stores all available products in the application."
     }
   }
 }
-
-    
