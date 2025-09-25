@@ -39,9 +39,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useCollection, useMemoFirebase, useStorage } from '@/firebase';
-import { collection, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, DocumentData, query, orderBy, DocumentReference } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, DocumentData, query, orderBy } from 'firebase/firestore';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
@@ -123,7 +122,6 @@ function CategoryDialog({ category, onSave, onClose }: { category?: Category | n
 // Product Management Dialog
 function ProductDialog({ product, categories, onSave, onClose }: { product?: Product | null, categories: Category[], onSave: () => void, onClose: () => void }) {
     const firestore = useFirestore();
-    const storage = useStorage();
     const { toast } = useToast();
 
     const [name, setName] = useState(product?.name || '');
@@ -131,30 +129,9 @@ function ProductDialog({ product, categories, onSave, onClose }: { product?: Pro
     const [price, setPrice] = useState(product?.price || 0);
     const [categoryId, setCategoryId] = useState(product?.categoryId || '');
     const [status, setStatus] = useState<'active' | 'draft'>(product?.status || 'active');
-    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imageUrl, setImageUrl] = useState(product?.imageUrl || '');
     
     const [isLoading, setIsLoading] = useState(false);
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setImageFile(e.target.files[0]);
-        }
-    };
-    
-    const uploadImageAndUpdateProduct = async (productDocRef: DocumentReference, image: File) => {
-        if (!storage) return;
-
-        try {
-            const storageRef = ref(storage, `products/${Date.now()}_${image.name}`);
-            const uploadResult = await uploadBytes(storageRef, image);
-            const downloadUrl = await getDownloadURL(uploadResult.ref);
-            await updateDoc(productDocRef, { imageUrl: downloadUrl });
-        } catch (error) {
-            console.error("Image upload failed:", error);
-            // Optionally: Show a non-blocking toast that image upload failed
-        }
-    };
-
 
     const handleSubmit = async () => {
         if (!name || !price || !categoryId || !firestore) {
@@ -172,7 +149,7 @@ function ProductDialog({ product, categories, onSave, onClose }: { product?: Pro
             categoryId,
             category: selectedCategory?.name || '',
             status,
-            imageUrl: product?.imageUrl || '', // Start with existing or empty imageUrl
+            imageUrl,
             imageHint: name,
             updatedAt: serverTimestamp(),
         };
@@ -184,23 +161,13 @@ function ProductDialog({ product, categories, onSave, onClose }: { product?: Pro
                 await updateDoc(productDocRef, productData);
                 toast({ title: "تم تحديث المنتج بنجاح" });
 
-                if (imageFile) {
-                    // Upload image in the background without blocking UI
-                    uploadImageAndUpdateProduct(productDocRef, imageFile);
-                }
-
             } else {
                 // Create
-                const productDocRef = await addDoc(collection(firestore, 'products'), { 
+                await addDoc(collection(firestore, 'products'), { 
                     ...productData, 
                     createdAt: serverTimestamp() 
                 });
                 toast({ title: "تمت إضافة المنتج بنجاح" });
-
-                if (imageFile) {
-                     // Upload image in the background without blocking UI
-                    uploadImageAndUpdateProduct(productDocRef, imageFile);
-                }
             }
             onSave();
             onClose();
@@ -208,8 +175,9 @@ function ProductDialog({ product, categories, onSave, onClose }: { product?: Pro
         } catch (error: any) {
             console.error("Error saving product: ", error);
             toast({ variant: 'destructive', title: "خطأ", description: error.message });
-            setIsLoading(false); // Only set to false on error, success closes dialog
-        } 
+        } finally {
+            setIsLoading(false);
+        }
     };
     
     return (
@@ -245,28 +213,26 @@ function ProductDialog({ product, categories, onSave, onClose }: { product?: Pro
                         </Select>
                     </div>
                 </div>
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="product-status">الحالة</Label>
-                        <Select value={status} onValueChange={(val) => setStatus(val as 'active' | 'draft')}>
-                            <SelectTrigger id="product-status">
-                                <SelectValue placeholder="اختر الحالة" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="active">نشط</SelectItem>
-                                <SelectItem value="draft">مسودة</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="product-image">صورة المنتج</Label>
-                        <Input id="product-image" type="file" onChange={handleFileChange} accept="image/*" />
-                    </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="product-image-url">رابط صورة المنتج</Label>
+                    <Input id="product-image-url" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://example.com/image.png" />
                 </div>
-                 {product?.imageUrl && !imageFile && (
+                <div className="space-y-2">
+                    <Label htmlFor="product-status">الحالة</Label>
+                    <Select value={status} onValueChange={(val) => setStatus(val as 'active' | 'draft')}>
+                        <SelectTrigger id="product-status">
+                            <SelectValue placeholder="اختر الحالة" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="active">نشط</SelectItem>
+                            <SelectItem value="draft">مسودة</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                 {imageUrl && (
                     <div className="space-y-2">
                         <Label>الصورة الحالية</Label>
-                        <Image src={product.imageUrl} alt={product.name} width={80} height={80} className="rounded-md object-cover" />
+                        <Image src={imageUrl} alt={name} width={80} height={80} className="rounded-md object-cover" />
                     </div>
                  )}
             </div>
@@ -334,7 +300,6 @@ export default function ProductsPage() {
         if (!itemToDelete || !firestore) return;
         
         try {
-            // Note: This does not delete the image from Firebase Storage.
             await deleteDoc(doc(firestore, itemToDelete.type === 'product' ? 'products' : 'categories', itemToDelete.id));
             toast({ title: `تم الحذف بنجاح` });
             setDeleteDialogOpen(false);
