@@ -38,7 +38,7 @@
         },
         "wallet": {
             "type": "object",
-            "description": "User's internal wallet information.",
+            "description": "User's primary internal wallet information.",
             "properties": {
                 "balance": {
                     "type": "number",
@@ -58,6 +58,28 @@
                 }
             },
             "required": ["balance", "cardNumber", "cvv", "expiryDate"]
+        },
+        "linkedWallets": {
+            "type": "array",
+            "description": "A list of other users' wallets linked for payment.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "cardNumber": {
+                        "type": "string",
+                        "description": "The 16-digit card number."
+                    },
+                    "cvv": {
+                        "type": "string",
+                        "description": "The 3-digit CVV code."
+                    },
+                    "expiryDate": {
+                        "type": "string",
+                        "description": "The card's expiration date in MM/YY format."
+                    }
+                },
+                "required": ["cardNumber", "cvv", "expiryDate"]
+            }
         }
       },
       "required": ["uid", "displayName", "email", "createdAt", "contractNumber", "wallet"]

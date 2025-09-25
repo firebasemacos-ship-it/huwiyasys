@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/icons';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const initialTransactions = [
@@ -22,14 +22,17 @@ const initialTransactions = [
   { id: 4, type: 'طلب رقم #1211', amount: -120.00, date: '21 يوليو 2024' },
 ];
 
+type Wallet = {
+    balance: number;
+    cardNumber: string;
+    cvv: string;
+    expiryDate: string;
+}
+
 type UserProfile = {
     displayName: string;
-    wallet: {
-        balance: number;
-        cardNumber: string;
-        cvv: string;
-        expiryDate: string;
-    }
+    wallet: Wallet;
+    linkedWallets?: Wallet[];
 }
 
 export default function WalletPage() {
@@ -45,9 +48,18 @@ export default function WalletPage() {
   const { data: userData, isLoading: isUserDataLoading } = useDoc<UserProfile>(userDocRef);
 
   const [transactions, setTransactions] = useState(initialTransactions);
-  const [isDialogOpen, setDialogOpen] = useState(false);
+  const [isRechargeDialogOpen, setRechargeDialogOpen] = useState(false);
+  const [isAddCardDialogOpen, setAddCardDialogOpen] = useState(false);
+
   const [rechargeCode, setRechargeCode] = useState('');
   const [rechargeStatus, setRechargeStatus] = useState('idle'); // idle, verifying, charging, success
+
+  const [newCardNumber, setNewCardNumber] = useState('');
+  const [newCardExpiry, setNewCardExpiry] = useState('');
+  const [newCardCvv, setNewCardCvv] = useState('');
+  const [isAddingCard, setIsAddingCard] = useState(false);
+
+
   const [displayBalance, setDisplayBalance] = useState(0);
   const [isCardFlipped, setIsCardFlipped] = useState(false);
 
@@ -103,9 +115,6 @@ export default function WalletPage() {
             try {
                 await updateDoc(userDocRef, { 'wallet.balance': newBalance });
                 
-                // Firestore listener in useDoc will update userData automatically
-                // which will trigger the balance animation
-                
                 const newTransaction = {
                     id: transactions.length + 1,
                     type: 'شحن رصيد',
@@ -116,7 +125,7 @@ export default function WalletPage() {
                 
                 setRechargeStatus('success');
                 setTimeout(() => {
-                    setDialogOpen(false);
+                    setRechargeDialogOpen(false);
                     toast({
                         title: "تم الشحن بنجاح",
                         description: `تمت إضافة ${rechargeAmount.toFixed(2)} دينار ليبي إلى محفظتك.`,
@@ -136,6 +145,39 @@ export default function WalletPage() {
         }, 1500); 
     }, 1500);
   }
+
+  const handleAddCard = async () => {
+    if (!newCardNumber || !newCardExpiry || !newCardCvv) {
+        toast({ variant: 'destructive', title: 'بيانات ناقصة', description: 'الرجاء ملء جميع حقول البطاقة.' });
+        return;
+    }
+     if (!userDocRef) return;
+
+    setIsAddingCard(true);
+    const newCard: Wallet = {
+        cardNumber: newCardNumber,
+        expiryDate: newCardExpiry,
+        cvv: newCardCvv,
+        balance: 0 // Linked cards don't have their own balance in this context
+    };
+
+    try {
+        await updateDoc(userDocRef, {
+            linkedWallets: arrayUnion(newCard)
+        });
+        toast({ title: 'تمت إضافة البطاقة بنجاح!' });
+        setAddCardDialogOpen(false);
+        setNewCardNumber('');
+        setNewCardExpiry('');
+        setNewCardCvv('');
+    } catch (error) {
+        console.error("Error adding card:", error);
+        toast({ variant: 'destructive', title: 'فشل إضافة البطاقة', description: 'حدث خطأ غير متوقع.' });
+    } finally {
+        setIsAddingCard(false);
+    }
+  }
+
 
   const { Icon, message } = useMemo(() => {
       switch (rechargeStatus) {
@@ -225,14 +267,14 @@ export default function WalletPage() {
                 </div>
             )}
           
-          <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
+          <Dialog open={isRechargeDialogOpen} onOpenChange={(isOpen) => {
               if (!isOpen) {
                 setTimeout(() => {
                     setRechargeStatus('idle');
                     setRechargeCode('');
                 }, 500);
               }
-              setDialogOpen(isOpen);
+              setRechargeDialogOpen(isOpen);
           }}>
             <DialogTrigger asChild>
                 <Button size="lg" className="w-full" disabled={isUserLoading || isUserDataLoading}>
@@ -276,12 +318,45 @@ export default function WalletPage() {
           </Dialog>
 
           <div className="my-6 grid grid-cols-2 gap-4">
-             <Card className="overflow-hidden rounded-xl">
-                <CardContent className="flex flex-col items-center justify-center p-4 text-center">
-                    <CreditCard className="mb-2 h-8 w-8 text-primary" />
-                    <p className="text-sm font-semibold">طرق الدفع</p>
-                </CardContent>
-             </Card>
+            <Dialog open={isAddCardDialogOpen} onOpenChange={setAddCardDialogOpen}>
+                <DialogTrigger asChild>
+                    <Card className="overflow-hidden rounded-xl cursor-pointer hover:bg-muted/50 transition-colors">
+                        <CardContent className="flex flex-col items-center justify-center p-4 text-center">
+                            <CreditCard className="mb-2 h-8 w-8 text-primary" />
+                            <p className="text-sm font-semibold">طرق الدفع</p>
+                        </CardContent>
+                    </Card>
+                </DialogTrigger>
+                <DialogContent dir="rtl">
+                     <DialogHeader>
+                        <DialogTitle>إضافة بطاقة جديدة</DialogTitle>
+                        <DialogDescription>أدخل بيانات بطاقة مستخدم آخر لاستخدامها في الدفع.</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="new-card-number">رقم البطاقة</Label>
+                            <Input id="new-card-number" placeholder="XXXX XXXX XXXX XXXX" value={newCardNumber} onChange={e => setNewCardNumber(e.target.value)} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                             <div className="space-y-2">
+                                <Label htmlFor="new-card-expiry">تاريخ الانتهاء</Label>
+                                <Input id="new-card-expiry" placeholder="MM/YY" value={newCardExpiry} onChange={e => setNewCardExpiry(e.target.value)} />
+                            </div>
+                             <div className="space-y-2">
+                                <Label htmlFor="new-card-cvv">CVV</Label>
+                                <Input id="new-card-cvv" placeholder="XXX" value={newCardCvv} onChange={e => setNewCardCvv(e.target.value)} />
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button onClick={handleAddCard} disabled={isAddingCard} className="w-full">
+                            {isAddingCard ? <LoaderCircle className="ml-2 h-4 w-4 animate-spin" /> : <PlusCircle className="ml-2 h-4 w-4" />}
+                            {isAddingCard ? 'جاري الإضافة...' : 'إضافة البطاقة'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
              <Card className="overflow-hidden rounded-xl">
                 <CardContent className="flex flex-col items-center justify-center p-4 text-center">
                     <Gift className="mb-2 h-8 w-8 text-primary" />
