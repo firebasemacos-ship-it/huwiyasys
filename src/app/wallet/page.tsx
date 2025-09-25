@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,7 @@ export default function WalletPage() {
   const [rechargeCode, setRechargeCode] = useState('');
   const [rechargeStatus, setRechargeStatus] = useState('idle'); // idle, verifying, charging, success
   const [displayBalance, setDisplayBalance] = useState(0);
+  const [isCardFlipped, setIsCardFlipped] = useState(false);
 
   const currentBalance = useMemo(() => transactions.reduce((acc, t) => acc + t.amount, 0), [transactions]);
 
@@ -49,7 +51,6 @@ export default function WalletPage() {
       }
     };
     
-    // Check if there is a difference to animate
     if (Math.abs(target - displayBalance) > 0.01) {
         animationFrameId = requestAnimationFrame(animate);
     } else {
@@ -73,11 +74,8 @@ export default function WalletPage() {
     
     setRechargeStatus('verifying');
 
-    // 1. Simulate verification
     setTimeout(() => {
         setRechargeStatus('charging');
-
-        // 2. Simulate charging
         setTimeout(() => {
             const rechargeAmount = 100.00;
             const newTransaction = {
@@ -89,15 +87,12 @@ export default function WalletPage() {
             setTransactions([newTransaction, ...transactions]);
             
             setRechargeStatus('success');
-
-            // 3. Show success and close dialog
             setTimeout(() => {
                 setDialogOpen(false);
                 toast({
                     title: "تم الشحن بنجاح",
                     description: `تمت إضافة ${rechargeAmount.toFixed(2)} دينار ليبي إلى محفظتك.`,
                 });
-                // Reset for next time
                 setTimeout(() => {
                     setRechargeStatus('idle');
                     setRechargeCode('');
@@ -132,45 +127,66 @@ export default function WalletPage() {
         </header>
 
         <main className="flex-1 overflow-y-auto bg-muted/20 p-4 pb-24">
-          <div className="mb-6 mx-auto max-w-sm">
-            <Card className="relative aspect-[1.586] w-full overflow-hidden rounded-xl bg-primary text-primary-foreground shadow-lg transition-transform duration-300 hover:scale-105 hover:shadow-2xl">
-                <CardContent className="flex h-full flex-col justify-between p-6">
-                    <div
-                      className="flex items-start justify-between"
-                    >
-                        <div className="flex items-center gap-2 pointer-events-none">
-                          <Logo className="h-8 w-8 text-primary-foreground" />
-                          <span className="text-lg font-bold">Mobile Mate</span>
-                        </div>
-                        <Wifi className="h-6 w-6 -rotate-90 opacity-70" />
+            <div className="mb-6 mx-auto max-w-sm" style={{ perspective: '1000px' }}>
+                <div 
+                    className={cn("relative w-full aspect-[1.586] transition-transform duration-700")}
+                    style={{ transformStyle: 'preserve-3d', transform: isCardFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
+                    onClick={() => setIsCardFlipped(!isCardFlipped)}
+                >
+                    {/* Card Front */}
+                    <div className="absolute w-full h-full" style={{ backfaceVisibility: 'hidden' }}>
+                        <Card className="relative h-full w-full overflow-hidden rounded-xl bg-primary text-primary-foreground shadow-lg">
+                            <CardContent className="flex h-full flex-col justify-between p-6">
+                                <div className="flex items-start justify-between">
+                                    <div className="flex items-center gap-2 pointer-events-none">
+                                        <Logo className="h-8 w-8 text-primary-foreground" />
+                                        <span className="text-lg font-bold">Mobile Mate</span>
+                                    </div>
+                                    <Wifi className="h-6 w-6 -rotate-90 opacity-70" />
+                                </div>
+                                <div className="text-left">
+                                    <p className="font-mono text-xl tracking-widest">
+                                        **** **** **** 3456
+                                    </p>
+                                </div>
+                                <div className="flex items-end justify-between">
+                                    <div>
+                                        <p className="text-sm opacity-80">الرصيد الحالي</p>
+                                        <p className="text-3xl font-bold leading-tight">{displayBalance.toFixed(2)}</p>
+                                        <p className="text-sm font-medium opacity-90">دينار ليبي</p>
+                                    </div>
+                                    <p className="text-sm font-semibold">08/30</p>
+                                </div>
+                            </CardContent>
+                        </Card>
                     </div>
 
-                    <div className="text-left">
-                        <p className="font-mono text-xl tracking-widest">
-                            **** **** **** 3456
-                        </p>
+                    {/* Card Back */}
+                    <div className="absolute w-full h-full" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
+                        <Card className="relative h-full w-full overflow-hidden rounded-xl bg-primary text-primary-foreground shadow-lg">
+                            <div className="h-full flex flex-col justify-between p-4">
+                                <div className="h-12 bg-black mt-4"></div>
+                                <div className="flex justify-end items-center gap-4 px-4 py-2 bg-slate-200 rounded-md">
+                                    <p className="font-mono text-lg text-black italic">123</p>
+                                    <p className="text-sm text-slate-600 flex-1 text-right">CVV</p>
+                                </div>
+                                <div className="text-xs opacity-70 text-left p-2">
+                                    <p>انقر للعودة</p>
+                                </div>
+                            </div>
+                        </Card>
                     </div>
-
-                    <div className="flex items-end justify-between">
-                        <div>
-                            <p className="text-sm opacity-80">الرصيد الحالي</p>
-                            <p className="text-3xl font-bold leading-tight">{displayBalance.toFixed(2)}</p>
-                            <p className="text-sm font-medium opacity-90">دينار ليبي</p>
-                        </div>
-                        <p className="text-sm font-semibold">08/30</p>
-                    </div>
-                </CardContent>
-            </Card>
-          </div>
+                </div>
+            </div>
           
           <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
-              setDialogOpen(isOpen);
               if (!isOpen) {
                 setTimeout(() => {
                     setRechargeStatus('idle');
                     setRechargeCode('');
                 }, 500);
               }
+              setDialogOpen(isOpen);
           }}>
             <DialogTrigger asChild>
                 <Button size="lg" className="w-full">
@@ -296,3 +312,5 @@ export default function WalletPage() {
     </div>
   );
 }
+
+    
