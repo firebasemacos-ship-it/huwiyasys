@@ -83,10 +83,12 @@ export default function UsersPage() {
 
         } catch (error: any) {
             console.error("Error adding user:", error);
+            // If auth user creation fails, we don't proceed to create firestore doc.
+            // Check if the error is due to email already being in use.
             if (error.code === 'auth/email-already-in-use') {
-                toast({ variant: 'destructive', title: 'فشل إضافة المستخدم', description: 'رقم العقد هذا مستخدم بالفعل.' });
+                toast({ variant: 'destructive', title: 'فشل إضافة المستخدم', description: 'رقم العقد هذا مستخدم بالفعل في نظام المصادقة.' });
             } else {
-                toast({ variant: 'destructive', title: 'فشل إضافة المستخدم', description: error.message || 'حدث خطأ غير متوقع.' });
+                toast({ variant: 'destructive', title: 'فشل إضافة المستخدم', description: error.message || 'حدث خطأ غير متوقع عند إنشاء حساب المصادقة.' });
             }
         } finally {
              setIsLoading(false);

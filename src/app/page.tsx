@@ -35,6 +35,7 @@ export default function LoginPage() {
     const email = contractNumber.includes('@') ? contractNumber : `${contractNumber}@huwiyasys.app`;
 
     try {
+      // Only try to sign in. User creation is handled by the admin panel.
       await signInWithEmailAndPassword(auth, email, password);
       toast({
         title: 'تم تسجيل الدخول بنجاح',
@@ -46,6 +47,7 @@ export default function LoginPage() {
       }
     } catch (error: any) {
         console.error('Login Error:', error);
+        // Provide a clear, simple error message for any login failure.
         toast({
             variant: 'destructive',
             title: 'فشل تسجيل الدخول',
