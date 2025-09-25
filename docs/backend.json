@@ -86,6 +86,12 @@
       },
       "description": "Stores public profile information for each user."
     },
+    "/admins/{adminId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Stores profile information for admin users."
+    },
     "/products/{productId}": {
         "schema": {
             "$ref": "#/entities/Product"

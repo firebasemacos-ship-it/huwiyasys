@@ -19,8 +19,8 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLab
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useAuth, errorEmitter, FirestorePermissionError, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, addDoc, setDoc, doc } from 'firebase/firestore';
+import { useFirestore, useAuth, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, setDoc, doc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 
 
@@ -47,7 +47,7 @@ export default function UsersPage() {
             return;
         }
 
-        if (!firestore || !usersCollectionRef || !auth) {
+        if (!firestore || !auth) {
             toast({ variant: 'destructive', title: 'خطأ', description: 'خدمات Firebase غير متاحة.' });
             return;
         }

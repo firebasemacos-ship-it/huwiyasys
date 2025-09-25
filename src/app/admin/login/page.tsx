@@ -24,10 +24,10 @@ export default function AdminLoginPage() {
 
   const ensureAdminFirestoreDocument = async (user: User) => {
     if (!firestore) return;
-    const userDocRef = doc(firestore, 'users', user.uid);
+    const adminDocRef = doc(firestore, 'admins', user.uid);
 
     try {
-        const docSnap = await getDoc(userDocRef);
+        const docSnap = await getDoc(adminDocRef);
         if (!docSnap.exists()) {
             const adminUserData = {
                 uid: user.uid,
@@ -37,9 +37,7 @@ export default function AdminLoginPage() {
                 createdAt: new Date().toISOString(),
                 contractNumber: '000000',
             };
-            // This setDoc must be allowed by security rules.
-            // The rule `allow create: if request.auth.token.email == 'admin@huwiyasys.app'` will permit this.
-            await setDoc(userDocRef, adminUserData);
+            await setDoc(adminDocRef, adminUserData);
         }
     } catch (error) {
         console.error("Failed to ensure admin firestore document:", error);
