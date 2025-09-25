@@ -110,16 +110,20 @@ function CheckoutDialog({ totalAmount }: { totalAmount: number }) {
                 }
                 
                 let cardOwnerData: UserProfile | null = null;
+                let cardOwnerId: string | null = null;
+                
                 querySnapshot.forEach(doc => {
                     const foundUser = doc.data() as UserProfile;
                      // For new cards, verify expiry and cvv. For linked cards, this isn't strictly necessary as they're already "trusted" but good for consistency.
                     if (cardToVerify.expiryDate && cardToVerify.cvv) {
                          if(foundUser.wallet.expiryDate === cardToVerify.expiryDate && foundUser.wallet.cvv === cardToVerify.cvv) {
                             cardOwnerData = foundUser;
+                            cardOwnerId = doc.id;
                          }
                     } else {
                         // This branch is for linked cards that might not have cvv/expiry stored in the linking user's doc
                         cardOwnerData = foundUser;
+                        cardOwnerId = doc.id;
                     }
                 });
 
@@ -177,7 +181,7 @@ function CheckoutDialog({ totalAmount }: { totalAmount: number }) {
             </DialogHeader>
             
             <div className="py-4">
-                <RadioGroup value={selectedPayment} onValueChange={setSelectedPayment}>
+                <RadioGroup value={selectedPayment} onValueChange={setSelectedPayment} defaultValue="primary">
                     <div className="space-y-4">
                         {isUserDataLoading ? (
                              <div className="space-y-2">
@@ -383,3 +387,5 @@ export default function CartPage() {
     </div>
   );
 }
+
+    
