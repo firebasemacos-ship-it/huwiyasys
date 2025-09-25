@@ -12,16 +12,9 @@ import { useState, useMemo, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/icons';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import { doc, updateDoc, arrayUnion, collection, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-
-const initialTransactions = [
-  { id: 1, type: 'شحن رصيد', amount: 200.00, date: '25 يوليو 2024' },
-  { id: 2, type: 'طلب رقم #1234', amount: -75.50, date: '24 يوليو 2024' },
-  { id: 3, type: 'هدية من صديق', amount: 50.00, date: '22 يوليو 2024' },
-  { id: 4, type: 'طلب رقم #1211', amount: -120.00, date: '21 يوليو 2024' },
-];
 
 type Wallet = {
     balance: number;
@@ -36,6 +29,14 @@ type UserProfile = {
     linkedWallets?: Wallet[];
 }
 
+type Transaction = {
+    id: string;
+    type: string;
+    amount: number;
+    date: any; // Firestore timestamp
+    description?: string;
+}
+
 export default function WalletPage() {
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
@@ -46,9 +47,15 @@ export default function WalletPage() {
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
 
-  const { data: userData, isLoading: isUserDataLoading } = useDoc<UserProfile>(userDocRef);
+  const transactionsQuery = useMemoFirebase(() => {
+      if (!firestore || !user) return null;
+      return query(collection(firestore, 'users', user.uid, 'transactions'), orderBy('date', 'desc'));
+  }, [firestore, user]);
 
-  const [transactions, setTransactions] = useState(initialTransactions);
+  const { data: userData, isLoading: isUserDataLoading } = useDoc<UserProfile>(userDocRef);
+  const { data: transactions, isLoading: areTransactionsLoading } = useCollection<Transaction>(transactionsQuery);
+
+
   const [isRechargeDialogOpen, setRechargeDialogOpen] = useState(false);
   const [isAddCardDialogOpen, setAddCardDialogOpen] = useState(false);
 
@@ -102,7 +109,7 @@ export default function WalletPage() {
         toast({ variant: "destructive", title: "خطأ", description: "الرجاء إدخال رمز كرت التعبئة." });
         return;
     }
-    if (!userDocRef || !userData) return;
+    if (!userDocRef || !userData || !firestore || !user) return;
     
     setRechargeStatus('verifying');
 
@@ -114,16 +121,18 @@ export default function WalletPage() {
             const newBalance = (userData.wallet?.balance ?? 0) + rechargeAmount;
 
             try {
+                // Update balance
                 await updateDoc(userDocRef, { 'wallet.balance': newBalance });
                 
-                const newTransaction = {
-                    id: transactions.length + 1,
+                // Create transaction record
+                const transactionsColRef = collection(firestore, 'users', user.uid, 'transactions');
+                await addDoc(transactionsColRef, {
                     type: 'شحن رصيد',
                     amount: rechargeAmount,
-                    date: new Date().toLocaleDateString('ar-LY', { year: 'numeric', month: 'long', day: 'numeric' })
-                };
-                setTransactions([newTransaction, ...transactions]);
-                
+                    date: serverTimestamp(),
+                    description: `شحن باستخدام كرت ${rechargeCode.slice(0,4)}...`
+                });
+
                 setRechargeStatus('success');
                 setTimeout(() => {
                     setRechargeDialogOpen(false);
@@ -138,7 +147,7 @@ export default function WalletPage() {
                 }, 1500);
 
             } catch (error) {
-                console.error("Failed to update balance:", error);
+                console.error("Failed to update balance or create transaction:", error);
                 toast({ variant: "destructive", title: "فشل الشحن", description: "حدث خطأ أثناء تحديث الرصيد." });
                 setRechargeStatus('idle');
             }
@@ -194,8 +203,15 @@ export default function WalletPage() {
   }, [rechargeStatus]);
   
   const formatCardNumber = (num: string | undefined) => {
-    if (!num) return ' '.repeat(16).replace(/(.{4})/g, '$1 ').trim();
+    if (!num) return '5432 1098 7654 3456';
     return num.replace(/(.{4})/g, '$1 ').trim();
+  }
+  
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return '';
+    // Firestore Timestamps can be converted to JS Date objects
+    const date = timestamp.toDate();
+    return date.toLocaleDateString('ar-LY', { year: 'numeric', month: 'long', day: 'numeric' });
   }
 
 
@@ -371,22 +387,40 @@ export default function WalletPage() {
               <CardTitle>سجل المعاملات</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="space-y-4">
-                {transactions.map((transaction, index) => (
-                  <div key={transaction.id}>
-                    <div className="flex items-center justify-between px-6 py-4">
-                        <div>
-                            <p className="font-semibold">{transaction.type}</p>
-                            <p className="text-sm text-muted-foreground">{transaction.date}</p>
-                        </div>
-                        <p className={`font-bold ${transaction.amount > 0 ? 'text-green-500' : 'text-destructive'}`}>
-                            {transaction.amount > 0 ? '+' : ''}{transaction.amount.toFixed(2)} دينار ليبي
-                        </p>
+                {areTransactionsLoading ? (
+                     <div className="space-y-2 p-6">
+                        {Array.from({ length: 3 }).map((_, i) => (
+                           <div key={i} className="flex items-center justify-between">
+                                <div className='space-y-2'>
+                                    <Skeleton className="h-5 w-24" />
+                                    <Skeleton className="h-4 w-32" />
+                                </div>
+                                <Skeleton className="h-6 w-28" />
+                            </div>
+                        ))}
                     </div>
-                    {index < transactions.length - 1 && <Separator />}
-                  </div>
-                ))}
-              </div>
+                ) : transactions && transactions.length > 0 ? (
+                    <div className="space-y-4">
+                        {transactions.map((transaction, index) => (
+                        <div key={transaction.id}>
+                            <div className="flex items-center justify-between px-6 py-4">
+                                <div>
+                                    <p className="font-semibold">{transaction.type}</p>
+                                    <p className="text-sm text-muted-foreground">{formatDate(transaction.date)}</p>
+                                </div>
+                                <p className={`font-bold ${transaction.amount > 0 ? 'text-green-500' : 'text-destructive'}`}>
+                                    {transaction.amount > 0 ? '+' : ''}{transaction.amount.toFixed(2)} دينار ليبي
+                                </p>
+                            </div>
+                            {index < transactions.length - 1 && <Separator />}
+                        </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="p-6 text-center text-muted-foreground">
+                        لا توجد معاملات لعرضها.
+                    </div>
+                )}
             </CardContent>
           </Card>
         </main>
@@ -434,5 +468,7 @@ export default function WalletPage() {
     </div>
   );
 }
+
+    
 
     
