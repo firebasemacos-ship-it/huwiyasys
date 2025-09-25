@@ -10,34 +10,18 @@ import {
   Wallet,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
 } from '@/components/ui/carousel';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-
-type Category = {
-  name: string;
-  image: string;
-  imageHint: string;
-};
-
-const categories: Category[] = [
-  { name: 'منتجات بريدفاست', image: 'category-snacks', imageHint: 'snacks products' },
-  { name: 'عروض وخصومات', image: 'category-deals', imageHint: 'deals coupons' },
-  { name: 'صنع في مصر', image: 'category-local', imageHint: 'shop local' },
-  { name: 'حلويات وآيس كريم', image: 'category-sweets', imageHint: 'sweets icecream' },
-  { name: 'بريدفاست كوفي', image: 'category-coffee', imageHint: 'coffee beans' },
-  { name: 'مخبوزات و معجنات', image: 'category-bakery', imageHint: 'bakery pastry' },
-];
-
-const brandLogos = [
-  { id: 'logo-xprs', imageHint: 'xprs logo' },
-  { id: 'logo-tradeline', imageHint: 'tradeline logo' },
-  { id: 'logo-mediatech', imageHint: 'mediatech logo' },
-];
+import { useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, getDocs, orderBy, DocumentData } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
+import { useEffect, useState } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const promoImages = [
   { id: 'promo-1', imageHint: 'cleaning supplies', title: 'عروض الصيف', description: 'خصومات تصل إلى 50% على منتجات التنظيف' },
@@ -49,10 +33,67 @@ const getImage = (id: string) => {
     return image ? image.imageUrl : 'https://picsum.photos/seed/placeholder/600/400';
 };
 
+interface Product extends DocumentData {
+  id: string;
+  name: string;
+  price: number;
+  imageUrl?: string;
+  imageHint?: string;
+  categoryId: string;
+}
+
+interface Category extends DocumentData {
+  id: string;
+  name: string;
+  imageUrl?: string;
+  imageHint?: string;
+}
+
+interface CategoryWithProducts extends Category {
+    products: Product[];
+}
+
 
 export default function ShopPage() {
+  const firestore = useFirestore();
+  const [categoriesWithProducts, setCategoriesWithProducts] = useState<CategoryWithProducts[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  const categoriesQuery = useMemoFirebase(() => {
+      if (!firestore) return null;
+      return query(collection(firestore, 'categories'), orderBy('name'));
+  }, [firestore]);
+  
+  const { data: categories, isLoading: isLoadingCategories } = useCollection<Category>(categoriesQuery);
+
+  useEffect(() => {
+    const fetchProductsForCategories = async () => {
+        if (!categories || categories.length === 0 || !firestore) {
+            if(!isLoadingCategories) setIsLoading(false);
+            return;
+        };
+
+        setIsLoading(true);
+        const categoriesData: CategoryWithProducts[] = [];
+
+        for (const category of categories) {
+            const productsQuery = query(collection(firestore, 'products'), where('categoryId', '==', category.id));
+            const productsSnapshot = await getDocs(productsQuery);
+            const products = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+            categoriesData.push({ ...category, products });
+        }
+        
+        setCategoriesWithProducts(categoriesData);
+        setIsLoading(false);
+    }
+
+    fetchProductsForCategories();
+
+  }, [categories, firestore, isLoadingCategories]);
+
+
   return (
-    <div className="bg-background text-foreground" dir="rtl">
+    <div dir="rtl">
       <div className="flex min-h-screen flex-col">
         <header className="sticky top-0 z-40 w-full border-b bg-background/95 p-4 backdrop-blur">
           <div className="flex items-center justify-end">
@@ -95,56 +136,55 @@ export default function ShopPage() {
               </CarouselContent>
             </Carousel>
           </div>
-
-          <section className="py-6 text-center">
-            <h2 className="mb-2 text-2xl font-bold">عروض مميزة</h2>
-            <p className="text-muted-foreground">
-              توصيل في اليوم التالي من خلال بريدفاست
-            </p>
-            <div className="mt-4 flex items-center justify-center gap-6 px-4 sm:gap-10">
-              {brandLogos.map((logo) => (
-                <div key={logo.id} className="flex h-16 w-16 items-center justify-center rounded-full bg-white p-2 shadow-md sm:h-20 sm:w-20">
-                    <Image
-                    src={getImage(logo.id)}
-                    alt={logo.imageHint}
-                    width={80}
-                    height={80}
-                    className="object-contain"
-                    data-ai-hint={logo.imageHint}
-                    />
-                </div>
-              ))}
+          
+           <div className="space-y-8 px-4 py-6">
+                {isLoading ? (
+                    Array.from({length: 3}).map((_, i) => (
+                        <div key={i} className="space-y-4">
+                            <Skeleton className="h-8 w-1/3" />
+                            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                                {Array.from({length: 4}).map((_, j) => (
+                                     <Card key={j}>
+                                        <CardContent className="p-0">
+                                            <Skeleton className="w-full h-32" />
+                                            <div className="p-4 space-y-2">
+                                                <Skeleton className="h-4 w-4/5" />
+                                                <Skeleton className="h-4 w-1/2" />
+                                            </div>
+                                        </CardContent>
+                                     </Card>
+                                ))}
+                            </div>
+                        </div>
+                    ))
+                ) : categoriesWithProducts.filter(cat => cat.products.length > 0).map(category => (
+                    <section key={category.id}>
+                        <h2 className="mb-4 text-2xl font-bold">{category.name}</h2>
+                        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                            {category.products.map(product => (
+                                <Card key={product.id} className="overflow-hidden">
+                                     <CardContent className="p-0">
+                                        <div className="relative h-32 w-full">
+                                            <Image 
+                                                src={product.imageUrl || getImage('category-sweets')} 
+                                                alt={product.name}
+                                                fill
+                                                className="object-cover"
+                                                data-ai-hint={product.imageHint || product.name}
+                                            />
+                                        </div>
+                                        <div className="p-4">
+                                            <h3 className="font-semibold truncate">{product.name}</h3>
+                                            <p className="text-primary font-bold">{product.price.toFixed(2)} د.ل</p>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    </section>
+                ))}
             </div>
-          </section>
 
-          <section className="px-4 py-6">
-            <h2 className="mb-4 text-center text-2xl font-bold">
-              اكتشف بريدفاست
-            </h2>
-            <div className="grid grid-cols-3 gap-2 sm:gap-4">
-              {categories.map((category) => (
-                <Card
-                  key={category.name}
-                  className="overflow-hidden rounded-xl bg-yellow-50/50"
-                >
-                  <CardContent className="flex flex-col items-center p-2 text-center">
-                    <p className="mb-2 h-10 text-sm font-semibold">
-                      {category.name}
-                    </p>
-                    <div className="relative h-24 w-full">
-                       <Image
-                        src={getImage(category.image)}
-                        alt={category.name}
-                        fill
-                        className="object-contain"
-                        data-ai-hint={category.imageHint}
-                        />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </section>
         </main>
 
         <footer className="fixed bottom-0 z-40 w-full border-t bg-background">
@@ -190,3 +230,4 @@ export default function ShopPage() {
     </div>
   );
 }
+

@@ -108,7 +108,11 @@
         },
         "category": {
           "type": "string",
-          "description": "The category the product belongs to."
+          "description": "The display name of the category the product belongs to."
+        },
+        "categoryId": {
+          "type": "string",
+          "description": "The ID of the category document this product belongs to."
         },
         "imageUrl": {
           "type": "string",
@@ -117,11 +121,23 @@
         },
         "status": {
             "type": "string",
-            "enum": ["active", "draft", "archived"],
-            "description": "The status of the product."
+            "enum": ["active", "draft"],
+            "description": "The status of the product (active or draft)."
         }
       },
-      "required": ["name", "price", "category", "status"]
+      "required": ["name", "price", "category", "categoryId", "status"]
+    },
+    "Category": {
+        "title": "Category",
+        "description": "Represents a product category.",
+        "type": "object",
+        "properties": {
+            "name": {
+                "type": "string",
+                "description": "The name of the category."
+            }
+        },
+        "required": ["name"]
     },
     "Transaction": {
       "title": "Transaction",
@@ -178,8 +194,13 @@
             "$ref": "#/entities/Product"
         },
         "description": "Stores all available products in the application."
+    },
+    "/categories/{categoryId}": {
+        "schema": {
+            "$ref": "#/entities/Category"
+        },
+        "description": "Stores all available product categories."
     }
   }
 }
 
-    
