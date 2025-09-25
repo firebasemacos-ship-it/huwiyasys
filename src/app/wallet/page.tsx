@@ -121,46 +121,45 @@ export default function WalletPage() {
     setRechargeStatus('verifying');
 
     // Simulate network delay and verification
-    setTimeout(() => {
-        setRechargeStatus('charging');
-        setTimeout(async () => {
-            const rechargeAmount = 100.00; // Assume code is for 100 LYD for now
-            const newBalance = (userData.wallet?.balance ?? 0) + rechargeAmount;
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setRechargeStatus('charging');
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    const rechargeAmount = 100.00; // Assume code is for 100 LYD for now
+    const newBalance = (userData.wallet?.balance ?? 0) + rechargeAmount;
 
-            try {
-                // Update balance
-                await updateDoc(userDocRef, { 'wallet.balance': newBalance });
-                
-                // Create transaction record
-                const transactionsColRef = collection(firestore, 'users', user.uid, 'transactions');
-                await addDoc(transactionsColRef, {
-                    type: 'شحن رصيد',
-                    amount: rechargeAmount,
-                    date: serverTimestamp(),
-                    description: `شحن باستخدام كرت ${rechargeCode.slice(0,4)}...`
-                });
+    try {
+        // Update balance
+        await updateDoc(userDocRef, { 'wallet.balance': newBalance });
+        
+        // Create transaction record
+        const transactionsColRef = collection(firestore, 'users', user.uid, 'transactions');
+        await addDoc(transactionsColRef, {
+            type: 'شحن رصيد',
+            amount: rechargeAmount,
+            date: serverTimestamp(),
+            description: `شحن باستخدام كرت ${rechargeCode.slice(0,4)}...`
+        });
 
-                setRechargeStatus('success');
-                setTimeout(() => {
-                    setRechargeDialogOpen(false);
-                    toast({
-                        title: "تم الشحن بنجاح",
-                        description: `تمت إضافة ${rechargeAmount.toFixed(2)} دينار ليبي إلى محفظتك.`,
-                    });
-                    setTimeout(() => {
-                        setRechargeStatus('idle');
-                        setRechargeCode('');
-                    }, 500);
-                }, 1500);
+        setRechargeStatus('success');
+        await new Promise(resolve => setTimeout(resolve, 1500));
 
-            } catch (error) {
-                console.error("Failed to update balance or create transaction:", error);
-                toast({ variant: "destructive", title: "فشل الشحن", description: "حدث خطأ أثناء تحديث الرصيد." });
-                setRechargeStatus('idle');
-            }
+        setRechargeDialogOpen(false);
+        toast({
+            title: "تم الشحن بنجاح",
+            description: `تمت إضافة ${rechargeAmount.toFixed(2)} دينار ليبي إلى محفظتك.`,
+        });
+        
+        setTimeout(() => {
+            setRechargeStatus('idle');
+            setRechargeCode('');
+        }, 500);
 
-        }, 1500); 
-    }, 1500);
+    } catch (error) {
+        console.error("Failed to update balance or create transaction:", error);
+        toast({ variant: "destructive", title: "فشل الشحن", description: "حدث خطأ أثناء تحديث الرصيد." });
+        setRechargeStatus('idle');
+    }
   }
 
   const handleAddCard = async () => {
@@ -340,7 +339,7 @@ export default function WalletPage() {
                     <p className="min-h-[40px] text-muted-foreground">{message}</p>
                 </div>
 
-                <div className={cn("grid gap-4", rechargeStatus !== 'idle' && 'opacity-0')}>
+                <div className={cn("grid gap-4", rechargeStatus !== 'idle' && 'opacity-0 h-0 invisible')}>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="recharge-code" className="text-right">
                             رمز الكرت
@@ -420,8 +419,8 @@ export default function WalletPage() {
                 {areTransactionsLoading ? (
                      <div className="space-y-2 p-6">
                         {Array.from({ length: 3 }).map((_, i) => (
-                           <div key={i} className="flex items-center justify-between">
-                                <div className='space-y-2'>
+                           <div key={i} className="flex items-center justify-between py-2">
+                                <div className='space-y-2 flex-1'>
                                     <Skeleton className="h-5 w-24" />
                                     <Skeleton className="h-4 w-32" />
                                 </div>
@@ -430,16 +429,16 @@ export default function WalletPage() {
                         ))}
                     </div>
                 ) : transactions && transactions.length > 0 ? (
-                    <div className="space-y-4">
+                    <div className="space-y-0">
                         {transactions.map((transaction, index) => (
                         <div key={transaction.id}>
                             <div className="flex items-center justify-between px-6 py-4">
                                 <div>
-                                    <p className="font-semibold">{transaction.type}</p>
+                                    <p className="font-semibold">{transaction.description || transaction.type}</p>
                                     <p className="text-sm text-muted-foreground">{formatDate(transaction.date)}</p>
                                 </div>
-                                <p className={`font-bold ${transaction.amount > 0 ? 'text-green-500' : 'text-destructive'}`}>
-                                    {transaction.amount > 0 ? '+' : ''}{transaction.amount.toFixed(2)} دينار ليبي
+                                <p className={`font-bold ${transaction.amount >= 0 ? 'text-green-500' : 'text-destructive'}`}>
+                                    {transaction.amount >= 0 ? '+' : ''}{transaction.amount.toFixed(2)} د.ل
                                 </p>
                             </div>
                             {index < transactions.length - 1 && <Separator />}
@@ -498,3 +497,5 @@ export default function WalletPage() {
     </div>
   );
 }
+
+    

@@ -38,7 +38,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser } from '@/firebase';
-import { collection, getDocs, doc, updateDoc, deleteDoc, DocumentData } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, deleteDoc, DocumentData, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -64,10 +64,22 @@ function CardManagementDialog({ user, onUserUpdate, onClose }: { user: UserData;
     const firestore = useFirestore();
     const [amount, setAmount] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
+    const { user: adminUser } = useUser();
 
     if (!user.wallet || !firestore) return null;
 
-    const handleUpdate = async (updateData: Partial<UserData['wallet']>) => {
+    const createTransaction = async (type: string, transactionAmount: number, description: string) => {
+        if (!firestore || !user) return;
+        const transactionsColRef = collection(firestore, 'users', user.id, 'transactions');
+        await addDoc(transactionsColRef, {
+            type: type,
+            amount: transactionAmount,
+            date: serverTimestamp(),
+            description: description,
+        });
+    };
+
+    const handleUpdate = async (updateData: Partial<UserData['wallet']>, transactionDetails?: { type: string, amount: number, description: string }) => {
         if (isLoading) return;
         setIsLoading(true);
         try {
@@ -75,6 +87,10 @@ function CardManagementDialog({ user, onUserUpdate, onClose }: { user: UserData;
             const newWalletState = { ...user.wallet, ...updateData };
             await updateDoc(userDocRef, { wallet: newWalletState });
             
+            if (transactionDetails) {
+                await createTransaction(transactionDetails.type, transactionDetails.amount, transactionDetails.description);
+            }
+
             const updatedUser = { ...user, wallet: newWalletState };
             onUserUpdate(updatedUser);
 
@@ -90,16 +106,32 @@ function CardManagementDialog({ user, onUserUpdate, onClose }: { user: UserData;
     };
     
     const handleDeposit = () => {
-      if(amount > 0) handleUpdate({ balance: user.wallet!.balance + Number(amount) });
+      if(amount > 0) {
+        handleUpdate(
+            { balance: user.wallet!.balance + Number(amount) },
+            { type: 'إيداع إداري', amount: Number(amount), description: `إيداع من قبل المدير ${adminUser?.email}` }
+        );
+      }
     }
+
     const handleWithdraw = () => {
       if(amount > 0 && user.wallet!.balance >= amount) {
-        handleUpdate({ balance: user.wallet!.balance - Number(amount) });
+        handleUpdate(
+            { balance: user.wallet!.balance - Number(amount) },
+            { type: 'سحب إداري', amount: -Number(amount), description: `سحب من قبل المدير ${adminUser?.email}` }
+        );
       } else {
         toast({ variant: 'destructive', title: 'خطأ', description: 'المبلغ المطلوب للسحب أكبر من الرصيد المتاح.' });
       }
     }
-    const handleToggleStatus = () => handleUpdate({ status: user.wallet!.status === 'active' ? 'suspended' : 'active' });
+    const handleToggleStatus = () => {
+        const newStatus = user.wallet!.status === 'active' ? 'suspended' : 'active';
+        const description = `تم ${newStatus === 'active' ? 'تفعيل' : 'تعليق'} البطاقة من قبل المدير`;
+        handleUpdate(
+            { status: newStatus },
+            { type: 'تغيير حالة البطاقة', amount: 0, description: description }
+        );
+    }
 
     return (
         <DialogContent dir="rtl" onInteractOutside={(e) => e.preventDefault()}>
@@ -264,10 +296,10 @@ export default function CardsPage() {
                             <DropdownMenuContent align="end" dir="rtl">
                                 <DropdownMenuLabel>فلترة حسب الحالة</DropdownMenuLabel>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuCheckboxItem checked={statusFilter.includes('active')} onSelect={() => handleFilterChange('active')}>
+                                <DropdownMenuCheckboxItem checked={statusFilter.includes('active')} onCheckedChange={() => handleFilterChange('active')}>
                                     نشطة
                                 </DropdownMenuCheckboxItem>
-                                <DropdownMenuCheckboxItem checked={statusFilter.includes('suspended')} onSelect={() => handleFilterChange('suspended')}>
+                                <DropdownMenuCheckboxItem checked={statusFilter.includes('suspended')} onCheckedChange={() => handleFilterChange('suspended')}>
                                     معلقة
                                 </DropdownMenuCheckboxItem>
                             </DropdownMenuContent>
@@ -358,6 +390,5 @@ export default function CardsPage() {
         </AdminSubPageLayout>
     );
 }
-
 
     

@@ -13,11 +13,11 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, DocumentData, getDocs, collection, query, where } from 'firebase/firestore';
+import { doc, DocumentData, getDocs, collection, query, where, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const cartItems = [
+const initialCartItems = [
   { id: 1, name: 'لبن جهينة كامل الدسم', price: 25.50, quantity: 1, image: 'category-dairy' },
   { id: 2, name: 'بيض أبيض (10 قطع)', price: 45.00, quantity: 2, image: 'category-eggs' },
   { id: 3, name: 'خبز بلدي (5 أرغفة)', price: 5.00, quantity: 1, image: 'category-bakery' },
@@ -27,10 +27,6 @@ const getImage = (id: string) => {
     const image = PlaceHolderImages.find((img) => img.id === id);
     return image ? image.imageUrl : 'https://picsum.photos/seed/placeholder/200/200';
 };
-
-const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
-const deliveryFee = 10;
-const total = subtotal + deliveryFee;
 
 type WalletInfo = {
     balance: number;
@@ -47,7 +43,7 @@ type UserProfile = {
 };
 
 
-function CheckoutDialog({ totalAmount }: { totalAmount: number }) {
+function CheckoutDialog({ totalAmount, onPaymentSuccess }: { totalAmount: number; onPaymentSuccess: () => void }) {
     const { toast } = useToast();
     const { user } = useUser();
     const firestore = useFirestore();
@@ -66,30 +62,32 @@ function CheckoutDialog({ totalAmount }: { totalAmount: number }) {
     const [newCardExpiry, setNewCardExpiry] = useState('');
     const [newCardCvv, setNewCardCvv] = useState('');
 
-
     const handlePayment = async () => {
-        if (!firestore) return;
+        if (!firestore || !user) return;
         setPaymentStatus('processing');
 
-        let hasSufficientBalance = false;
-        
+        let paymentCardOwnerId: string | null = null;
+        let paymentCardOwnerData: UserProfile | null = null;
+        let cardVerified = false;
+
         try {
             if (selectedPayment === 'primary') {
                 if (userData?.wallet && userData.wallet.balance >= totalAmount) {
-                    hasSufficientBalance = true;
+                    paymentCardOwnerId = user.uid;
+                    paymentCardOwnerData = userData;
+                    cardVerified = true;
                 }
             } else {
                 let cardToVerify: { cardNumber: string; expiryDate?: string; cvv?: string; };
-                
+
                 if (selectedPayment === 'new') {
-                     if (!newCardNumber || !newCardExpiry || !newCardCvv) {
+                    if (!newCardNumber || !newCardExpiry || !newCardCvv) {
                         toast({ variant: 'destructive', title: 'بيانات ناقصة', description: 'الرجاء إدخال جميع بيانات البطاقة الجديدة.' });
                         setPaymentStatus('idle');
                         return;
                     }
                     cardToVerify = { cardNumber: newCardNumber, expiryDate: newCardExpiry, cvv: newCardCvv };
                 } else {
-                    // It's a linked wallet, we need to find its details
                     const linkedWallet = userData?.linkedWallets?.find(w => w.cardNumber === selectedPayment);
                     if (!linkedWallet) {
                         toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على البطاقة المرتبطة.' });
@@ -98,49 +96,62 @@ function CheckoutDialog({ totalAmount }: { totalAmount: number }) {
                     }
                     cardToVerify = linkedWallet;
                 }
-                
+
                 const usersRef = collection(firestore, 'users');
                 const q = query(usersRef, where("wallet.cardNumber", "==", cardToVerify.cardNumber));
                 const querySnapshot = await getDocs(q);
 
-                if (querySnapshot.empty) {
-                     toast({ variant: 'destructive', title: 'خطأ', description: 'البطاقة المستخدمة غير صالحة.' });
-                     setPaymentStatus('idle');
-                     return;
-                }
-                
-                let cardOwnerData: UserProfile | null = null;
-                let cardOwnerId: string | null = null;
-                
-                querySnapshot.forEach(doc => {
-                    const foundUser = doc.data() as UserProfile;
-                     // For new cards, verify expiry and cvv. For linked cards, this isn't strictly necessary as they're already "trusted" but good for consistency.
-                    if (cardToVerify.expiryDate && cardToVerify.cvv) {
-                         if(foundUser.wallet.expiryDate === cardToVerify.expiryDate && foundUser.wallet.cvv === cardToVerify.cvv) {
-                            cardOwnerData = foundUser;
-                            cardOwnerId = doc.id;
-                         }
-                    } else {
-                        // This branch is for linked cards that might not have cvv/expiry stored in the linking user's doc
-                        cardOwnerData = foundUser;
-                        cardOwnerId = doc.id;
-                    }
-                });
+                if (!querySnapshot.empty) {
+                    querySnapshot.forEach(doc => {
+                        const foundUser = doc.data() as UserProfile;
+                        const isMatch = (cardToVerify.expiryDate && cardToVerify.cvv)
+                            ? foundUser.wallet.expiryDate === cardToVerify.expiryDate && foundUser.wallet.cvv === cardToVerify.cvv
+                            : true; // For already linked cards, trust them
 
-                if (cardOwnerData && cardOwnerData.wallet.balance >= totalAmount) {
-                    hasSufficientBalance = true;
+                        if (isMatch) {
+                            if (foundUser.wallet.balance >= totalAmount) {
+                                paymentCardOwnerId = doc.id;
+                                paymentCardOwnerData = foundUser;
+                                cardVerified = true;
+                            }
+                        }
+                    });
                 }
             }
-            
-            if (!hasSufficientBalance) {
-                toast({ variant: 'destructive', title: 'خطأ في الدفع', description: 'الرصيد غير كافٍ لإتمام عملية الشراء.' });
+
+            if (!cardVerified || !paymentCardOwnerId || !paymentCardOwnerData) {
+                toast({ variant: 'destructive', title: 'خطأ في الدفع', description: 'البطاقة غير صالحة أو الرصيد غير كافٍ.' });
                 setPaymentStatus('idle');
                 return;
             }
 
-            // If we are here, balance is sufficient. Simulate payment processing.
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            // In a real app, you would deduct balance from the correct card owner's document.
+            // --- Process Payment ---
+            const newBalance = paymentCardOwnerData.wallet.balance - totalAmount;
+            const ownerDocRef = doc(firestore, 'users', paymentCardOwnerId);
+
+            // 1. Update balance
+            await updateDoc(ownerDocRef, { 'wallet.balance': newBalance });
+
+            // 2. Create transaction for card owner
+            const ownerTransactionsColRef = collection(firestore, 'users', paymentCardOwnerId, 'transactions');
+            await addDoc(ownerTransactionsColRef, {
+                type: 'شراء',
+                amount: -totalAmount,
+                date: serverTimestamp(),
+                description: `شراء من قبل ${userData?.displayName || 'مستخدم'} (رقم العقد: ${user.uid.substring(0,6)})`
+            });
+            
+            // 3. Create transaction for the buyer (if different from owner)
+            if (paymentCardOwnerId !== user.uid) {
+                 const buyerTransactionsColRef = collection(firestore, 'users', user.uid, 'transactions');
+                 await addDoc(buyerTransactionsColRef, {
+                    type: 'شراء',
+                    amount: -totalAmount,
+                    date: serverTimestamp(),
+                    description: `تم الدفع باستخدام بطاقة ${paymentCardOwnerData.displayName}`
+                });
+            }
+
             setPaymentStatus('success');
 
         } catch (error) {
@@ -150,24 +161,26 @@ function CheckoutDialog({ totalAmount }: { totalAmount: number }) {
         }
     };
 
-    if (paymentStatus === 'processing' || paymentStatus === 'success') {
+    if (paymentStatus === 'success') {
         return (
              <DialogContent dir="rtl">
                 <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
-                    {paymentStatus === 'processing' ? (
-                       <>
-                        <LoaderCircle className="h-16 w-16 animate-spin text-primary" />
-                        <DialogTitle className="text-2xl">جاري معالجة الدفع</DialogTitle>
-                        <DialogDescription>الرجاء الانتظار...</DialogDescription>
-                       </>
-                    ) : (
-                        <>
-                        <CheckCircle2 className="h-16 w-16 text-green-500" />
-                        <DialogTitle className="text-2xl">تم الدفع بنجاح</DialogTitle>
-                        <DialogDescription>شكراً لك! تم استلام طلبك بنجاح.</DialogDescription>
-                        <Button className="mt-4" onClick={() => window.location.reload()}>إغلاق</Button>
-                       </>
-                    )}
+                    <CheckCircle2 className="h-16 w-16 text-green-500" />
+                    <DialogTitle className="text-2xl">تم الدفع بنجاح</DialogTitle>
+                    <DialogDescription>شكراً لك! تم استلام طلبك بنجاح.</DialogDescription>
+                    <Button className="mt-4" onClick={onPaymentSuccess}>إغلاق</Button>
+                </div>
+            </DialogContent>
+        )
+    }
+
+     if (paymentStatus === 'processing') {
+        return (
+             <DialogContent dir="rtl">
+                <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+                    <LoaderCircle className="h-16 w-16 animate-spin text-primary" />
+                    <DialogTitle className="text-2xl">جاري معالجة الدفع</DialogTitle>
+                    <DialogDescription>الرجاء الانتظار...</DialogDescription>
                 </div>
             </DialogContent>
         )
@@ -185,32 +198,33 @@ function CheckoutDialog({ totalAmount }: { totalAmount: number }) {
                     <div className="space-y-4">
                         {isUserDataLoading ? (
                              <div className="space-y-2">
-                                <Skeleton className="h-6 w-full rounded-md" />
-                                <Skeleton className="h-6 w-full rounded-md" />
+                                <Skeleton className="h-16 w-full rounded-md" />
                              </div>
-                        ) : (
-                            <>
-                                {userData?.wallet && (
-                                    <Label htmlFor="primary" className="flex items-center gap-4 rounded-md border p-4 hover:bg-accent has-[[data-state=checked]]:border-primary">
-                                        <RadioGroupItem value="primary" id="primary" />
-                                        <div className="flex flex-col">
-                                            <span>البطاقة الأساسية</span>
-                                            <span className="text-sm text-muted-foreground font-mono">**** **** **** {userData.wallet.cardNumber.slice(-4)}</span>
-                                        </div>
-                                    </Label>
-                                )}
-                                {userData?.linkedWallets?.map(wallet => (
-                                     <Label key={wallet.cardNumber} htmlFor={wallet.cardNumber} className="flex items-center gap-4 rounded-md border p-4 hover:bg-accent has-[[data-state=checked]]:border-primary">
-                                        <RadioGroupItem value={wallet.cardNumber} id={wallet.cardNumber} />
-                                        <div className="flex flex-col">
-                                            <span>بطاقة مرتبطة</span>
-                                            <span className="text-sm text-muted-foreground font-mono">**** **** **** {wallet.cardNumber.slice(-4)}</span>
-                                        </div>
-                                    </Label>
-                                ))}
-                            </>
-                        )}
+                        ) : userData?.wallet ? (
+                            <Label htmlFor="primary" className="flex items-center gap-4 rounded-md border p-4 hover:bg-accent has-[[data-state=checked]]:border-primary">
+                                <RadioGroupItem value="primary" id="primary" />
+                                <div className="flex flex-col">
+                                    <span>البطاقة الأساسية (الافتراضية)</span>
+                                    <span className="text-sm text-muted-foreground font-mono">**** **** **** {userData.wallet.cardNumber.slice(-4)}</span>
+                                </div>
+                            </Label>
+                        ) : <p className="text-sm text-destructive p-4 border border-dashed rounded-md">لم يتم العثور على بطاقة أساسية. الرجاء إضافة بطاقة جديدة.</p>
+                        }
 
+                        <Separator/>
+                        
+                        <p className="text-sm text-muted-foreground">استخدام بطاقات أخرى</p>
+
+                        {userData?.linkedWallets?.map(wallet => (
+                             <Label key={wallet.cardNumber} htmlFor={wallet.cardNumber} className="flex items-center gap-4 rounded-md border p-4 hover:bg-accent has-[[data-state=checked]]:border-primary">
+                                <RadioGroupItem value={wallet.cardNumber} id={wallet.cardNumber} />
+                                <div className="flex flex-col">
+                                    <span>بطاقة مرتبطة</span>
+                                    <span className="text-sm text-muted-foreground font-mono">**** **** **** {wallet.cardNumber.slice(-4)}</span>
+                                </div>
+                            </Label>
+                        ))}
+                        
                         <Label htmlFor="new" className="flex items-center gap-4 rounded-md border p-4 hover:bg-accent has-[[data-state=checked]]:border-primary">
                             <RadioGroupItem value="new" id="new" />
                             <span>استخدام بطاقة جديدة</span>
@@ -249,7 +263,6 @@ function CheckoutDialog({ totalAmount }: { totalAmount: number }) {
 
             <DialogFooter>
                 <Button onClick={handlePayment} disabled={paymentStatus === 'processing'} size="lg" className="w-full">
-                    {paymentStatus === 'processing' ? <LoaderCircle className="ml-2 h-4 w-4 animate-spin" /> : null}
                     ادفع الآن
                 </Button>
             </DialogFooter>
@@ -260,6 +273,17 @@ function CheckoutDialog({ totalAmount }: { totalAmount: number }) {
 export default function CartPage() {
   const { user, isUserLoading } = useUser();
   const [isCheckoutOpen, setCheckoutOpen] = useState(false);
+  const [cartItems, setCartItems] = useState(initialCartItems);
+
+  const subtotal = useMemo(() => cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0), [cartItems]);
+  const deliveryFee = 10;
+  const total = subtotal + deliveryFee;
+
+  const handlePaymentSuccess = () => {
+    setCheckoutOpen(false);
+    setCartItems([]); // Clear the cart
+  };
+
 
   return (
     <div className="bg-background text-foreground font-sans" dir="rtl">
@@ -310,9 +334,9 @@ export default function CartPage() {
           ) : (
             <div className="flex h-full flex-col items-center justify-center text-center">
               <ShoppingCart className="mb-4 h-20 w-20 text-muted-foreground" />
-              <h2 className="text-xl font-semibold">سلّتك فارغة</h2>
-              <p className="text-muted-foreground">أضف بعض المنتجات لتبدأ التسوق.</p>
-              <Button className="mt-6">اكتشف المنتجات</Button>
+              <h2 className="text-xl font-semibold">تم إرسال طلبك بنجاح!</h2>
+              <p className="text-muted-foreground">شكراً لتسوقك معنا.</p>
+              <Button onClick={() => window.location.href='/shop'} className="mt-6">متابعة التسوق</Button>
             </div>
           )}
         </main>
@@ -339,7 +363,7 @@ export default function CartPage() {
                             إتمام الطلب
                         </Button>
                     </DialogTrigger>
-                    {isCheckoutOpen && <CheckoutDialog totalAmount={total} />}
+                    {isCheckoutOpen && <CheckoutDialog totalAmount={total} onPaymentSuccess={handlePaymentSuccess} />}
                 </Dialog>
             </div>
         )}
