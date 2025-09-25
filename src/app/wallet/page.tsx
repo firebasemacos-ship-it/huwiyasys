@@ -8,7 +8,7 @@ import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, Arrow
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/icons';
@@ -72,11 +72,18 @@ export default function WalletPage() {
   const [isCardFlipped, setIsCardFlipped] = useState(false);
 
   const currentBalance = userData?.wallet?.balance ?? 0;
+  const animationFrameId = useRef<number | null>(null);
 
   useEffect(() => {
-    let animationFrameId: number;
     const startBalance = displayBalance;
     const endBalance = currentBalance;
+    
+    // No need to animate if the balance is the same
+    if (Math.abs(endBalance - startBalance) < 0.01) {
+        if(displayBalance !== endBalance) setDisplayBalance(endBalance);
+        return;
+    }
+
     const duration = 1000; // 1 second animation
     let startTime: number | null = null;
 
@@ -89,19 +96,19 @@ export default function WalletPage() {
         setDisplayBalance(newDisplayBalance);
 
         if (progress < duration) {
-            animationFrameId = requestAnimationFrame(animate);
+            animationFrameId.current = requestAnimationFrame(animate);
         }
     };
 
-    // Only start animation if there's a notable difference
-    if (Math.abs(endBalance - startBalance) > 0.01) {
-      animationFrameId = requestAnimationFrame(animate);
-    } else {
-      setDisplayBalance(endBalance);
-    }
+    animationFrameId.current = requestAnimationFrame(animate);
 
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [currentBalance]); // Reruns when real balance changes
+    return () => {
+        if (animationFrameId.current) {
+            cancelAnimationFrame(animationFrameId.current);
+        }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentBalance]); 
 
 
   const handleRecharge = async () => {
@@ -491,5 +498,3 @@ export default function WalletPage() {
     </div>
   );
 }
-
-    
