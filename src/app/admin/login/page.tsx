@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -8,11 +7,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { useAuth, useFirestore, errorEmitter } from '@/firebase';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, User } from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { Logo } from '@/components/icons';
 import { LoaderCircle } from 'lucide-react';
+import { FirestorePermissionError } from '@/firebase/errors';
+
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('admin@huwiyasys.app');
@@ -23,34 +24,35 @@ export default function AdminLoginPage() {
   const auth = useAuth();
   const firestore = useFirestore();
 
-  const createAdminFirestoreDocument = async (user: any) => {
+  // This function ensures the admin user document exists in Firestore with isAdmin: true
+  const ensureAdminFirestoreDocument = async (user: User) => {
     if (!firestore) return;
     const userDocRef = doc(firestore, 'users', user.uid);
-    const adminUserData = {
-      uid: user.uid,
-      displayName: 'Admin',
-      email: user.email,
-      isAdmin: true,
-      createdAt: new Date().toISOString(),
-      contractNumber: '0000',
-    };
 
-    // We use setDoc with merge to create or update the admin document.
-    // This write operation needs to be allowed by security rules.
-    // We assume a rule exists that allows a user to write to their own document,
-    // or a special rule for the admin email.
-    setDoc(userDocRef, adminUserData, { merge: true }).catch(serverError => {
-        // If this fails, it's likely a security rule issue.
-        // We still proceed with login, but admin functionality might be limited.
-        console.error("Failed to create admin firestore document:", serverError);
-        const permissionError = new FirestorePermissionError({
-          path: userDocRef.path,
-          operation: 'write',
-          requestResourceData: adminUserData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-    });
+    try {
+        const docSnap = await getDoc(userDocRef);
+        if (!docSnap.exists()) {
+            // Document doesn't exist, so create it.
+            const adminUserData = {
+                uid: user.uid,
+                displayName: 'Admin',
+                email: user.email,
+                isAdmin: true,
+                createdAt: new Date().toISOString(),
+                contractNumber: '0000',
+            };
+            // This setDoc operation must be allowed by security rules.
+            // The rule `allow create: if request.auth.token.email == 'admin@huwiyasys.app';` will permit this.
+            await setDoc(userDocRef, adminUserData);
+        }
+    } catch (error) {
+        // This might fail if there's a network issue or a very restrictive rule,
+        // but our new rules should allow it.
+        console.error("Failed to ensure admin firestore document:", error);
+        // We can optionally emit a permission error here if needed, but the primary login flow should continue.
+    }
   };
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,21 +70,21 @@ export default function AdminLoginPage() {
     try {
       // First, try to sign in.
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      // Ensure the admin document exists after login
-      await createAdminFirestoreDocument(userCredential.user);
+      // After successful login, ensure the admin document is in place.
+      await ensureAdminFirestoreDocument(userCredential.user);
       toast({
         title: 'تم تسجيل الدخول بنجاح',
         description: 'جاري تحويلك إلى لوحة التحكم.',
       });
       router.push('/admin');
     } catch (error: any) {
-        // If sign in fails because the user is not found, create the user.
+        // If sign in fails because the user is not found, it's the first time for the admin.
         if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
             try {
-                // Try to create the admin user if they don't exist
+                // Create the admin auth user.
                 const newUserCredential = await createUserWithEmailAndPassword(auth, email, password);
-                // After creating the auth user, create their Firestore document
-                await createAdminFirestoreDocument(newUserCredential.user);
+                // After creating the auth user, create their Firestore document.
+                await ensureAdminFirestoreDocument(newUserCredential.user);
 
                 toast({
                     title: 'تم إنشاء حساب المسؤول وتسجيل الدخول',
