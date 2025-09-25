@@ -1,10 +1,10 @@
 
-import AdminLayout from '../layout';
+import AdminSubPageLayout from '../layout';
 
 export default function UsersPage() {
   return (
-    <AdminLayout title="المستخدمون">
+    <AdminSubPageLayout title="المستخدمون">
         <p>هنا يمكنك عرض وإدارة حسابات المستخدمين.</p>
-    </AdminLayout>
+    </AdminSubPageLayout>
   );
 }

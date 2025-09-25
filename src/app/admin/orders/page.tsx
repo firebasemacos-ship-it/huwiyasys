@@ -1,10 +1,10 @@
 
-import AdminLayout from '../layout';
+import AdminSubPageLayout from '../layout';
 
 export default function OrdersPage() {
   return (
-    <AdminLayout title="الطلبات">
+    <AdminSubPageLayout title="الطلبات">
         <p>هنا يمكنك عرض الطلبات الواردة والسلات.</p>
-    </AdminLayout>
+    </AdminSubPageLayout>
   );
 }

@@ -1,10 +1,10 @@
 
-import AdminLayout from '../layout';
+import AdminSubPageLayout from '../layout';
 
 export default function CardsPage() {
   return (
-    <AdminLayout title="البطاقات">
+    <AdminSubPageLayout title="البطاقات">
         <p>هنا يمكنك إدارة بطاقات الدفع.</p>
-    </AdminLayout>
+    </AdminSubPageLayout>
   );
 }

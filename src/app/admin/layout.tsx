@@ -19,7 +19,10 @@ const dashboardItems = [
     { href: '/admin/settings', title: 'الإعدادات', icon: Settings },
 ];
 
-export function AdminLayout({ children, title }: { children: ReactNode, title: string }) {
+// This is a special Layout for all the pages under /admin, except the main /admin page.
+// The main /admin page has its own layout.
+// This component should not be used directly in pages. Next.js uses it automatically.
+export default function AdminSubPageLayout({ children, title }: { children: ReactNode, title: string }) {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
 
