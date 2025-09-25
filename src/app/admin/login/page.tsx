@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, User } from 'firebase/auth';
+import { signInWithEmailAndPassword, User } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { Logo } from '@/components/icons';
 import { LoaderCircle } from 'lucide-react';
@@ -68,32 +68,12 @@ export default function AdminLoginPage() {
       });
       router.push('/admin');
     } catch (error: any) {
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-            try {
-                const newUserCredential = await createUserWithEmailAndPassword(auth, email, password);
-                await ensureAdminFirestoreDocument(newUserCredential.user);
-
-                toast({
-                    title: 'تم إنشاء حساب المدير وتسجيل الدخول',
-                    description: 'جاري تحويلك إلى لوحة التحكم.',
-                });
-                router.push('/admin');
-            } catch (creationError: any) {
-                console.error('Admin Creation/Login Error:', creationError);
-                toast({
-                    variant: 'destructive',
-                    title: 'فشل إنشاء الحساب أو تسجيل الدخول',
-                    description: creationError.message || 'حدث خطأ غير متوقع.',
-                });
-            }
-        } else {
-            console.error('Admin Login Error:', error);
-            toast({
-                variant: 'destructive',
-                title: 'فشل تسجيل الدخول',
-                description: error.message || 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
-            });
-        }
+        console.error('Admin Login Error:', error);
+        toast({
+            variant: 'destructive',
+            title: 'فشل تسجيل الدخول',
+            description: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
+        });
     } finally {
       setIsLoading(false);
     }
