@@ -36,17 +36,21 @@ export default function AdminLoginPage() {
         // If sign in fails because the user is not found, create the user.
         if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
             try {
+                // Try to create the admin user if they don't exist
                 await createUserWithEmailAndPassword(auth, email, password);
+                 // Now try signing in again after creation
+                await signInWithEmailAndPassword(auth, email, password);
+
                 toast({
-                    title: 'تم إنشاء حساب المسؤول بنجاح',
+                    title: 'تم إنشاء حساب المسؤول وتسجيل الدخول',
                     description: 'جاري تحويلك إلى لوحة التحكم.',
                 });
                 router.push('/admin');
             } catch (creationError: any) {
-                console.error('Admin Creation Error:', creationError);
+                console.error('Admin Creation/Login Error:', creationError);
                 toast({
                     variant: 'destructive',
-                    title: 'فشل إنشاء الحساب',
+                    title: 'فشل إنشاء الحساب أو تسجيل الدخول',
                     description: creationError.message || 'حدث خطأ غير متوقع.',
                 });
             }
