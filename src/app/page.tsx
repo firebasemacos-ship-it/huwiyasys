@@ -7,33 +7,48 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Logo } from '@/components/icons';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, User } from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { Logo } from '@/components/icons';
 import { LoaderCircle } from 'lucide-react';
 
-export default function LoginPage() {
+export default function AdminLoginPage() {
+  const [email, setEmail] = useState('zaki@zetabait.app');
+  const [password, setPassword] = useState('gz6dnlh3');
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
   const auth = useAuth();
   const firestore = useFirestore();
 
-  const [contractNumber, setContractNumber] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [logoClicks, setLogoClicks] = useState(0);
+  const ensureAdminFirestoreDocument = async (user: User) => {
+    if (!firestore) return;
+    const adminDocRef = doc(firestore, 'admins', user.uid);
+    const userDocRef = doc(firestore, 'users', user.uid);
 
-  const handleLogoClick = () => {
-    const newClickCount = logoClicks + 1;
-    setLogoClicks(newClickCount);
-    if (newClickCount >= 3) {
-        router.push('/admin/login');
+    try {
+        const adminDoc = await getDoc(adminDocRef);
+        if (!adminDoc.exists()) {
+            const adminUserData = {
+                uid: user.uid,
+                displayName: 'المدير العام',
+                email: user.email,
+                isAdmin: true,
+                createdAt: new Date().toISOString(),
+            };
+            await setDoc(adminDocRef, adminUserData);
+            await setDoc(userDocRef, adminUserData);
+        }
+    } catch (error) {
+        console.error("Failed to ensure admin firestore document:", error);
+        toast({ variant: 'destructive', title: 'خطأ', description: 'فشل إنشاء سجل المدير.' });
     }
   };
 
-  const handleLoginAttempt = async () => {
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsLoading(true);
     if (!auth || !firestore) {
         toast({
@@ -44,107 +59,89 @@ export default function LoginPage() {
         setIsLoading(false);
         return;
     }
-    const email = `${contractNumber}@huwiyasys.app`;
-    
+
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      
-      const userDocRef = doc(firestore, 'users', user.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        if (userData.wallet?.status === 'suspended') {
-            await auth.signOut();
+      await ensureAdminFirestoreDocument(userCredential.user);
+      toast({
+        title: 'تم تسجيل الدخول بنجاح',
+        description: 'جاري تحويلك إلى لوحة التحكم.',
+      });
+      router.push('/admin');
+    } catch (error: any) {
+        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found') {
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                await ensureAdminFirestoreDocument(userCredential.user);
+                toast({
+                    title: 'تم إنشاء حساب مدير جديد',
+                    description: 'تم تسجيل دخولك بنجاح.',
+                });
+                router.push('/admin');
+            } catch (creationError: any) {
+                 toast({
+                    variant: 'destructive',
+                    title: 'فشل إنشاء الحساب',
+                    description: creationError.message || 'فشل إنشاء حساب المدير.',
+                });
+            }
+        } else {
+            console.error('Admin Login Error:', error);
             toast({
                 variant: 'destructive',
                 title: 'فشل تسجيل الدخول',
-                description: 'بطاقتك معلقة. يرجى مراجعة الإدارة.',
+                description: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
             });
-        } else {
-            toast({ title: 'تم تسجيل الدخول بنجاح' });
-            router.push('/shop');
         }
-      } else {
-          await auth.signOut();
-          toast({ variant: 'destructive', title: 'خطأ في الحساب', description: 'لم يتم العثور على بيانات المستخدم.' });
-      }
-
-    } catch (error: any) {
-        console.error('Login Error:', error);
-        toast({
-            variant: 'destructive',
-            title: 'فشل تسجيل الدخول',
-            description: 'بيانات الاعتماد غير صالحة أو الحساب غير موجود.',
-        });
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   };
-  
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!contractNumber || !password) {
-        toast({
-            variant: 'destructive',
-            title: 'بيانات ناقصة',
-            description: 'الرجاء إدخال رقم العقد وكلمة المرور.',
-        });
-        return;
-    }
-    handleLoginAttempt();
-  }
-
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4" dir="rtl">
       <Card className="w-full max-w-sm">
-        <form onSubmit={handleSubmit}>
-            <CardHeader className="text-center">
-                <div className="mb-4 flex justify-center">
-                    <div onClick={handleLogoClick} className="cursor-pointer">
-                      <Logo className="h-12 w-12 text-primary" />
-                    </div>
-                </div>
-                <CardTitle className="text-2xl">مرحباً بك</CardTitle>
-                <CardDescription>سجل الدخول لحسابك للمتابعة.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="space-y-2">
-                <Label htmlFor="contract-number">رقم العقد</Label>
-                <Input
-                    id="contract-number"
-                    type="text"
-                    placeholder="أدخل رقم العقد"
-                    required
-                    value={contractNumber}
-                    onChange={(e) => setContractNumber(e.target.value)}
-                    disabled={isLoading}
-                />
-                </div>
-                <div className="space-y-2">
-                <Label htmlFor="password">كلمة المرور</Label>
-                <Input
-                    id="password"
-                    type="password"
-                    required
-                    placeholder="أدخل كلمة المرور"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={isLoading}
-                />
-                </div>
-            </CardContent>
-            <CardFooter className="flex-col gap-4">
-                <Button type="submit" className="w-full" disabled={isLoading || !auth}>
-                    {isLoading && <LoaderCircle className="ml-2 h-4 w-4 animate-spin" />}
-                    {isLoading ? 'جاري...' : 'تسجيل الدخول'}
-                </Button>
-            </CardFooter>
+        <form onSubmit={handleLogin}>
+          <CardHeader className="text-center">
+            <div className="mb-4 flex justify-center">
+              <Logo className="h-12 w-12 text-primary" />
+            </div>
+            <CardTitle className="text-2xl">دخول المدير</CardTitle>
+            <CardDescription>الرجاء تسجيل الدخول للمتابعة إلى لوحة التحكم.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">البريد الإلكتروني</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="admin@example.com"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">كلمة المرور</Label>
+              <Input
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={isLoading}
+              />
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button type="submit" className="w-full" disabled={isLoading || !auth}>
+              {isLoading && <LoaderCircle className="ml-2 h-4 w-4 animate-spin" />}
+              {isLoading ? 'جاري تسجيل الدخول...' : 'دخول'}
+            </Button>
+          </CardFooter>
         </form>
       </Card>
     </div>
   );
 }
-    
