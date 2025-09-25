@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { getAuth, signOut } from 'firebase/auth';
 import { LayoutDashboard, LogOut, Menu, Box, Users, ShoppingBag, CreditCard, Image as ImageIcon, Settings } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Logo } from '@/components/icons';
 
 const dashboardItems = [
     { href: '/admin/products', title: 'المنتجات', icon: Box },
@@ -19,9 +20,6 @@ const dashboardItems = [
     { href: '/admin/settings', title: 'الإعدادات', icon: Settings },
 ];
 
-// This is a special Layout for all the pages under /admin, except the main /admin page.
-// The main /admin page has its own layout.
-// This component should not be used directly in pages. Next.js uses it automatically.
 export default function AdminSubPageLayout({ children, title }: { children: ReactNode, title: string }) {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
@@ -43,20 +41,20 @@ export default function AdminSubPageLayout({ children, title }: { children: Reac
 
   if (isUserLoading || !user) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <p>جاري التحميل...</p>
       </div>
     );
   }
 
   return (
-    <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]" dir="rtl">
+    <div className="dark grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr] bg-background text-foreground" dir="rtl">
       <div className="hidden border-l bg-muted/40 md:block">
         <div className="flex h-full max-h-screen flex-col gap-2">
           <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-            <Link href="/admin" className="flex items-center gap-2 font-semibold">
-              <LayoutDashboard className="h-6 w-6" />
-              <span className="">لوحة التحكم</span>
+            <Link href="/admin" className="flex items-center gap-3 font-semibold text-primary">
+              <Logo className="h-8 w-8" />
+              <span className="text-lg">لوحة التحكم</span>
             </Link>
           </div>
           <div className="flex-1">
@@ -90,10 +88,10 @@ export default function AdminSubPageLayout({ children, title }: { children: Reac
                 <span className="sr-only">Toggle navigation menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="flex flex-col">
+            <SheetContent side="right" className="flex flex-col bg-background">
               <nav className="grid gap-2 text-lg font-medium">
-                <Link href="/admin" className="flex items-center gap-2 text-lg font-semibold mb-4">
-                  <LayoutDashboard className="h-6 w-6" />
+                <Link href="/admin" className="flex items-center gap-3 text-lg font-semibold mb-4 text-primary">
+                  <Logo className="h-8 w-8" />
                   <span>لوحة التحكم</span>
                 </Link>
                 <Link href="/admin" className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground">
