@@ -1,112 +1,127 @@
 /**
- * @fileoverview Firestore Security Rules for Prototyping.
+ * @fileoverview Firestore Security Rules for HuwiyaSys App
  *
  * Core Philosophy:
- * This ruleset prioritizes strict user-ownership and admin-role based access control.
- * It's designed for rapid prototyping, so data shape validation is relaxed to allow for flexibility
- * during development. However, authorization is always enforced.
+ * This ruleset implements a hybrid security model, combining role-based access control (for admins) and user-ownership for user profiles and related data. It prioritizes strict authorization to prevent unauthorized data access while maintaining a flexible data structure to facilitate rapid development.
  *
  * Data Structure:
- * - /users/{userId}: User profiles, accessible only to the owner and admins.
- * - /users/{userId}/transactions/{transactionId}: Transaction history for each user, accessible only to the owner.
- * - /admins/{adminId}: Admin user profiles.
- * - /products/{productId}: Products, publicly readable but manageable only by admins.
+ * - /users/{userId}: Stores public profile information for each user. Access is restricted to the user themselves or a super admin.
+ * - /users/{userId}/transactions/{transactionId}: Stores a user's transaction history. Access is restricted to the user themselves or a super admin.
+ * - /admins/{adminId}: Stores profile information for admin users. Full read/write access is only granted to super admins via email verification.
+ * - /products/{productId}: Stores all available products in the application. Public read access, write access is restricted to the product owner.
  *
  * Key Security Decisions:
- * - User listing is disallowed to prevent unauthorized data exposure.
- * - Ambiguous relationships default to strict owner-only access.
- * - Admin accounts are separate from user accounts for clearer role separation.
+ * - Super Admin Role: A super admin can read and write any document in the database. This role is granted based on email verification.
+ * - User Listing Disabled: Listing all users is not allowed for non-admins to protect user privacy.
+ * - Products: Products are publicly readable. Write access is restricted to the owner.
  *
  * Denormalization for Authorization:
- * None necessary at this stage.
+ * - The `Product` entity requires an `ownerId` field to properly implement owner-only writes.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Function to check if the user is a super admin based on email
+    function isSuperAdmin() {
+      return request.auth != null && request.auth.token.email == "admin@huwiyasys.app";
+    }
+
+    // Grant full access to super admins
+    match /{document=**} {
+      allow read, write: if isSuperAdmin();
+    }
+
     /**
-     * @description Grants access to user profile information.
+     * @description Controls access to user profile documents.
      * @path /users/{userId}
-     * @allow (get, update, delete) User with matching ID.
-     * @allow (create) User with matching ID, if isAdmin = false.
-     * @deny (get, update, delete) User with non-matching ID.
-     * @deny (create) User with non-matching ID.
-     * @principle Enforces document ownership and restricts modification to owners only.
+     * @allow (get) Signed-in user with matching userId.
+     * @deny (get) Signed-in user with a different userId.
+     * @allow (create) Signed-in user creating their own profile.
+     * @deny (create) Signed-in user attempting to create another user's profile.
+     * @allow (update) Signed-in user updating their own profile.
+     * @deny (update) Signed-in user attempting to update another user's profile.
+     * @allow (delete) Signed-in user deleting their own profile.
+     * @deny (delete) Signed-in user attempting to delete another user's profile.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
       function isOwner(userId) {
         return request.auth.uid == userId;
       }
-      function isAdmin() {
-        return get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.isAdmin == true;
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
       }
 
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if false;
-      allow create: if isOwner(userId) && request.resource.data.uid == request.auth.uid;
-      allow update: if isOwner(userId) && request.resource.data.uid == resource.data.uid || isAdmin();
-      allow delete: if isOwner(userId) && resource.data.uid == request.auth.uid || isAdmin();
+      allow get: if isOwner(userId);
+      allow list: if false; // Listing all users is not permitted.
+
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.uid == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.uid == resource.data.uid;
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Grants access to user transaction history.
+     * @description Controls access to user transaction documents.
      * @path /users/{userId}/transactions/{transactionId}
-     * @allow (get, list, create, update, delete) User with matching ID.
-     * @deny (get, list, create, update, delete) User with non-matching ID.
-     * @principle Enforces document ownership and restricts modification to owners only.
+     * @allow (get) Signed-in user with matching userId.
+     * @deny (get) Signed-in user with a different userId.
+     * @allow (create) Signed-in user creating transaction history.
+     * @deny (create) Signed-in user attempting to create another user's transaction.
+     * @allow (update) Signed-in user updating their own transaction history.
+     * @deny (update) Signed-in user attempting to update another user's transaction history.
+     * @allow (delete) Signed-in user deleting their own transaction history.
+     * @deny (delete) Signed-in user attempting to delete another user's transaction history.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId}/transactions/{transactionId} {
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
-      allow delete: if isOwner(userId);
-    }
-
-    /**
-     * @description Grants access to admin user profiles.
-     * @path /admins/{adminId}
-     * @allow (get, update, delete) Admin with matching ID.
-     * @allow (create) Admin with matching ID.
-     * @deny (get, update, delete) Admin with non-matching ID.
-     * @deny (create) Admin with non-matching ID.
-     * @principle Enforces document ownership and restricts modification to owners only.
-     */
-    match /admins/{adminId} {
-      function isOwner(adminId) {
-        return request.auth.uid == adminId;
-      }
-      function isAdmin() {
-        return get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.isAdmin == true;
-      }
-      allow get: if isOwner(adminId) || isAdmin();
-      allow list: if false;
-      allow create: if isOwner(adminId) && request.resource.data.uid == request.auth.uid && request.resource.data.isAdmin == true;
-      allow update: if isOwner(adminId) && request.resource.data.uid == resource.data.uid || isAdmin();
-      allow delete: if isOwner(adminId) && resource.data.uid == request.auth.uid || isAdmin();
-    }
-
-    /**
-     * @description Grants access to product information.
-     * @path /products/{productId}
-     * @allow (get, list) Public access.
-     * @allow (create, update, delete) Admin users only.
-     * @deny (create, update, delete) Non-admin users.
-     * @principle Allows public read access but restricts writes to administrators.
-     */
-    match /products/{productId} {
-        function isAdmin() {
-            return get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.isAdmin == true;
+        function isOwner(userId) {
+            return request.auth.uid == userId;
         }
 
-        allow get: if true;
-        allow list: if true;
-        allow create: if isAdmin();
-        allow update: if isAdmin();
-        allow delete: if isAdmin();
+        function isExistingOwner(userId) {
+            return isOwner(userId) && resource != null;
+        }
+
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId); // Owner can list their own transactions.
+        allow create: if isOwner(userId);
+        allow update: if isExistingOwner(userId);
+        allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Controls access to product documents.
+     * @path /products/{productId}
+     * @allow (get) Anyone can read product details.
+     * @allow (list) Anyone can list products.
+     * @allow (create) Owner creating products.
+     * @deny (create) Non-owner attempting to create products.
+     * @allow (update) Owner updating products.
+     * @deny (update) Non-owner attempting to update products.
+     * @allow (delete) Owner deleting products.
+     * @deny (delete) Non-owner attempting to delete products.
+     * @principle Public read with owner-only writes.
+     */
+    match /products/{productId} {
+      function isOwner(ownerId) {
+        return request.auth.uid == ownerId;
+      }
+
+      function isExistingOwner(ownerId) {
+        return isOwner(ownerId) && resource != null;
+      }
+      
+      allow get, list: if true;
+
+       allow create: if request.auth.uid == request.resource.data.ownerId;
+       allow update: if isExistingOwner(resource.data.ownerId);
+       allow delete: if isExistingOwner(resource.data.ownerId);
     }
   }
 }
