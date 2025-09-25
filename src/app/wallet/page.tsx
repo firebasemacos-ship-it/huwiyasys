@@ -146,7 +146,7 @@ export default function WalletPage() {
                                 </div>
                                 <div className="text-left">
                                     <p className="font-mono text-xl tracking-widest">
-                                        **** **** **** 3456
+                                        5432 10XX XXXX 3456
                                     </p>
                                 </div>
                                 <div className="flex items-end justify-between">
@@ -312,5 +312,3 @@ export default function WalletPage() {
     </div>
   );
 }
-
-    
