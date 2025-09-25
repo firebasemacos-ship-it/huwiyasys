@@ -43,7 +43,7 @@ type UserProfile = {
 };
 
 
-function CheckoutDialog({ totalAmount, onPaymentSuccess }: { totalAmount: number; onPaymentSuccess: () => void }) {
+function CheckoutDialog({ onPaymentSuccess, cartItems, deliveryFee }: { onPaymentSuccess: () => void, cartItems: typeof initialCartItems, deliveryFee: number }) {
     const { toast } = useToast();
     const { user } = useUser();
     const firestore = useFirestore();
@@ -61,6 +61,9 @@ function CheckoutDialog({ totalAmount, onPaymentSuccess }: { totalAmount: number
     const [newCardNumber, setNewCardNumber] = useState('');
     const [newCardExpiry, setNewCardExpiry] = useState('');
     const [newCardCvv, setNewCardCvv] = useState('');
+
+    const subtotal = useMemo(() => cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0), [cartItems]);
+    const totalAmount = subtotal + deliveryFee;
 
     const handlePayment = async () => {
         if (!firestore || !user) return;
@@ -363,7 +366,7 @@ export default function CartPage() {
                             إتمام الطلب
                         </Button>
                     </DialogTrigger>
-                    {isCheckoutOpen && <CheckoutDialog totalAmount={total} onPaymentSuccess={handlePaymentSuccess} />}
+                    {isCheckoutOpen && <CheckoutDialog cartItems={cartItems} deliveryFee={deliveryFee} onPaymentSuccess={handlePaymentSuccess} />}
                 </Dialog>
             </div>
         )}
