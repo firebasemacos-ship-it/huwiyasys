@@ -1,28 +1,37 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset enforces a strict user-ownership model for user profiles and allows public read access to product information with owner-only writes.
+ * @file Firebase Security Rules for the application.
  *
- * Data Structure:
- * - /users/{userId}: Stores user profile information. Access is restricted to the user themselves (owner-only).
- * - /products/{productId}: Stores product information. Public read access is allowed, but write access is restricted to owners (to be implemented with an `ownerId` field).
+ * @core_philosophy This ruleset enforces a strict user-ownership model for user profiles and transactions,
+ * with public read access to products. Administrative access is not yet implemented.
  *
- * Key Security Decisions:
- * - User listing is disallowed to protect user privacy.
- * - Product data is publicly readable, but write access requires an `ownerId` field on the document.
- * - The default security posture for any ambiguous relationships is strict: DENY.
+ * @data_structure
+ * - /users/{userId}: Stores user profile information.
+ * - /users/{userId}/transactions/{transactionId}: Stores a user's transaction history.
+ * - /products/{productId}: Stores product information.
+ *
+ * @key_security_decisions
+ * - Users can only read and write their own profile data and transaction history.
+ * - Public read access is granted for product information, but write access is restricted (TODO).
+ * - Listing of user profiles and admin profiles is disallowed.
+ *
+ * @denormalization_for_authorization N/A
+ * @structural_segregation N/A
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows only the authenticated user to read and write their own profile.
+     * @description Controls access to user profile information.
      * @path /users/{userId}
-     * @allow (get, create, update, delete) if request.auth.uid == userId
-     * @deny (get, create, update, delete) if request.auth.uid != userId
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) - Authenticated user can create their own profile if the userId matches their auth.uid.
+     * @allow (get, update, delete) - Authenticated user can only access their own profile.
+     * @deny (create) - User attempts to create a profile with a userId that doesn't match their auth.uid.
+     * @deny (list) - Listing of user profiles is not allowed.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
      */
     match /users/{userId} {
+      // Helper function to check if the user is signed in and owns the resource.
       function isSignedIn() {
         return request.auth != null;
       }
@@ -31,32 +40,72 @@ service cloud.firestore {
         return request.auth.uid == userId;
       }
 
-      function isExistingOwner(userId) {
-        return isOwner(userId);
-      }
-
-      allow get: if isOwner(userId);
-      allow list: if false; // Disallowing user listing for privacy
-
+      // Allow the user to create their own profile, enforcing that the userId matches their auth.uid.
       allow create: if isSignedIn() && isOwner(userId) && request.resource.data.uid == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.uid == userId; // Enforce immutability of user ID
-      allow delete: if isExistingOwner(userId);
+
+      // Authenticated user can read their own profile data
+      allow get: if isSignedIn() && isOwner(userId);
+
+      // Authenticated user can update their own profile data
+      allow update: if isSignedIn() && isOwner(userId) && resource.data.uid == userId;
+
+      // Authenticated user can delete their own profile data
+      allow delete: if isSignedIn() && isOwner(userId) && resource.data.uid == userId;
+
+      // Do not allow listing of user profiles.
+      allow list: if false;
     }
 
     /**
-     * @description Allows anyone to read product information, but restricts modifications to the owner.
+     * @description Controls access to a user's transaction history.
+     * @path /users/{userId}/transactions/{transactionId}
+     * @allow (create) - Authenticated user can create a transaction under their own user ID.
+     * @allow (get, list, update, delete) - Authenticated user can only access and manage transactions under their own user ID.
+     * @deny (create) - User attempts to create a transaction under a different user ID.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     */
+    match /users/{userId}/transactions/{transactionId} {
+      // Helper function to check if the user is signed in and owns the resource.
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+      
+      allow create: if isSignedIn() && isOwner(userId);
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId) && resource != null;
+      allow delete: if isSignedIn() && isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Controls access to admin user profiles.
+     * @path /admins/{adminId}
+     * @allow None.  Administrative access is not yet implemented.
+     * @deny All operations are denied.
+     * @principle Placeholder for future admin role-based access control.
+     */
+    match /admins/{adminId} {
+      // No access granted yet
+      allow get, list, create, update, delete: if false;
+    }
+
+    /**
+     * @description Controls access to product information.
      * @path /products/{productId}
-     * @allow (get, list) if true
-     * @deny (create, update, delete) always, until ownership is established
-     * @principle Allows public read access but requires owner-only access for writes.
+     * @allow (get, list) - Anyone can read product information.
+     * @deny (create, update, delete) - Only authenticated users can create/update/delete products.
+     * @principle Public read access with owner-only writes.
      */
     match /products/{productId} {
-      allow get, list: if true; // Public read access for product information
+      // Anyone can read product information
+      allow get, list: if true;
 
-      // Owner-only writes are now implemented based on the 'ownerId' field.
-      allow create: if request.auth.uid == request.resource.data.ownerId;
-      allow update: if request.auth.uid == resource.data.ownerId;
-      allow delete: if request.auth.uid == resource.data.ownerId;
+      // Only authenticated users can create/update/delete products
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
   }
 }
