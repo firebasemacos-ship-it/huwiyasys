@@ -2,7 +2,6 @@
 'use client';
 import Image from 'next/image';
 import {
-  ChevronDown,
   Home,
   MessageSquare,
   MoreHorizontal,
@@ -56,16 +55,7 @@ export default function ShopPage() {
     <div className="bg-background text-foreground" dir="rtl">
       <div className="flex min-h-screen flex-col">
         <header className="sticky top-0 z-40 w-full border-b bg-background/95 p-4 backdrop-blur">
-          <div className="flex items-center justify-between">
-            <div>
-              <Button variant="ghost" className="flex items-center gap-2 p-0 text-base font-bold text-primary">
-                الإسماعيلية
-                <ChevronDown className="h-5 w-5" />
-              </Button>
-              <p className="text-sm text-orange-500">
-                التوصيل 10:00 ص - 11:00 ص
-              </p>
-            </div>
+          <div className="flex items-center justify-end">
             <Button variant="ghost" size="icon">
               <MessageSquare className="h-6 w-6 text-primary" />
             </Button>
