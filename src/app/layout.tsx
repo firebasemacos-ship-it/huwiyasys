@@ -2,6 +2,13 @@ import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from "@/firebase";
 import "./globals.css";
+import { Tajawal } from "next/font/google";
+
+const tajawal = Tajawal({
+  subsets: ["arabic"],
+  weight: ["400", "700"],
+});
+
 
 export const metadata: Metadata = {
   title: "Mobile Mate",
@@ -14,8 +21,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className="font-body antialiased">
+    <html lang="ar" dir="rtl" suppressHydrationWarning>
+      <body className={`${tajawal.className} font-body antialiased`}>
         <FirebaseClientProvider>
             {children}
         </FirebaseClientProvider>
@@ -24,5 +31,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-    
