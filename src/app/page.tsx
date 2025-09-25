@@ -35,7 +35,7 @@ export default function LoginPage() {
     const email = contractNumber.includes('@') ? contractNumber : `${contractNumber}@huwiyasys.app`;
 
     try {
-      // Only attempt to sign in. User creation is now handled by the admin.
+      // Only attempt to sign in. User creation is handled by the admin panel.
       await signInWithEmailAndPassword(auth, email, password);
       toast({
         title: 'تم تسجيل الدخول بنجاح',
@@ -46,21 +46,13 @@ export default function LoginPage() {
         router.push('/shop');
       }
     } catch (error: any) {
-        // Handle login errors
+        // Handle all login errors with a single, clear message.
         console.error('Login Error:', error);
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-             toast({
-                variant: 'destructive',
-                title: 'فشل تسجيل الدخول',
-                description: 'رقم العقد أو كلمة المرور غير صحيحة.',
-             });
-        } else {
-            toast({
-                variant: 'destructive',
-                title: 'فشل تسجيل الدخول',
-                description: 'حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.',
-            });
-        }
+        toast({
+            variant: 'destructive',
+            title: 'فشل تسجيل الدخول',
+            description: 'رقم العقد أو كلمة المرور غير صحيحة.',
+        });
     } finally {
         setIsLoading(false);
     }
