@@ -7,17 +7,15 @@
  * facilitate rapid prototyping.
  *
  * Data Structure:
- * - /users/{userId}: Stores user profile information, accessible only to the owner.
- * - /products/{productId}: Stores product information, publicly readable but writable only by authorized users.
+ * - /users/{userId}: Stores user profile information, accessible only to the owner. The 'uid' field MUST match the {userId} in the path.
+ * - /products/{productId}: Stores product information, publicly readable but writable only by authorized users. Write access is currently restricted.
  *
  * Key Security Decisions:
- * - User profiles are strictly owned by the corresponding user. No listing of user profiles is allowed.
- * - Products are publicly readable, but write access is restricted. A mechanism for
- *   controlling product creation, updates, and deletion should be implemented.
- *   For now, write access is completely restricted and should be updated later.
+ * - User profiles are strictly owned by the corresponding user. No listing of user profiles is allowed except for admins.
+ * - Products are publicly readable, but write access is completely restricted and should be updated later with owner-only permissions.
  *
  * Denormalization for Authorization:
- * - The /users/{userId} document contains a 'uid' field that MUST match the {userId} in the path. This is enforced on create and update.
+ * - The /users/{userId} document contains a 'uid' field that MUST match the {userId} in the path. This is enforced on create and update to prevent privilege escalation.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -28,8 +26,7 @@ service cloud.firestore {
      * @path /users/{userId}
      * @allow (create) - A user can create their own profile if the UID matches the document ID.
      * @allow (get, update, delete) - A user can only access their own profile.
-     * @deny (create) - A user cannot create a profile with an ID that does not match their UID.
-     * @deny (get, update, delete) - A user cannot access another user's profile.
+     * @allow (list) - Only admin user can list all profiles.
      * @principle Enforces document ownership for user profiles.
      */
     match /users/{userId} {
@@ -45,8 +42,12 @@ service cloud.firestore {
         return isOwner(userId) && resource != null;
       }
 
+      function isAdmin() {
+        return request.auth.token.email == "admin@huwiyasys.app";
+      }
+
       allow get: if isOwner(userId);
-      allow list: if false;
+      allow list: if isAdmin();
       allow create: if isSignedIn() && isOwner(userId) && request.resource.data.uid == userId;
       allow update: if isExistingOwner(userId) && request.resource.data.uid == resource.data.uid;
       allow delete: if isExistingOwner(userId);
