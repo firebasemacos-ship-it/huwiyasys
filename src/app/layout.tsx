@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from "@/firebase";
 import "./globals.css";
-import { Zain } from "next/font/google";
+import { Cairo } from "next/font/google";
 
-const zain = Zain({
+const cairo = Cairo({
   subsets: ["arabic"],
   weight: ["400", "700"],
+  variable: '--font-cairo',
 });
 
 
@@ -22,7 +23,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
-      <body className={`${zain.className} font-body antialiased`}>
+      <body className={`${cairo.variable} font-body antialiased`}>
         <FirebaseClientProvider>
             {children}
         </FirebaseClientProvider>
