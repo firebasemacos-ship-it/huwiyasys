@@ -164,15 +164,14 @@ export default function ShopPage() {
                             {category.products.map(product => (
                                 <Card key={product.id} className="overflow-hidden">
                                      <CardContent className="p-0">
-                                        <div className="relative h-32 w-full">
-                                            <Image 
-                                                src={product.imageUrl || getImage('category-sweets')} 
-                                                alt={product.name}
-                                                fill
-                                                className="object-cover"
-                                                data-ai-hint={product.imageHint || product.name}
-                                            />
-                                        </div>
+                                        <Image 
+                                            src={product.imageUrl || getImage('category-sweets')} 
+                                            alt={product.name}
+                                            width={500}
+                                            height={500}
+                                            className="object-cover w-full aspect-square"
+                                            data-ai-hint={product.imageHint || product.name}
+                                        />
                                         <div className="p-4">
                                             <h3 className="font-semibold truncate">{product.name}</h3>
                                             <p className="text-primary font-bold">{product.price.toFixed(2)} د.ل</p>
@@ -230,4 +229,3 @@ export default function ShopPage() {
     </div>
   );
 }
-
