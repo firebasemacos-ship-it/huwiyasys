@@ -103,7 +103,7 @@ export default function CartPage() {
         <footer className="fixed bottom-0 z-40 w-full border-t bg-background">
           <nav className="flex items-center justify-around p-2">
             <a
-              href="/"
+              href="/shop"
               className="flex flex-col items-center text-xs text-muted-foreground"
             >
               <Home className="mb-1 h-6 w-6" />

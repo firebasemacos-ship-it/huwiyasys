@@ -50,7 +50,7 @@ export default function WalletPage() {
   const handleLogoMouseDown = () => {
     if (clickCount.current >= 2) {
       longPressTimeout.current = setTimeout(() => {
-        router.push('/admin/login');
+        router.push('/admin');
         clickCount.current = 0;
       }, 1000); // 1 second long press
     }
@@ -292,7 +292,7 @@ export default function WalletPage() {
         <footer className="fixed bottom-0 z-40 w-full border-t bg-background">
           <nav className="flex items-center justify-around p-2">
             <a
-              href="/"
+              href="/shop"
               className="flex flex-col items-center text-xs text-muted-foreground"
             >
               <Home className="mb-1 h-6 w-6" />
@@ -332,6 +332,3 @@ export default function WalletPage() {
     </div>
   );
 }
-    
-
-    
