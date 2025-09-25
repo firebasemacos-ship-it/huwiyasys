@@ -67,7 +67,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems }: { onPaymentSuccess: () 
     const totalAmount = subtotal + deliveryFee;
 
     const handlePayment = async () => {
-        if (!firestore || !user) return;
+        if (!firestore || !user || !userData) return;
         setPaymentStatus('processing');
 
         let paymentCardOwnerId: string | null = null;
@@ -76,7 +76,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems }: { onPaymentSuccess: () 
 
         try {
             if (selectedPayment === 'primary') {
-                if (userData?.wallet && userData.wallet.balance >= totalAmount) {
+                if (userData.wallet && userData.wallet.balance >= totalAmount) {
                     paymentCardOwnerId = user.uid;
                     paymentCardOwnerData = userData;
                     cardVerified = true;
@@ -96,7 +96,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems }: { onPaymentSuccess: () 
                     }
                     cardToVerify = { cardNumber: newCardNumber, expiryDate: newCardExpiry, cvv: newCardCvv };
                 } else {
-                    const linkedWallet = userData?.linkedWallets?.find(w => w.cardNumber === selectedPayment);
+                    const linkedWallet = userData.linkedWallets?.find(w => w.cardNumber === selectedPayment);
                     if (!linkedWallet) {
                         toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على البطاقة المرتبطة.' });
                         setPaymentStatus('idle');
@@ -136,6 +136,10 @@ function CheckoutDialog({ onPaymentSuccess, cartItems }: { onPaymentSuccess: () 
                         setPaymentStatus('idle');
                         return;
                     }
+                } else {
+                    toast({ variant: 'destructive', title: 'خطأ في الدفع', description: 'لم يتم العثور على البطاقة المحددة.' });
+                    setPaymentStatus('idle');
+                    return;
                 }
             }
 
@@ -158,7 +162,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems }: { onPaymentSuccess: () 
                 type: 'شراء',
                 amount: -totalAmount,
                 date: serverTimestamp(),
-                description: `شراء من قبل ${userData?.displayName || 'مستخدم'}`
+                description: `شراء من قبل ${userData.displayName}`
             });
             
             // 3. Create transaction for the buyer (if different from owner)
@@ -306,7 +310,7 @@ export default function CartPage() {
 
 
   return (
-    <div className="bg-background text-foreground font-sans" dir="rtl">
+    <div className="bg-background text-foreground" dir="rtl">
       <div className="flex min-h-screen flex-col">
         <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b bg-background/95 p-4 backdrop-blur">
           <h1 className="text-xl font-bold">السلة</h1>
@@ -431,5 +435,3 @@ export default function CartPage() {
     </div>
   );
 }
-
-    

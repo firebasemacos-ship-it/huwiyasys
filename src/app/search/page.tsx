@@ -6,7 +6,7 @@ import { Search as SearchIcon, Home, ShoppingCart, Wallet, MoreHorizontal } from
 
 export default function SearchPage() {
   return (
-    <div className="bg-background text-foreground font-sans" dir="rtl">
+    <div className="bg-background text-foreground" dir="rtl">
       <div className="flex min-h-screen flex-col">
         <header className="sticky top-0 z-40 w-full border-b bg-background/95 p-4 backdrop-blur">
           <div className="relative">

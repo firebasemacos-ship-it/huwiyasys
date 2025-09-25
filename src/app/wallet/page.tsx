@@ -261,7 +261,7 @@ export default function WalletPage() {
 
 
   return (
-    <div className="bg-background text-foreground font-sans" dir="rtl">
+    <div className="bg-background text-foreground" dir="rtl">
       <div className="flex min-h-screen flex-col">
         <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b bg-background/95 p-4 backdrop-blur">
           <h1 className="text-xl font-bold">المحفظة</h1>
@@ -521,4 +521,3 @@ export default function WalletPage() {
     </div>
   );
 }
-
