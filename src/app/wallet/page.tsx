@@ -4,7 +4,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, Gift, PlusCircle, LoaderCircle, CheckCircle2, Wifi } from 'lucide-react';
+import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, Gift, PlusCircle, LoaderCircle, CheckCircle2, Wifi, ArrowUpCircle, ArrowDownCircle, BadgeHelp } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -243,6 +243,22 @@ export default function WalletPage() {
     return date.toLocaleDateString('ar-LY', { year: 'numeric', month: 'long', day: 'numeric' });
   }
 
+  const getTransactionIcon = (type: string) => {
+      if (type.includes('شراء')) {
+        return <ShoppingCart className="h-6 w-6 text-primary" />;
+      }
+      if (type.includes('شحن')) {
+        return <ArrowUpCircle className="h-6 w-6 text-green-500" />;
+      }
+      if (type.includes('إيداع')) {
+        return <ArrowUpCircle className="h-6 w-6 text-green-500" />;
+      }
+       if (type.includes('سحب')) {
+        return <ArrowDownCircle className="h-6 w-6 text-red-500" />;
+      }
+      return <BadgeHelp className="h-6 w-6 text-muted-foreground" />;
+  }
+
 
   return (
     <div className="bg-background text-foreground font-sans" dir="rtl">
@@ -419,7 +435,8 @@ export default function WalletPage() {
                 {areTransactionsLoading ? (
                      <div className="space-y-2 p-6">
                         {Array.from({ length: 3 }).map((_, i) => (
-                           <div key={i} className="flex items-center justify-between py-2">
+                           <div key={i} className="flex items-center gap-4 py-3">
+                                <Skeleton className="h-10 w-10 rounded-full" />
                                 <div className='space-y-2 flex-1'>
                                     <Skeleton className="h-5 w-24" />
                                     <Skeleton className="h-4 w-32" />
@@ -432,13 +449,20 @@ export default function WalletPage() {
                     <div className="space-y-0">
                         {transactions.map((transaction, index) => (
                         <div key={transaction.id}>
-                            <div className="flex items-center justify-between px-6 py-4">
-                                <div>
+                            <div className="flex items-center gap-4 px-6 py-4">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                                    {getTransactionIcon(transaction.type)}
+                                </div>
+                                <div className="flex-1">
                                     <p className="font-semibold">{transaction.description || transaction.type}</p>
                                     <p className="text-sm text-muted-foreground">{formatDate(transaction.date)}</p>
                                 </div>
-                                <p className={`font-bold ${transaction.amount >= 0 ? 'text-green-500' : 'text-destructive'}`}>
-                                    {transaction.amount >= 0 ? '+' : ''}{transaction.amount.toFixed(2)} د.ل
+                                <p className={cn(
+                                    "font-bold text-lg",
+                                    transaction.amount >= 0 ? 'text-green-500' : 'text-destructive'
+                                )}>
+                                    {transaction.amount >= 0 ? '+' : ''}{transaction.amount.toFixed(2)}
+                                    <span className="text-sm font-normal"> د.ل</span>
                                 </p>
                             </div>
                             {index < transactions.length - 1 && <Separator />}
@@ -498,4 +522,3 @@ export default function WalletPage() {
   );
 }
 
-    
