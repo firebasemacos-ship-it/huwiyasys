@@ -17,13 +17,15 @@ export default function LoginPage() {
   const { toast } = useToast();
   const auth = useAuth();
 
-  const [email, setEmail] = useState('');
+  const [contractNumber, setContractNumber] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
 
   const handleLogin = async () => {
     setIsLoading(true);
+    const email = contractNumber.includes('@') ? contractNumber : `${contractNumber}@huwiyasys.app`;
+
     try {
       await signInWithEmailAndPassword(auth, email, password);
       toast({
@@ -39,7 +41,7 @@ export default function LoginPage() {
           toast({
             variant: 'destructive',
             title: 'فشل تسجيل الدخول',
-            description: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
+            description: 'رقم العقد أو كلمة المرور غير صحيحة.',
           });
        } else {
          console.error('Login Error:', error);
@@ -56,6 +58,7 @@ export default function LoginPage() {
 
   const handleRegister = async () => {
     setIsLoading(true);
+    const email = `${contractNumber}@huwiyasys.app`;
     try {
         await createUserWithEmailAndPassword(auth, email, password);
         toast({
@@ -69,7 +72,7 @@ export default function LoginPage() {
              toast({
                 variant: 'destructive',
                 title: 'فشل إنشاء الحساب',
-                description: 'هذا البريد الإلكتروني مستخدم بالفعل.',
+                description: 'رقم العقد هذا مستخدم بالفعل.',
             });
         } else {
             console.error('Registration Error:', error);
@@ -87,6 +90,8 @@ export default function LoginPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isRegistering) {
+        // Registration for regular users should be handled by admin,
+        // so we can disable this or limit it. For now, we allow it for testing.
         handleRegister();
     } else {
         handleLogin();
@@ -103,18 +108,18 @@ export default function LoginPage() {
                     <Logo className="h-12 w-12 text-primary" />
                 </div>
                 <CardTitle className="text-2xl">{isRegistering ? 'إنشاء حساب جديد' : 'مرحباً بك'}</CardTitle>
-                <CardDescription>{isRegistering ? 'أدخل بياناتك للمتابعة.' : 'سجل الدخول أو أنشئ حساباً للمتابعة.'}</CardDescription>
+                <CardDescription>{isRegistering ? 'أدخل بياناتك للمتابعة.' : 'سجل الدخول للمتابعة.'}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="space-y-2">
-                <Label htmlFor="email">البريد الإلكتروني</Label>
+                <Label htmlFor="contract-number">رقم العقد</Label>
                 <Input
-                    id="email"
-                    type="email"
-                    placeholder="user@example.com"
+                    id="contract-number"
+                    type="text"
+                    placeholder="أدخل رقم العقد"
                     required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    value={contractNumber}
+                    onChange={(e) => setContractNumber(e.target.value)}
                     disabled={isLoading}
                 />
                 </div>
@@ -135,6 +140,8 @@ export default function LoginPage() {
                     {isLoading && <LoaderCircle className="ml-2 h-4 w-4 animate-spin" />}
                     {isLoading ? 'جاري...' : (isRegistering ? 'إنشاء حساب' : 'تسجيل الدخول')}
                 </Button>
+                 {/* Hiding Register button as users are created by admin */}
+                 {/*
                 <Button 
                     type="button" 
                     variant="outline" 
@@ -144,6 +151,7 @@ export default function LoginPage() {
                 >
                     {isRegistering ? 'هل لديك حساب؟ تسجيل الدخول' : 'إنشاء حساب جديد'}
                 </Button>
+                */}
             </CardFooter>
         </form>
       </Card>
