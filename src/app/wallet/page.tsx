@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -31,62 +30,32 @@ export default function WalletPage() {
   const [rechargeStatus, setRechargeStatus] = useState('idle'); // idle, verifying, charging, success
   const [displayBalance, setDisplayBalance] = useState(0);
 
-  const clickTimeout = useRef<NodeJS.Timeout | null>(null);
-  const longPressTimeout = useRef<NodeJS.Timeout | null>(null);
-  const clickCount = useRef(0);
-
-  const handleLogoClick = () => {
-    clickCount.current += 1;
-
-    if (clickCount.current === 1) {
-      clickTimeout.current = setTimeout(() => {
-        clickCount.current = 0;
-      }, 300); // 300ms window for double click
-    } else if (clickCount.current === 2) {
-      if(clickTimeout.current) clearTimeout(clickTimeout.current);
-    }
-  };
-
-  const handleLogoMouseDown = () => {
-    if (clickCount.current >= 2) {
-      longPressTimeout.current = setTimeout(() => {
-        router.push('/admin');
-        clickCount.current = 0;
-      }, 1000); // 1 second long press
-    }
-  };
-
-  const handleLogoMouseUp = () => {
-    if (longPressTimeout.current) {
-      clearTimeout(longPressTimeout.current);
-    }
-    if (clickCount.current >= 2) {
-        setTimeout(() => {
-            clickCount.current = 0;
-        }, 300)
-    }
-  };
-
   const currentBalance = useMemo(() => transactions.reduce((acc, t) => acc + t.amount, 0), [transactions]);
 
   useEffect(() => {
     let animationFrameId: number;
     let current = 0;
     const target = currentBalance;
-    const increment = (target - current) / 100; // Animate over ~100 frames
+    const step = (target - current) / 100; // Animate over ~100 frames
 
     const animate = () => {
-        current += increment;
-        if (current >= target) {
-            setDisplayBalance(target);
-            cancelAnimationFrame(animationFrameId);
-        } else {
-            setDisplayBalance(current);
-            animationFrameId = requestAnimationFrame(animate);
-        }
+      current += step;
+      if ((step > 0 && current >= target) || (step < 0 && current <= target)) {
+        setDisplayBalance(target);
+        cancelAnimationFrame(animationFrameId);
+      } else {
+        setDisplayBalance(current);
+        animationFrameId = requestAnimationFrame(animate);
+      }
     };
     
-    animationFrameId = requestAnimationFrame(animate);
+    // Check if there is a difference to animate
+    if (Math.abs(target - displayBalance) > 0.01) {
+        animationFrameId = requestAnimationFrame(animate);
+    } else {
+        setDisplayBalance(target);
+    }
+
 
     return () => cancelAnimationFrame(animationFrameId);
   }, [currentBalance]);
@@ -168,11 +137,6 @@ export default function WalletPage() {
                 <CardContent className="flex h-full flex-col justify-between p-6">
                     <div
                       className="flex items-start justify-between"
-                      onClick={handleLogoClick}
-                      onMouseDown={handleLogoMouseDown}
-                      onMouseUp={handleLogoMouseUp}
-                      onTouchStart={handleLogoMouseDown}
-                      onTouchEnd={handleLogoMouseUp}
                     >
                         <div className="flex items-center gap-2 pointer-events-none">
                           <Logo className="h-8 w-8 text-primary-foreground" />
