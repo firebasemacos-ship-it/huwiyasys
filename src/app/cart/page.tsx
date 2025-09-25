@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -16,14 +15,10 @@ import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, DocumentData, getDocs, collection, query, where, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useCart } from '@/hooks/use-cart';
 
-const initialCartItems = [
-  { id: 1, name: 'لبن جهينة كامل الدسم', price: 25.50, quantity: 1, image: 'category-dairy' },
-  { id: 2, name: 'بيض أبيض (10 قطع)', price: 45.00, quantity: 2, image: 'category-eggs' },
-  { id: 3, name: 'خبز بلدي (5 أرغفة)', price: 5.00, quantity: 1, image: 'category-bakery' },
-];
-
-const getImage = (id: string) => {
+const getImage = (id: string | undefined) => {
+    if (!id) return 'https://picsum.photos/seed/placeholder/200/200';
     const image = PlaceHolderImages.find((img) => img.id === id);
     return image ? image.imageUrl : 'https://picsum.photos/seed/placeholder/200/200';
 };
@@ -43,7 +38,7 @@ type UserProfile = {
 };
 
 
-function CheckoutDialog({ onPaymentSuccess, cartItems }: { onPaymentSuccess: () => void, cartItems: typeof initialCartItems }) {
+function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymentSuccess: () => void, cartItems: any[], totalAmount: number }) {
     const { toast } = useToast();
     const { user } = useUser();
     const firestore = useFirestore();
@@ -61,10 +56,6 @@ function CheckoutDialog({ onPaymentSuccess, cartItems }: { onPaymentSuccess: () 
     const [newCardNumber, setNewCardNumber] = useState('');
     const [newCardExpiry, setNewCardExpiry] = useState('');
     const [newCardCvv, setNewCardCvv] = useState('');
-
-    const subtotal = useMemo(() => cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0), [cartItems]);
-    const deliveryFee = 10;
-    const totalAmount = subtotal + deliveryFee;
 
     const handlePayment = async () => {
         if (!firestore || !user || !userData) return;
@@ -296,8 +287,8 @@ function CheckoutDialog({ onPaymentSuccess, cartItems }: { onPaymentSuccess: () 
 
 export default function CartPage() {
   const { user, isUserLoading } = useUser();
+  const { items: cartItems, updateQuantity, removeItem, clearCart } = useCart();
   const [isCheckoutOpen, setCheckoutOpen] = useState(false);
-  const [cartItems, setCartItems] = useState(initialCartItems);
 
   const subtotal = useMemo(() => cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0), [cartItems]);
   const deliveryFee = 10;
@@ -305,12 +296,12 @@ export default function CartPage() {
 
   const handlePaymentSuccess = () => {
     setCheckoutOpen(false);
-    setCartItems([]); // Clear the cart
+    clearCart();
   };
 
 
   return (
-    <div className="bg-background text-foreground" dir="rtl">
+    <div>
       <div className="flex min-h-screen flex-col">
         <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b bg-background/95 p-4 backdrop-blur">
           <h1 className="text-xl font-bold">السلة</h1>
@@ -326,27 +317,27 @@ export default function CartPage() {
                 <Card key={item.id} className="overflow-hidden rounded-xl">
                   <CardContent className="flex items-center gap-4 p-4">
                     <Image
-                      src={getImage(item.image)}
+                      src={item.imageUrl || getImage(item.imageHint)}
                       alt={item.name}
                       width={80}
                       height={80}
                       className="rounded-lg object-cover"
-                      data-ai-hint={item.image}
+                      data-ai-hint={item.imageHint}
                     />
                     <div className="flex-1">
                       <p className="font-semibold">{item.name}</p>
                       <p className="font-bold text-primary">{item.price.toFixed(2)} دينار ليبي</p>
                       <div className="mt-2 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Button variant="outline" size="icon" className="h-8 w-8 rounded-full">
+                          <Button variant="outline" size="icon" className="h-8 w-8 rounded-full" onClick={() => updateQuantity(item.id, item.quantity + 1)}>
                             <Plus className="h-4 w-4" />
                           </Button>
                           <span>{item.quantity}</span>
-                          <Button variant="outline" size="icon" className="h-8 w-8 rounded-full">
+                          <Button variant="outline" size="icon" className="h-8 w-8 rounded-full" onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}>
                             <Minus className="h-4 w-4" />
                           </Button>
                         </div>
-                        <Button variant="ghost" size="icon" className="text-destructive">
+                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeItem(item.id)}>
                           <Trash2 className="h-5 w-5" />
                         </Button>
                       </div>
@@ -358,8 +349,8 @@ export default function CartPage() {
           ) : (
             <div className="flex h-full flex-col items-center justify-center text-center">
               <ShoppingCart className="mb-4 h-20 w-20 text-muted-foreground" />
-              <h2 className="text-xl font-semibold">تم إرسال طلبك بنجاح!</h2>
-              <p className="text-muted-foreground">شكراً لتسوقك معنا.</p>
+              <h2 className="text-xl font-semibold">سلّتك فارغة</h2>
+              <p className="text-muted-foreground">أضف بعض المنتجات لتبدأ.</p>
               <Button onClick={() => window.location.href='/shop'} className="mt-6">متابعة التسوق</Button>
             </div>
           )}
@@ -387,7 +378,7 @@ export default function CartPage() {
                             إتمام الطلب
                         </Button>
                     </DialogTrigger>
-                    {isCheckoutOpen && <CheckoutDialog cartItems={cartItems} onPaymentSuccess={handlePaymentSuccess} />}
+                    {isCheckoutOpen && <CheckoutDialog cartItems={cartItems} totalAmount={total} onPaymentSuccess={handlePaymentSuccess} />}
                 </Dialog>
             </div>
         )}

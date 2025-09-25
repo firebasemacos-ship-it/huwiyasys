@@ -1,6 +1,7 @@
 
 'use client';
 import Image from 'next/image';
+import Link from 'next/link';
 import {
   Home,
   MessageSquare,
@@ -77,7 +78,7 @@ export default function ShopPage() {
         const categoriesData: CategoryWithProducts[] = [];
 
         for (const category of categories) {
-            const productsQuery = query(collection(firestore, 'products'), where('categoryId', '==', category.id));
+            const productsQuery = query(collection(firestore, 'products'), where('categoryId', '==', category.id), where('status', '==', 'active'));
             const productsSnapshot = await getDocs(productsQuery);
             const products = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
             categoriesData.push({ ...category, products });
@@ -162,22 +163,26 @@ export default function ShopPage() {
                         <h2 className="mb-4 text-2xl font-bold">{category.name}</h2>
                         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                             {category.products.map(product => (
-                                <Card key={product.id} className="overflow-hidden">
-                                     <CardContent className="p-0">
-                                        <Image 
-                                            src={product.imageUrl || getImage('category-sweets')} 
-                                            alt={product.name}
-                                            width={500}
-                                            height={500}
-                                            className="object-cover w-full aspect-square"
-                                            data-ai-hint={product.imageHint || product.name}
-                                        />
-                                        <div className="p-4">
-                                            <h3 className="font-semibold truncate">{product.name}</h3>
-                                            <p className="text-primary font-bold">{product.price.toFixed(2)} د.ل</p>
-                                        </div>
-                                    </CardContent>
-                                </Card>
+                                <Link href={`/product/${product.id}`} key={product.id}>
+                                    <Card className="overflow-hidden h-full">
+                                        <CardContent className="p-0 flex flex-col h-full">
+                                            <div className='relative w-full aspect-square'>
+                                            <Image 
+                                                src={product.imageUrl || getImage('category-sweets')} 
+                                                alt={product.name}
+                                                fill
+                                                className="object-cover"
+                                                sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                                                data-ai-hint={product.imageHint || product.name}
+                                            />
+                                            </div>
+                                            <div className="p-4 flex flex-col flex-grow">
+                                                <h3 className="font-semibold truncate flex-grow">{product.name}</h3>
+                                                <p className="text-primary font-bold mt-2">{product.price.toFixed(2)} د.ل</p>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </Link>
                             ))}
                         </div>
                     </section>
