@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -242,7 +243,7 @@ export default function WalletPage() {
                                             <p className="text-3xl font-bold leading-tight">{displayBalance.toFixed(2)}</p>
                                             <p className="text-sm font-medium opacity-90">دينار ليبي</p>
                                         </div>
-                                        <p className="text-sm font-semibold">{userData?.wallet?.expiryDate || 'MM/YY'}</p>
+                                        <p className="text-sm font-semibold">{userData?.wallet?.expiryDate || '08/30'}</p>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -254,7 +255,7 @@ export default function WalletPage() {
                                 <div className="h-full flex flex-col justify-between p-4">
                                     <div className="h-12 bg-black mt-4"></div>
                                     <div className="flex justify-end items-center gap-4 px-4 py-2 bg-slate-200 rounded-md">
-                                        <p className="font-mono text-lg text-black italic">{userData?.wallet?.cvv || 'XXX'}</p>
+                                        <p className="font-mono text-lg text-black italic">{userData?.wallet?.cvv || '123'}</p>
                                         <p className="text-sm text-slate-600 flex-1 text-right">CVV</p>
                                     </div>
                                     <div className="text-xs opacity-70 text-left p-2">
@@ -433,3 +434,5 @@ export default function WalletPage() {
     </div>
   );
 }
+
+    
