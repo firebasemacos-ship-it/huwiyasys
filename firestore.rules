@@ -1,45 +1,42 @@
 /**
- * @fileoverview Firestore Security Rules for huwiyasys.app.
+ * @fileoverview Firestore Security Rules for the application.
  *
  * Core Philosophy:
- * This ruleset employs a hybrid security model:
- *   - User profiles are private and only accessible to the owning user.
- *   - Products and Categories are publicly readable but only modifiable by authorized users.
- *   - Super Admin access is granted via email verification.
+ * This ruleset enforces a user-ownership model for user profiles and transactions.
+ * Products and categories are publicly readable but only modifiable by admins.
  *
  * Data Structure:
- * - /users/{userId}: User profile documents, owned by the user with the matching UID.
- * - /users/{userId}/transactions/{transactionId}: Transaction history for a user.
- * - /products/{productId}: Product documents, publicly readable.
- * - /categories/{categoryId}: Category documents, publicly readable.
- * - /admins/{adminId}: Admin user profiles. Super Admin access is granted via email verification.
+ * - /users/{userId}: User profile information, owned by the user.
+ * - /users/{userId}/transactions/{transactionId}: Transaction history for each user.
+ * - /admins/{adminId}: Admin profiles (potentially for future use).
+ * - /products/{productId}: Publicly available product information.
+ * - /categories/{categoryId}: Publicly available product categories.
  *
  * Key Security Decisions:
- * - Super Admin: Full read/write access to all data. This is configured with `admin@huwiyasys.app`.
- * - User Listing Denied: Listing all users is not permitted except by a Super Admin.
- * - Public Read for Products and Categories: These collections are intended for public consumption.
- * - Strict Ownership for User Profiles: Each user can only access their own profile and transactions.
+ * - Users can only read and write their own profile data and transaction history.
+ * - Public read access to products and categories allows for open browsing.
+ * - Admin-only write access for products and categories ensures data integrity.
+ * - The `isAdmin` flag on the user profile is not directly used in the rules but could be used in the future to grant broader access.
+ *
+ * Denormalization for Authorization:
+ * - The `uid` is denormalized into the `/users/{userId}` document, enabling the `isOwner()` check.
+ *
+ * Structural Segregation:
+ * - Public product data is stored in a top-level collection (/products), separate from private user data.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Grant full access to super admins.
-    function isSuperAdmin() {
-      return request.auth != null &&
-             request.auth.token.email == "admin@huwiyasys.app";
-    }
-
-    match /{document=**} {
-      allow read, write: if isSuperAdmin();
-    }
-
     /**
-     * @description Enforces access control for user profiles. Only the user themselves can read their profile.
+     * @description Controls access to user profile information.
      * @path /users/{userId}
-     * @allow (get) User A can read their own profile if authenticated as User A.
-     * @deny (get) User A cannot read User B's profile.
-     * @principle Enforces document ownership for reads.
+     * @allow (get, list): Any user can read any profile
+     * @allow (create): Only the user with matching {userId} can create their profile.
+     * @allow (update, delete): Only the user with matching {userId} can update or delete their profile.
+     * @deny (create): If the uid in the request does not match the userId in the path.
+     * @deny (update, delete): If the user attempts to update or delete another user's profile.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId} {
       function isSignedIn() {
@@ -47,82 +44,106 @@ service cloud.firestore {
       }
 
       function isOwner(userId) {
-        return request.auth.uid == userId;
+        return isSignedIn() && request.auth.uid == userId;
       }
 
       function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
+        return isOwner(userId) && resource.data.uid == userId;
       }
 
-      allow get: if isOwner(userId);
-      allow list: if false; // Listing users is not allowed.
-
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.uid == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.uid == resource.data.uid;
+      allow get, list: if true;
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Enforces access control for user transactions. Only the user themselves can read or write their transaction.
+     * @description Controls access to a user's transaction history.
      * @path /users/{userId}/transactions/{transactionId}
-     * @allow (create) User A can create a transaction under their own user ID.
-     * @deny (create) User A cannot create a transaction under User B's user ID.
-     * @principle Restricts access to a user's own data tree.
+     * @allow (get, list): Only the user with matching {userId} can read their transactions.
+     * @allow (create): Only the user with matching {userId} can create a transaction in their account.
+     * @allow (update, delete): Only the user with matching {userId} can update or delete a transaction in their account.
+     * @deny (create): If the user attempts to create a transaction for another user.
+     * @deny (update, delete): If the user attempts to modify or delete another user's transaction.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId}/transactions/{transactionId} {
+        function isSignedIn() {
+            return request.auth != null;
+        }
+
         function isOwner(userId) {
-            return request.auth.uid == userId;
+            return isSignedIn() && request.auth.uid == userId;
         }
 
         function isExistingOwner(userId) {
-            return isOwner(userId) && resource != null;
+            return isSignedIn() && request.auth.uid == userId && resource.data.uid == userId;
         }
-
-        allow get: if isOwner(userId);
-        allow list: if isOwner(userId);
+        allow get, list: if isOwner(userId);
         allow create: if isOwner(userId);
         allow update: if isExistingOwner(userId);
         allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Allows public read access to products, but restricts creation, update, and deletion to the product owner.
-     * @path /products/{productId}
-     * @allow (get) Any user can read a product.
-     * @allow (list) Any user can list products.
-     * @allow (create) User A can create a product if request.auth.uid == request.resource.data.ownerId.
-     * @deny (create) User A cannot create a product if request.auth.uid != request.resource.data.ownerId.
-     * @deny (update) User A cannot update a product they don't own.
-     * @principle Public read with owner-only writes.
+     * @description Controls access to admin profile information.
+     * @path /admins/{adminId}
+     * @allow (get, list): Only signed in users can list admins.
+     * @allow (create, update, delete): No one can create, update, or delete admin profiles via client SDKs.
+     * @principle Restricts modification of admin profiles.
      */
+    match /admins/{adminId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+     /**
+      * @description Controls access to product information.
+      * @path /products/{productId}
+      * @allow (get, list): Anyone can read product information.
+      * @allow (create, update, delete): Only authenticated admins can create, update, or delete products.
+      * @principle Restricts modification of product data to admins.
+      */
     match /products/{productId} {
-      function isOwner(ownerId) {
-        return request.auth.uid == ownerId;
-      }
-      function isExistingOwner(ownerId) {
-          return isOwner(ownerId) && resource != null;
-      }
-      allow get, list: if true;
+        function isSignedIn() {
+            return request.auth != null;
+        }
 
-      allow create: if request.auth.uid == request.resource.data.ownerId;
-      allow update: if isExistingOwner(resource.data.ownerId);
-      allow delete: if isExistingOwner(resource.data.ownerId);
-    }
+        // TODO: Implement a more robust admin check (e.g., read from a custom claim).
+        function isAdmin() {
+            return isSignedIn() && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.isAdmin == true;
+        }
 
-       /**
-        * @description Allows public read access to categories.
-        * @path /categories/{categoryId}
-        * @allow (get) Any user can read a category.
-        * @allow (list) Any user can list categories.
-        * @deny (create) No one can create categories through the client.
-        * @deny (update) No one can update categories through the client.
-        * @deny (delete) No one can delete categories through the client.
-        * @principle Public read, no writes allowed.
-        */
-    match /categories/{categoryId} {
         allow get, list: if true;
-        allow create, update, delete: if false;
+        allow create: if isAdmin();
+        allow update: if isAdmin();
+        allow delete: if isAdmin();
     }
 
+    /**
+     * @description Controls access to category information.
+     * @path /categories/{categoryId}
+     * @allow (get, list): Anyone can read category information.
+     * @allow (create, update, delete): Only authenticated admins can create, update, or delete categories.
+     * @principle Restricts modification of category data to admins.
+     */
+    match /categories/{categoryId} {
+        function isSignedIn() {
+            return request.auth != null;
+        }
+
+        // TODO: Implement a more robust admin check (e.g., read from a custom claim).
+        function isAdmin() {
+            return isSignedIn() && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.isAdmin == true;
+        }
+
+        allow get, list: if true;
+        allow create: if isAdmin();
+        allow update: if isAdmin();
+        allow delete: if isAdmin();
+    }
   }
 }

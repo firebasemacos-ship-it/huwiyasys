@@ -1,0 +1,245 @@
+
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Represents a user's profile in the application.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The user's unique ID from Firebase Authentication."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "The user's display name."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The user's email address."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the user profile was created."
+        },
+        "isAdmin": {
+          "type": "boolean",
+          "description": "Flag to indicate if the user is an administrator."
+        },
+        "contractNumber": {
+            "type": "string",
+            "description": "The user's unique contract number."
+        },
+        "tempPassword": {
+            "type": "string",
+            "description": "A temporary password for the user's first login."
+        },
+        "wallet": {
+            "type": "object",
+            "description": "User's primary internal wallet information.",
+            "properties": {
+                "balance": {
+                    "type": "number",
+                    "description": "The current balance of the wallet."
+                },
+                "cardNumber": {
+                    "type": "string",
+                    "description": "The 16-digit card number for the internal wallet."
+                },
+                "cvv": {
+                    "type": "string",
+                    "description": "The 3-digit CVV code for the card."
+                },
+                "expiryDate": {
+                    "type": "string",
+                    "description": "The card's expiration date in MM/YY format."
+                },
+                "status": {
+                    "type": "string",
+                    "enum": ["active", "suspended"],
+                    "description": "The status of the user's wallet card."
+                }
+            },
+            "required": ["balance", "cardNumber", "cvv", "expiryDate", "status"]
+        },
+        "linkedWallets": {
+            "type": "array",
+            "description": "A list of other users' wallets linked for payment.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "cardNumber": {
+                        "type": "string",
+                        "description": "The 16-digit card number."
+                    },
+                    "ownerName": {
+                        "type": "string",
+                        "description": "The name of the card owner."
+                    }
+                },
+                "required": ["cardNumber", "ownerName"]
+            }
+        }
+      },
+      "required": ["uid", "displayName", "email", "createdAt", "contractNumber", "wallet"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Represents a product in the store.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the product."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the product."
+        },
+        "price": {
+          "type": "number",
+          "description": "The price of the product."
+        },
+        "category": {
+          "type": "string",
+          "description": "The display name of the category the product belongs to."
+        },
+        "categoryId": {
+          "type": "string",
+          "description": "The ID of the category document this product belongs to."
+        },
+        "imageUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL of the product image."
+        },
+        "status": {
+            "type": "string",
+            "enum": ["active", "draft"],
+            "description": "The status of the product (active or draft)."
+        }
+      },
+      "required": ["name", "price", "category", "categoryId", "status"]
+    },
+    "Category": {
+        "title": "Category",
+        "description": "Represents a product category.",
+        "type": "object",
+        "properties": {
+            "name": {
+                "type": "string",
+                "description": "The name of the category."
+            }
+        },
+        "required": ["name"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Represents a financial transaction in a user's wallet.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "The type of transaction (e.g., 'recharge', 'purchase', 'gift')."
+        },
+        "amount": {
+          "type": "number",
+          "description": "The transaction amount. Positive for credits, negative for debits."
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp of the transaction."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description of the transaction."
+        }
+      },
+      "required": ["type", "amount", "date"]
+    },
+    "CardLinkRequest": {
+        "title": "Card Link Request",
+        "description": "Represents a request from one user to link another user's card.",
+        "type": "object",
+        "properties": {
+            "requesterId": {
+                "type": "string",
+                "description": "The UID of the user making the request."
+            },
+            "requesterName": {
+                "type": "string",
+                "description": "The display name of the user making the request."
+            },
+            "ownerId": {
+                "type": "string",
+                "description": "The UID of the user who owns the card."
+            },
+            "ownerName": {
+                "type": "string",
+                "description": "The display name of the card owner."
+            },
+            "cardNumber": {
+                "type": "string",
+                "description": "The card number being requested."
+            },
+            "status": {
+                "type": "string",
+                "enum": ["pending", "accepted", "rejected"],
+                "description": "The status of the request."
+            },
+            "createdAt": {
+                "type": "string",
+                "format": "date-time",
+                "description": "The timestamp when the request was created."
+            }
+        },
+        "required": ["requesterId", "requesterName", "ownerId", "ownerName", "cardNumber", "status", "createdAt"]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password"
+    ]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Stores public profile information for each user."
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": {
+        "$ref": "#/entities/Transaction"
+      },
+      "description": "Stores a user's transaction history."
+    },
+    "/admins/{adminId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Stores profile information for admin users."
+    },
+    "/products/{productId}": {
+        "schema": {
+            "$ref": "#/entities/Product"
+        },
+        "description": "Stores all available products in the application."
+    },
+    "/categories/{categoryId}": {
+        "schema": {
+            "$ref": "#/entities/Category"
+        },
+        "description": "Stores all available product categories."
+    },
+    "/cardLinkRequests/{requestId}": {
+        "schema": {
+            "$ref": "#/entities/CardLinkRequest"
+        },
+        "description": "Stores requests to link payment cards between users."
+    }
+  }
+}

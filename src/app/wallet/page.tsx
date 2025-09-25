@@ -8,19 +8,22 @@ import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, Arrow
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/icons';
 import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, updateDoc, arrayUnion, collection, addDoc, serverTimestamp, query, orderBy, getDocs, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { CardLinkRequestHandler } from '@/components/CardLinkRequestHandler';
+import { useDebounce } from 'use-debounce';
 
 type Wallet = {
     balance: number;
     cardNumber: string;
     cvv: string;
     expiryDate: string;
+    ownerName?: string;
 }
 
 type UserProfile = {
@@ -35,6 +38,123 @@ type Transaction = {
     amount: number;
     date: any; // Firestore timestamp
     description?: string;
+}
+
+function AddCardDialog({ onClose }: { onClose: () => void }) {
+    const firestore = useFirestore();
+    const { user: currentUser, isUserLoading } = useUser();
+    const { toast } = useToast();
+
+    const [cardNumber, setCardNumber] = useState('');
+    const [debouncedCardNumber] = useDebounce(cardNumber, 500);
+
+    const [foundUser, setFoundUser] = useState<{ id: string, data: UserProfile } | null>(null);
+    const [isSearching, setIsSearching] = useState(false);
+    const [requestStatus, setRequestStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
+
+    useEffect(() => {
+        const findUser = async () => {
+            if (!debouncedCardNumber || debouncedCardNumber.length < 16 || !firestore) {
+                setFoundUser(null);
+                return;
+            }
+            setIsSearching(true);
+            try {
+                const usersRef = collection(firestore, 'users');
+                const q = query(usersRef, where("wallet.cardNumber", "==", debouncedCardNumber));
+                const querySnapshot = await getDocs(q);
+
+                if (!querySnapshot.empty) {
+                    const userDoc = querySnapshot.docs[0];
+                    if (userDoc.id === currentUser?.uid) {
+                         toast({ title: "لا يمكن إضافة بطاقتك الخاصة", variant: 'destructive' });
+                         setFoundUser(null);
+                    } else {
+                        setFoundUser({ id: userDoc.id, data: userDoc.data() as UserProfile });
+                    }
+                } else {
+                    setFoundUser(null);
+                }
+            } catch (error) {
+                console.error("Error searching for user:", error);
+            } finally {
+                setIsSearching(false);
+            }
+        };
+
+        findUser();
+    }, [debouncedCardNumber, firestore, currentUser?.uid, toast]);
+
+    const handleSendRequest = async () => {
+        if (!foundUser || !currentUser || !firestore) return;
+        
+        setRequestStatus('sending');
+        try {
+            const requestsRef = collection(firestore, 'cardLinkRequests');
+            await addDoc(requestsRef, {
+                requesterId: currentUser.uid,
+                requesterName: currentUser.displayName,
+                ownerId: foundUser.id,
+                ownerName: foundUser.data.displayName,
+                cardNumber: foundUser.data.wallet.cardNumber,
+                status: 'pending',
+                createdAt: serverTimestamp()
+            });
+            setRequestStatus('sent');
+        } catch (error) {
+             console.error("Error sending link request:", error);
+             toast({ variant: 'destructive', title: 'فشل إرسال الطلب', description: 'حدث خطأ غير متوقع.' });
+             setRequestStatus('idle');
+        }
+    };
+
+    if (requestStatus === 'sent') {
+        return (
+            <DialogContent dir="rtl">
+                <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+                    <CheckCircle2 className="h-16 w-16 text-green-500" />
+                    <DialogTitle className="text-2xl">تم إرسال الطلب بنجاح</DialogTitle>
+                    <DialogDescription>تم إرسال طلب إلى {foundUser?.data.displayName}. سيتم إشعارك عند موافقته.</DialogDescription>
+                    <Button className="mt-4" onClick={onClose}>إغلاق</Button>
+                </div>
+            </DialogContent>
+        )
+    }
+
+    return (
+        <DialogContent dir="rtl">
+            <DialogHeader>
+                <DialogTitle>إضافة بطاقة جديدة</DialogTitle>
+                <DialogDescription>أدخل رقم بطاقة مستخدم آخر لطلب ربطها بحسابك.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                    <Label htmlFor="new-card-number">رقم البطاقة</Label>
+                    <Input id="new-card-number" placeholder="XXXX XXXX XXXX XXXX" value={cardNumber} onChange={e => setCardNumber(e.target.value)} />
+                </div>
+                
+                {isSearching && <div className="flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="h-4 w-4 animate-spin" /><span>جاري البحث...</span></div>}
+
+                {foundUser && !isSearching && (
+                    <Card className="bg-muted/50">
+                        <CardContent className="p-4">
+                             <p className="text-sm font-semibold">صاحب البطاقة</p>
+                             <p>{foundUser.data.displayName}</p>
+                        </CardContent>
+                    </Card>
+                )}
+                {!foundUser && !isSearching && cardNumber.length >= 16 && (
+                    <p className="text-sm text-destructive">لم يتم العثور على مستخدم بهذه البطاقة.</p>
+                )}
+            </div>
+            <DialogFooter>
+                <Button onClick={handleSendRequest} disabled={!foundUser || isUserLoading || requestStatus === 'sending'} className="w-full">
+                    {requestStatus === 'sending' ? <LoaderCircle className="ml-2 h-4 w-4 animate-spin" /> : <PlusCircle className="ml-2 h-4 w-4" />}
+                    {requestStatus === 'sending' ? 'جاري الإرسال...' : 'إرسال طلب ربط'}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    );
 }
 
 export default function WalletPage() {
@@ -61,12 +181,6 @@ export default function WalletPage() {
 
   const [rechargeCode, setRechargeCode] = useState('');
   const [rechargeStatus, setRechargeStatus] = useState('idle'); // idle, verifying, charging, success
-
-  const [newCardNumber, setNewCardNumber] = useState('');
-  const [newCardExpiry, setNewCardExpiry] = useState('');
-  const [newCardCvv, setNewCardCvv] = useState('');
-  const [isAddingCard, setIsAddingCard] = useState(false);
-
 
   const [displayBalance, setDisplayBalance] = useState(0);
   const [isCardFlipped, setIsCardFlipped] = useState(false);
@@ -162,62 +276,6 @@ export default function WalletPage() {
     }
   }
 
-  const handleAddCard = async () => {
-    if (!newCardNumber || !newCardExpiry || !newCardCvv) {
-        toast({ variant: 'destructive', title: 'بيانات ناقصة', description: 'الرجاء ملء جميع حقول البطاقة.' });
-        return;
-    }
-     if (!userDocRef || !firestore) return;
-
-    setIsAddingCard(true);
-    try {
-        const usersRef = collection(firestore, 'users');
-        const q = query(usersRef, where("wallet.cardNumber", "==", newCardNumber));
-        const querySnapshot = await getDocs(q);
-
-        if (querySnapshot.empty) {
-            toast({ variant: 'destructive', title: 'فشل التحقق', description: 'لم يتم العثور على بطاقة بهذه البيانات.' });
-            setIsAddingCard(false);
-            return;
-        }
-
-        let cardValid = false;
-        let cardDataToAdd: Wallet | null = null;
-        
-        querySnapshot.forEach(doc => {
-            const foundUser = doc.data() as UserProfile;
-            if (foundUser.wallet.expiryDate === newCardExpiry && foundUser.wallet.cvv === newCardCvv) {
-                cardValid = true;
-                cardDataToAdd = {
-                    cardNumber: newCardNumber,
-                    expiryDate: newCardExpiry,
-                    cvv: newCardCvv,
-                    balance: 0 // Linked cards don't have their own balance in this context
-                };
-            }
-        });
-
-        if (cardValid && cardDataToAdd) {
-            await updateDoc(userDocRef, {
-                linkedWallets: arrayUnion(cardDataToAdd)
-            });
-            toast({ title: 'تمت إضافة البطاقة بنجاح!' });
-            setAddCardDialogOpen(false);
-            setNewCardNumber('');
-            setNewCardExpiry('');
-            setNewCardCvv('');
-        } else {
-             toast({ variant: 'destructive', title: 'فشل التحقق', description: 'بيانات البطاقة (CVV أو تاريخ الانتهاء) غير صحيحة.' });
-        }
-    } catch (error) {
-        console.error("Error adding card:", error);
-        toast({ variant: 'destructive', title: 'فشل إضافة البطاقة', description: 'حدث خطأ غير متوقع أثناء التحقق.' });
-    } finally {
-        setIsAddingCard(false);
-    }
-  }
-
-
   const { Icon, message } = useMemo(() => {
       switch (rechargeStatus) {
           case 'verifying':
@@ -262,6 +320,7 @@ export default function WalletPage() {
 
   return (
     <div className="bg-background text-foreground" dir="rtl">
+      <CardLinkRequestHandler />
       <div className="flex min-h-screen flex-col">
         <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b bg-background/95 p-4 backdrop-blur">
           <h1 className="text-xl font-bold">المحفظة</h1>
@@ -389,34 +448,7 @@ export default function WalletPage() {
                         </CardContent>
                     </Card>
                 </DialogTrigger>
-                <DialogContent dir="rtl">
-                     <DialogHeader>
-                        <DialogTitle>إضافة بطاقة جديدة</DialogTitle>
-                        <DialogDescription>أدخل بيانات بطاقة مستخدم آخر لاستخدامها في الدفع.</DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="new-card-number">رقم البطاقة</Label>
-                            <Input id="new-card-number" placeholder="XXXX XXXX XXXX XXXX" value={newCardNumber} onChange={e => setNewCardNumber(e.target.value)} />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                             <div className="space-y-2">
-                                <Label htmlFor="new-card-expiry">تاريخ الانتهاء</Label>
-                                <Input id="new-card-expiry" placeholder="MM/YY" value={newCardExpiry} onChange={e => setNewCardExpiry(e.target.value)} />
-                            </div>
-                             <div className="space-y-2">
-                                <Label htmlFor="new-card-cvv">CVV</Label>
-                                <Input id="new-card-cvv" placeholder="XXX" value={newCardCvv} onChange={e => setNewCardCvv(e.target.value)} />
-                            </div>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button onClick={handleAddCard} disabled={isAddingCard} className="w-full">
-                            {isAddingCard ? <LoaderCircle className="ml-2 h-4 w-4 animate-spin" /> : <PlusCircle className="ml-2 h-4 w-4" />}
-                            {isAddingCard ? 'جاري الإضافة...' : 'إضافة البطاقة'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
+                {isAddCardDialogOpen && <AddCardDialog onClose={() => setAddCardDialogOpen(false)} />}
             </Dialog>
 
              <Card className="overflow-hidden rounded-xl">
