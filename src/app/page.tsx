@@ -10,42 +10,27 @@ import { Logo } from '@/components/icons';
 
 export default function UserLoginPage() {
   const router = useRouter();
-  const clickTimeout = useRef<NodeJS.Timeout | null>(null);
-  const longPressTimeout = useRef<NodeJS.Timeout | null>(null);
   const clickCount = useRef(0);
+  const resetTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const handleLogoClick = () => {
+    // Clear the previous timeout if it exists
+    if (resetTimeout.current) {
+      clearTimeout(resetTimeout.current);
+    }
+
     clickCount.current += 1;
 
-    if (clickCount.current === 1) {
-      clickTimeout.current = setTimeout(() => {
+    if (clickCount.current >= 15) {
+      router.push('/admin/login');
+      clickCount.current = 0; // Reset after navigation
+    } else {
+      // Reset the counter if there's no click for 1 second
+      resetTimeout.current = setTimeout(() => {
         clickCount.current = 0;
-      }, 300); // 300ms window for double click
-    } else if (clickCount.current === 2) {
-      if(clickTimeout.current) clearTimeout(clickTimeout.current);
+      }, 1000);
     }
   };
-
-  const handleLogoMouseDown = () => {
-    if (clickCount.current >= 2) {
-      longPressTimeout.current = setTimeout(() => {
-        router.push('/admin/login');
-        clickCount.current = 0;
-      }, 1000); // 1 second long press
-    }
-  };
-
-  const handleLogoMouseUp = () => {
-    if (longPressTimeout.current) {
-      clearTimeout(longPressTimeout.current);
-    }
-    if (clickCount.current >= 2) {
-        setTimeout(() => {
-            clickCount.current = 0;
-        }, 300)
-    }
-  };
-
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4" dir="rtl">
@@ -54,10 +39,6 @@ export default function UserLoginPage() {
             <div
                 className="mb-4 flex justify-center"
                 onClick={handleLogoClick}
-                onMouseDown={handleLogoMouseDown}
-                onMouseUp={handleLogoMouseUp}
-                onTouchStart={handleLogoMouseDown}
-                onTouchEnd={handleLogoMouseUp}
             >
                 <Logo className="h-12 w-12 text-primary cursor-pointer" />
             </div>
