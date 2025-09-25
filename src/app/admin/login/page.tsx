@@ -9,42 +9,42 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, User } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { Logo } from '@/components/icons';
 import { LoaderCircle } from 'lucide-react';
 
 export default function AdminLoginPage() {
-  const [email, setEmail] = useState('admin@tamweelsys.app');
-  const [password, setPassword] = useState('0920064400');
+  const [email, setEmail] = useState('admin@huwiyasys.app');
+  const [password, setPassword] = useState('password123');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
   const auth = useAuth();
   const firestore = useFirestore();
 
-  const ensureAdminFirestoreDocument = async (user: User, adminEmail: string) => {
+  const ensureAdminFirestoreDocument = async (user: User) => {
     if (!firestore) return;
     const adminDocRef = doc(firestore, 'admins', user.uid);
+    const userDocRef = doc(firestore, 'users', user.uid);
 
     try {
-        let displayName = 'Manager';
-        if (adminEmail === 'admin@huwiyasys.app') {
-            displayName = 'Admin';
-        } else if (adminEmail === 'admin@tamweelsys.app') {
-            displayName = 'المدير العام';
+        // Check if admin doc exists
+        const adminDoc = await getDoc(adminDocRef);
+        if (!adminDoc.exists()) {
+            const adminUserData = {
+                uid: user.uid,
+                displayName: 'Admin',
+                email: user.email,
+                isAdmin: true, // This is critical for security rules
+                createdAt: new Date().toISOString(),
+            };
+            // Create documents in both 'admins' and 'users' collections
+            await setDoc(adminDocRef, adminUserData);
+            await setDoc(userDocRef, adminUserData);
         }
-
-        const adminUserData = {
-            uid: user.uid,
-            displayName: displayName,
-            email: user.email,
-            isAdmin: true, // This is critical for security rules
-            createdAt: new Date().toISOString(),
-            contractNumber: adminEmail.split('@')[0], // Use part of email as contract number
-        };
-        await setDoc(adminDocRef, adminUserData, { merge: true });
     } catch (error) {
         console.error("Failed to ensure admin firestore document:", error);
+        toast({ variant: 'destructive', title: 'خطأ', description: 'فشل إنشاء سجل المدير.' });
     }
   };
 
@@ -63,7 +63,7 @@ export default function AdminLoginPage() {
 
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      await ensureAdminFirestoreDocument(userCredential.user, email);
+      await ensureAdminFirestoreDocument(userCredential.user);
       toast({
         title: 'تم تسجيل الدخول بنجاح',
         description: 'جاري تحويلك إلى لوحة التحكم.',
@@ -73,10 +73,10 @@ export default function AdminLoginPage() {
         if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
             try {
                 const newUserCredential = await createUserWithEmailAndPassword(auth, email, password);
-                await ensureAdminFirestoreDocument(newUserCredential.user, email);
+                await ensureAdminFirestoreDocument(newUserCredential.user);
 
                 toast({
-                    title: 'تم إنشاء حساب المسؤول وتسجيل الدخول',
+                    title: 'تم إنشاء حساب المدير وتسجيل الدخول',
                     description: 'جاري تحويلك إلى لوحة التحكم.',
                 });
                 router.push('/admin');
