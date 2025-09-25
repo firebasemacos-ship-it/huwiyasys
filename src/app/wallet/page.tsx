@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/icons';
 import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, updateDoc, arrayUnion, collection, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, collection, addDoc, serverTimestamp, query, orderBy, getDocs, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
 type Wallet = {
@@ -161,28 +161,51 @@ export default function WalletPage() {
         toast({ variant: 'destructive', title: 'بيانات ناقصة', description: 'الرجاء ملء جميع حقول البطاقة.' });
         return;
     }
-     if (!userDocRef) return;
+     if (!userDocRef || !firestore) return;
 
     setIsAddingCard(true);
-    const newCard: Wallet = {
-        cardNumber: newCardNumber,
-        expiryDate: newCardExpiry,
-        cvv: newCardCvv,
-        balance: 0 // Linked cards don't have their own balance in this context
-    };
-
     try {
-        await updateDoc(userDocRef, {
-            linkedWallets: arrayUnion(newCard)
+        const usersRef = collection(firestore, 'users');
+        const q = query(usersRef, where("wallet.cardNumber", "==", newCardNumber));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            toast({ variant: 'destructive', title: 'فشل التحقق', description: 'لم يتم العثور على بطاقة بهذه البيانات.' });
+            setIsAddingCard(false);
+            return;
+        }
+
+        let cardValid = false;
+        let cardDataToAdd: Wallet | null = null;
+        
+        querySnapshot.forEach(doc => {
+            const foundUser = doc.data() as UserProfile;
+            if (foundUser.wallet.expiryDate === newCardExpiry && foundUser.wallet.cvv === newCardCvv) {
+                cardValid = true;
+                cardDataToAdd = {
+                    cardNumber: newCardNumber,
+                    expiryDate: newCardExpiry,
+                    cvv: newCardCvv,
+                    balance: 0 // Linked cards don't have their own balance in this context
+                };
+            }
         });
-        toast({ title: 'تمت إضافة البطاقة بنجاح!' });
-        setAddCardDialogOpen(false);
-        setNewCardNumber('');
-        setNewCardExpiry('');
-        setNewCardCvv('');
+
+        if (cardValid && cardDataToAdd) {
+            await updateDoc(userDocRef, {
+                linkedWallets: arrayUnion(cardDataToAdd)
+            });
+            toast({ title: 'تمت إضافة البطاقة بنجاح!' });
+            setAddCardDialogOpen(false);
+            setNewCardNumber('');
+            setNewCardExpiry('');
+            setNewCardCvv('');
+        } else {
+             toast({ variant: 'destructive', title: 'فشل التحقق', description: 'بيانات البطاقة (CVV أو تاريخ الانتهاء) غير صحيحة.' });
+        }
     } catch (error) {
         console.error("Error adding card:", error);
-        toast({ variant: 'destructive', title: 'فشل إضافة البطاقة', description: 'حدث خطأ غير متوقع.' });
+        toast({ variant: 'destructive', title: 'فشل إضافة البطاقة', description: 'حدث خطأ غير متوقع أثناء التحقق.' });
     } finally {
         setIsAddingCard(false);
     }
@@ -468,7 +491,5 @@ export default function WalletPage() {
     </div>
   );
 }
-
-    
 
     
