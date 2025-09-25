@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -27,7 +28,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore, errorEmitter, FirestorePermissionError, useCollection, useMemoFirebase } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, setDoc } from 'firebase/firestore';
 
 
 export default function UsersPage() {
@@ -57,48 +58,37 @@ export default function UsersPage() {
         const password = generatePassword();
         const email = `${newContractNumber}@huwiyasys.app`;
 
-        try {
-            // This part only creates the auth user. The Firestore document is added in a separate step.
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            const user = userCredential.user;
+        const newUserDoc = {
+            // We don't have the UID yet, but Firestore will generate an ID for the document
+            displayName: newUserName,
+            contractNumber: newContractNumber,
+            email: email,
+            tempPassword: password,
+            createdAt: new Date().toISOString(),
+            isAdmin: false,
+        };
 
-            const newUserDoc = {
-                uid: user.uid,
-                displayName: newUserName,
-                contractNumber: newContractNumber,
-                email: email,
-                tempPassword: password, // Note: Storing password in Firestore is not recommended for production
-                createdAt: new Date().toISOString(),
-                isAdmin: false, // Default value for new users
-            };
-            
-            // The useCollection hook will automatically update the UI when this new doc is added.
-            addDoc(usersCollectionRef, newUserDoc)
-              .then(() => {
-                  toast({ title: 'تم إضافة المستخدم بنجاح', description: `تم إنشاء حساب لـ ${newUserName}.` });
-                  setDialogOpen(false);
-                  setNewUserName('');
-                  setNewContractNumber('');
-              })
-              .catch(serverError => {
-                  const permissionError = new FirestorePermissionError({
-                    path: usersCollectionRef.path, // Path for creation is the collection path
-                    operation: 'create',
-                    requestResourceData: newUserDoc,
-                  });
-                  errorEmitter.emit('permission-error', permissionError);
+        // We are no longer creating an auth user here. We just add the user's
+        // details to the database. The auth user will be created on first login by the user.
+        addDoc(usersCollectionRef, newUserDoc)
+          .then(() => {
+              toast({ title: 'تم إضافة المستخدم بنجاح', description: `تم إنشاء بيانات لـ ${newUserName}.` });
+              setDialogOpen(false);
+              setNewUserName('');
+              setNewContractNumber('');
+          })
+          .catch(serverError => {
+              const permissionError = new FirestorePermissionError({
+                path: usersCollectionRef.path, // Path for creation is the collection path
+                operation: 'create',
+                requestResourceData: newUserDoc,
               });
-
-        } catch (error: any) {
-            console.error("Error creating auth user:", error);
-            if (error.code === 'auth/email-already-in-use') {
-                 toast({ variant: 'destructive', title: 'فشل إضافة المستخدم', description: 'رقم العقد هذا مستخدم بالفعل.' });
-            } else {
-                 toast({ variant: 'destructive', title: 'فشل إضافة المستخدم', description: error.message });
-            }
-        } finally {
-            setIsLoading(false);
-        }
+              errorEmitter.emit('permission-error', permissionError);
+              toast({ variant: 'destructive', title: 'فشل إضافة المستخدم', description: 'ليس لديك الصلاحية الكافية.' });
+          })
+          .finally(() => {
+             setIsLoading(false);
+          });
     };
 
 
@@ -179,9 +169,9 @@ export default function UsersPage() {
                                 <TableCell>
                                     <div className="flex items-center gap-2">
                                         <span className="font-mono">{user.tempPassword}</span>
-                                        <Button variant="ghost" size="icon" onClick={() => copyToClipboard(user.tempPassword)}>
+                                        {user.tempPassword && <Button variant="ghost" size="icon" onClick={() => copyToClipboard(user.tempPassword)}>
                                             <Copy className="h-4 w-4" />
-                                        </Button>
+                                        </Button>}
                                     </div>
                                 </TableCell>
                                 <TableCell>
@@ -213,4 +203,6 @@ export default function UsersPage() {
     </AdminSubPageLayout>
   );
 }
+    
+
     
