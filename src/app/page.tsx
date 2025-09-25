@@ -1,77 +1,151 @@
 'use client';
 
-import { useRef } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/icons';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { LoaderCircle } from 'lucide-react';
 
-export default function UserLoginPage() {
+export default function LoginPage() {
   const router = useRouter();
-  const clickCount = useRef(0);
-  const resetTimeout = useRef<NodeJS.Timeout | null>(null);
+  const { toast } = useToast();
+  const auth = useAuth();
 
-  const handleLogoClick = () => {
-    // Clear the previous timeout if it exists
-    if (resetTimeout.current) {
-      clearTimeout(resetTimeout.current);
-    }
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
 
-    clickCount.current += 1;
-
-    if (clickCount.current >= 15) {
-      router.push('/admin/login');
-      clickCount.current = 0; // Reset after navigation
-    } else {
-      // Reset the counter if there's no click for 1 second
-      resetTimeout.current = setTimeout(() => {
-        clickCount.current = 0;
-      }, 1000);
+  const handleLogin = async () => {
+    setIsLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      toast({
+        title: 'تم تسجيل الدخول بنجاح',
+      });
+      if (email === 'admin@huwiyasys.app') {
+        router.push('/admin');
+      } else {
+        router.push('/shop');
+      }
+    } catch (error: any) {
+       if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+          toast({
+            variant: 'destructive',
+            title: 'فشل تسجيل الدخول',
+            description: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
+          });
+       } else {
+         console.error('Login Error:', error);
+         toast({
+            variant: 'destructive',
+            title: 'فشل تسجيل الدخول',
+            description: error.message || 'حدث خطأ غير متوقع.',
+         });
+       }
+    } finally {
+        setIsLoading(false);
     }
   };
+
+  const handleRegister = async () => {
+    setIsLoading(true);
+    try {
+        await createUserWithEmailAndPassword(auth, email, password);
+        toast({
+            title: 'تم إنشاء الحساب بنجاح',
+            description: 'جاري تسجيل دخولك...',
+        });
+        // Automatically sign in after registration
+        await handleLogin();
+    } catch (error: any) {
+        if (error.code === 'auth/email-already-in-use') {
+             toast({
+                variant: 'destructive',
+                title: 'فشل إنشاء الحساب',
+                description: 'هذا البريد الإلكتروني مستخدم بالفعل.',
+            });
+        } else {
+            console.error('Registration Error:', error);
+            toast({
+                variant: 'destructive',
+                title: 'فشل إنشاء الحساب',
+                description: error.message || 'حدث خطأ غير متوقع.',
+            });
+        }
+    } finally {
+        setIsLoading(false);
+    }
+  };
+  
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isRegistering) {
+        handleRegister();
+    } else {
+        handleLogin();
+    }
+  }
+
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4" dir="rtl">
       <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-            <div
-                className="mb-4 flex justify-center"
-                onClick={handleLogoClick}
-            >
-                <Logo className="h-12 w-12 text-primary cursor-pointer" />
-            </div>
-            <CardTitle className="text-2xl">مرحباً بك</CardTitle>
-            <CardDescription>سجل الدخول أو أنشئ حساباً للمتابعة.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">البريد الإلكتروني</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="user@example.com"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">كلمة المرور</Label>
-              <Input
-                id="password"
-                type="password"
-                required
-              />
-            </div>
-        </CardContent>
-        <CardFooter className="flex-col gap-4">
-            <Button className="w-full">
-              تسجيل الدخول
-            </Button>
-            <Button variant="outline" className="w-full">
-              إنشاء حساب جديد
-            </Button>
-        </CardFooter>
+        <form onSubmit={handleSubmit}>
+            <CardHeader className="text-center">
+                <div className="mb-4 flex justify-center">
+                    <Logo className="h-12 w-12 text-primary" />
+                </div>
+                <CardTitle className="text-2xl">{isRegistering ? 'إنشاء حساب جديد' : 'مرحباً بك'}</CardTitle>
+                <CardDescription>{isRegistering ? 'أدخل بياناتك للمتابعة.' : 'سجل الدخول أو أنشئ حساباً للمتابعة.'}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="space-y-2">
+                <Label htmlFor="email">البريد الإلكتروني</Label>
+                <Input
+                    id="email"
+                    type="email"
+                    placeholder="user@example.com"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={isLoading}
+                />
+                </div>
+                <div className="space-y-2">
+                <Label htmlFor="password">كلمة المرور</Label>
+                <Input
+                    id="password"
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={isLoading}
+                />
+                </div>
+            </CardContent>
+            <CardFooter className="flex-col gap-4">
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading && <LoaderCircle className="ml-2 h-4 w-4 animate-spin" />}
+                    {isLoading ? 'جاري...' : (isRegistering ? 'إنشاء حساب' : 'تسجيل الدخول')}
+                </Button>
+                <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="w-full" 
+                    onClick={() => setIsRegistering(!isRegistering)}
+                    disabled={isLoading}
+                >
+                    {isRegistering ? 'هل لديك حساب؟ تسجيل الدخول' : 'إنشاء حساب جديد'}
+                </Button>
+            </CardFooter>
+        </form>
       </Card>
     </div>
   );
