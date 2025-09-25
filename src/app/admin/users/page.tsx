@@ -19,9 +19,9 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLab
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useAuth, errorEmitter, FirestorePermissionError, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, addDoc, setDoc, doc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { useFirestore, errorEmitter, FirestorePermissionError, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
+import { collection, addDoc } from 'firebase/firestore';
+
 
 export default function UsersPage() {
     const { toast } = useToast();
@@ -31,7 +31,6 @@ export default function UsersPage() {
     const [isLoading, setIsLoading] = useState(false);
     
     const firestore = useFirestore();
-    const auth = useAuth(); // Get auth instance
 
     const usersCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
     const { data: users, isLoading: isLoadingUsers } = useCollection(usersCollectionRef);
@@ -46,7 +45,7 @@ export default function UsersPage() {
             return;
         }
 
-        if (!auth || !firestore) {
+        if (!firestore || !usersCollectionRef) {
             toast({ variant: 'destructive', title: 'خطأ', description: 'خدمات Firebase غير متاحة.' });
             return;
         }
@@ -56,12 +55,8 @@ export default function UsersPage() {
         const email = `${newContractNumber}@huwiyasys.app`;
 
         try {
-            // This is a temporary auth instance to create the user, it doesn't sign in the admin as this new user.
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            const user = userCredential.user;
-
-            const newUserDocData = {
-                uid: user.uid, // Important: Store the auth UID
+            const newUserDoc = {
+                // No UID from auth at this point. It will be added later if needed.
                 displayName: newUserName,
                 contractNumber: newContractNumber,
                 email: email,
@@ -70,24 +65,17 @@ export default function UsersPage() {
                 isAdmin: false,
             };
             
-            // Use the UID from the newly created auth user as the document ID
-            const userDocRef = doc(firestore, 'users', user.uid);
+            // This is a non-blocking write. We add the doc to firestore and move on.
+            addDocumentNonBlocking(usersCollectionRef, newUserDoc);
 
-            // Now, create the user document in Firestore.
-            await setDoc(userDocRef, newUserDocData);
-
-            toast({ title: 'تم إضافة المستخدم بنجاح', description: `تم إنشاء حساب ومستند لـ ${newUserName}.` });
+            toast({ title: 'تمت إضافة المستخدم بنجاح', description: `تم إنشاء بيانات لـ ${newUserName}.` });
             setDialogOpen(false);
             setNewUserName('');
             setNewContractNumber('');
 
         } catch (error: any) {
-            console.error("Error adding user:", error);
-            if (error.code === 'auth/email-already-in-use') {
-                 toast({ variant: 'destructive', title: 'فشل إضافة المستخدم', description: 'هذا البريد الإلكتروني (رقم العقد) مستخدم بالفعل.' });
-            } else {
-                 toast({ variant: 'destructive', title: 'فشل إضافة المستخدم', description: error.message || 'حدث خطأ غير متوقع.' });
-            }
+            console.error("Error adding user data:", error);
+            toast({ variant: 'destructive', title: 'فشل إضافة المستخدم', description: error.message || 'حدث خطأ غير متوقع.' });
         } finally {
              setIsLoading(false);
         }
@@ -115,7 +103,7 @@ export default function UsersPage() {
                 <DialogHeader>
                     <DialogTitle>إضافة مستخدم جديد</DialogTitle>
                     <DialogDescription>
-                        أدخل بيانات المستخدم الجديد. سيتم إنشاء حساب وكلمة مرور مؤقتة تلقائيًا.
+                        أدخل بيانات المستخدم الجديد. سيتم إنشاء كلمة مرور مؤقتة تلقائيًا.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
