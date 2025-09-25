@@ -8,7 +8,8 @@ import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, Arrow
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/icons';
@@ -23,11 +24,48 @@ const initialTransactions = [
 
 export default function WalletPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [transactions, setTransactions] = useState(initialTransactions);
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [rechargeCode, setRechargeCode] = useState('');
   const [rechargeStatus, setRechargeStatus] = useState('idle'); // idle, verifying, charging, success
   const [displayBalance, setDisplayBalance] = useState(0);
+
+  const clickTimeout = useRef<NodeJS.Timeout | null>(null);
+  const longPressTimeout = useRef<NodeJS.Timeout | null>(null);
+  const clickCount = useRef(0);
+
+  const handleLogoClick = () => {
+    clickCount.current += 1;
+
+    if (clickCount.current === 1) {
+      clickTimeout.current = setTimeout(() => {
+        clickCount.current = 0;
+      }, 300); // 300ms window for double click
+    } else if (clickCount.current === 2) {
+      if(clickTimeout.current) clearTimeout(clickTimeout.current);
+    }
+  };
+
+  const handleLogoMouseDown = () => {
+    if (clickCount.current >= 2) {
+      longPressTimeout.current = setTimeout(() => {
+        router.push('/admin/login');
+        clickCount.current = 0;
+      }, 1000); // 1 second long press
+    }
+  };
+
+  const handleLogoMouseUp = () => {
+    if (longPressTimeout.current) {
+      clearTimeout(longPressTimeout.current);
+    }
+    if (clickCount.current >= 2) {
+        setTimeout(() => {
+            clickCount.current = 0;
+        }, 300)
+    }
+  };
 
   const currentBalance = useMemo(() => transactions.reduce((acc, t) => acc + t.amount, 0), [transactions]);
 
@@ -128,8 +166,15 @@ export default function WalletPage() {
           <div className="mb-6 mx-auto max-w-sm">
             <Card className="relative aspect-[1.586] w-full overflow-hidden rounded-xl bg-primary text-primary-foreground shadow-lg transition-transform duration-300 hover:scale-105 hover:shadow-2xl">
                 <CardContent className="flex h-full flex-col justify-between p-6">
-                    <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-2">
+                    <div
+                      className="flex items-start justify-between"
+                      onClick={handleLogoClick}
+                      onMouseDown={handleLogoMouseDown}
+                      onMouseUp={handleLogoMouseUp}
+                      onTouchStart={handleLogoMouseDown}
+                      onTouchEnd={handleLogoMouseUp}
+                    >
+                        <div className="flex items-center gap-2 pointer-events-none">
                           <Logo className="h-8 w-8 text-primary-foreground" />
                           <span className="text-lg font-bold">Mobile Mate</span>
                         </div>
@@ -287,4 +332,6 @@ export default function WalletPage() {
     </div>
   );
 }
+    
+
     
