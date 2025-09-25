@@ -14,8 +14,8 @@ import { Logo } from '@/components/icons';
 import { LoaderCircle } from 'lucide-react';
 
 export default function AdminLoginPage() {
-  const [email, setEmail] = useState('manager@huwiyasys.app');
-  const [password, setPassword] = useState('Manager12345!');
+  const [email, setEmail] = useState('admin@tamweelsys.app');
+  const [password, setPassword] = useState('0920064400');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
@@ -27,13 +27,20 @@ export default function AdminLoginPage() {
     const adminDocRef = doc(firestore, 'admins', user.uid);
 
     try {
+        let displayName = 'Manager';
+        if (adminEmail === 'admin@huwiyasys.app') {
+            displayName = 'Admin';
+        } else if (adminEmail === 'admin@tamweelsys.app') {
+            displayName = 'المدير العام';
+        }
+
         const adminUserData = {
             uid: user.uid,
-            displayName: adminEmail === 'admin@huwiyasys.app' ? 'Admin' : 'Manager',
+            displayName: displayName,
             email: user.email,
             isAdmin: true, // This is critical for security rules
             createdAt: new Date().toISOString(),
-            contractNumber: adminEmail === 'admin@huwiyasys.app' ? '000000' : '000001',
+            contractNumber: adminEmail.split('@')[0], // Use part of email as contract number
         };
         await setDoc(adminDocRef, adminUserData, { merge: true });
     } catch (error) {
