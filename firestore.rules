@@ -15,6 +15,9 @@
  * - Products are publicly readable, but write access is restricted. A mechanism for
  *   controlling product creation, updates, and deletion should be implemented.
  *   For now, write access is completely restricted and should be updated later.
+ *
+ * Denormalization for Authorization:
+ * - The /users/{userId} document contains a 'uid' field that MUST match the {userId} in the path. This is enforced on create and update.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -39,13 +42,13 @@ service cloud.firestore {
       }
 
       function isExistingOwner(userId) {
-        return isOwner(userId) && exists(resource);
+        return isOwner(userId) && resource != null;
       }
 
       allow get: if isOwner(userId);
       allow list: if false;
       allow create: if isSignedIn() && isOwner(userId) && request.resource.data.uid == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.uid == request.auth.uid;
+      allow update: if isExistingOwner(userId) && request.resource.data.uid == resource.data.uid;
       allow delete: if isExistingOwner(userId);
     }
 
