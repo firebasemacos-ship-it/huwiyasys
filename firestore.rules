@@ -2,34 +2,40 @@
  * @fileoverview Firestore Security Rules for Prototyping.
  *
  * Core Philosophy:
- * This ruleset prioritizes security by enforcing strict user-ownership for private data
- * while allowing public read access to products. Data shape validation is relaxed to
- * facilitate rapid prototyping.
+ * This ruleset prioritizes security by enforcing authentication and ownership for writes
+ * while keeping data validation minimal to allow for rapid schema iteration.
  *
  * Data Structure:
- * - /users/{userId}: Stores user profile information, accessible only to the owner. The 'uid' field MUST match the {userId} in the path.
- * - /products/{productId}: Stores product information, publicly readable but writable only by authorized users. Write access is currently restricted.
+ * - /users/{userId}: Stores public user profile information.
+ * - /products/{productId}: Stores product information.
  *
  * Key Security Decisions:
- * - User profiles are strictly owned by the corresponding user. No listing of user profiles is allowed except for admins.
- * - Products are publicly readable, but write access is completely restricted and should be updated later with owner-only permissions.
+ * - Users can only create their own profile.
+ * - Users can update their own profile.
+ * - Users cannot list all profiles.
+ * - Products are publicly readable.
+ * - Products can only be created, updated, or deleted by an admin user.
  *
  * Denormalization for Authorization:
- * - The /users/{userId} document contains a 'uid' field that MUST match the {userId} in the path. This is enforced on create and update to prevent privilege escalation.
+ * The `isAdmin` field on the `/users/{userId}` document is used for authorization.
+ * This avoids the need for a separate roles collection.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profile documents.
+     * @description Secures user profiles. Users can create and manage their own profiles.
      * @path /users/{userId}
-     * @allow (create) - A user can create their own profile if the UID matches the document ID.
-     * @allow (get, update, delete) - A user can only access their own profile.
-     * @allow (list) - Only admin user can list all profiles.
-     * @principle Enforces document ownership for user profiles.
+     * @allow (create) - Authenticated user can create their own profile if the userId matches their auth.uid.
+     * @allow (update) - Authenticated user can update their own profile if the userId matches their auth.uid.
+     * @allow (get) - Any authenticated user can read a user profile.
+     * @deny (list) - Listing all users is prohibited.
+     * @deny (delete) - Users cannot delete their profiles via the rules.
+     * @principle Enforces document ownership for writes, restricts listing of user profiles.
      */
     match /users/{userId} {
+      // Helpers
       function isSignedIn() {
         return request.auth != null;
       }
@@ -42,27 +48,45 @@ service cloud.firestore {
         return isOwner(userId) && resource != null;
       }
 
-      function isAdmin() {
-        return request.auth.token.email == "admin@huwiyasys.app";
-      }
+      // Read Rules
+      allow get: if isSignedIn();
+      allow list: if false;
 
-      allow get: if isOwner(userId);
-      allow list: if isAdmin();
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.uid == userId;
+      // Write Rules
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.uid == request.auth.uid;
       allow update: if isExistingOwner(userId) && request.resource.data.uid == resource.data.uid;
-      allow delete: if isExistingOwner(userId);
+      allow delete: if false;
     }
 
     /**
-     * @description Controls access to product documents.
+     * @description Secures products. Products are publicly readable, but only admins can create, update, or delete them.
      * @path /products/{productId}
-     * @allow (get, list) - All users can read product information.
-     * @deny (create, update, delete) - No one can create, update, or delete products yet.
-     * @principle Public read access with restricted writes (owner-only writes to be implemented).
+     * @allow (get) - Anyone can read product information.
+     * @allow (list) - Anyone can list products.
+     * @allow (create) - Only admins can create products.
+     * @allow (update) - Only admins can update products.
+     * @allow (delete) - Only admins can delete products.
+     * @deny - Non-admins cannot create, update, or delete products.
+     * @principle Public read, admin-only writes.
      */
     match /products/{productId} {
-        allow get, list: if true;
-        allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      // Helpers
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isAdmin() {
+        return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      }
+
+      // Read Rules
+      allow get: if true;
+      allow list: if true;
+
+      // Write Rules
+      allow create: if isAdmin();
+      allow update: if isAdmin() && resource != null;
+      allow delete: if isAdmin() && resource != null;
     }
   }
 }
