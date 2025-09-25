@@ -68,18 +68,13 @@ function CheckoutDialog({ totalAmount }: { totalAmount: number }) {
 
 
     const handlePayment = async () => {
-        setPaymentStatus('processing');
-        // Simulate payment processing
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
+        
         let cardUsed: WalletInfo | undefined;
         if (selectedPayment === 'primary') {
             cardUsed = userData?.wallet;
         } else if (selectedPayment === 'new') {
-            // Basic validation for new card
             if (!newCardNumber || !newCardExpiry || !newCardCvv) {
                 toast({ variant: 'destructive', title: 'بيانات ناقصة', description: 'الرجاء إدخال جميع بيانات البطاقة الجديدة.' });
-                setPaymentStatus('idle');
                 return;
             }
             cardUsed = { cardNumber: newCardNumber, expiryDate: newCardExpiry, cvv: newCardCvv, balance: Infinity, status: 'active' };
@@ -89,15 +84,20 @@ function CheckoutDialog({ totalAmount }: { totalAmount: number }) {
 
         if (!cardUsed) {
             toast({ variant: 'destructive', title: 'خطأ في الدفع', description: 'لم يتم العثور على طريقة الدفع المختارة.' });
-            setPaymentStatus('idle');
             return;
         }
+
+        if (cardUsed.balance < totalAmount) {
+             toast({ variant: 'destructive', title: 'خطأ في الدفع', description: 'الرصيد غير كافٍ لإتمام عملية الشراء.' });
+             return;
+        }
+
+        setPaymentStatus('processing');
+        // Simulate payment processing
+        await new Promise(resolve => setTimeout(resolve, 2000));
         
-        // In a real app, you would connect to a payment gateway here.
-        // For this demo, we'll just show a success message.
+        // In a real app, you would connect to a payment gateway here and deduct balance.
         setPaymentStatus('success');
-        
-        // You might want to clear the cart and navigate to an order confirmation page here.
     };
 
     if (paymentStatus === 'processing' || paymentStatus === 'success') {
@@ -337,6 +337,3 @@ export default function CartPage() {
     </div>
   );
 }
-
-
-    
