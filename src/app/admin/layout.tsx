@@ -28,7 +28,7 @@ export default function AdminSubPageLayout({ children, title }: { children: Reac
       router.replace('/');
     }
     // Updated this logic to check for the new admin email
-    if (!isUserLoading && user && user.email !== 'admin@tamweelsys.app') {
+    if (!isUserLoading && user && user.email !== 'zaki@zetabait.app') {
       router.replace('/');
     }
   }, [user, isUserLoading, router]);

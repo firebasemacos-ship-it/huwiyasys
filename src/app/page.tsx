@@ -40,7 +40,7 @@ export default function LoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      if (email === 'admin@huwiyasys.app') {
+      if (email === 'zaki@zetabait.app') {
         router.push('/admin');
         toast({ title: 'تم تسجيل الدخول بنجاح' });
         return;

@@ -8,14 +8,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
-import { signInWithEmailAndPassword, User } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, User } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { Logo } from '@/components/icons';
 import { LoaderCircle } from 'lucide-react';
 
 export default function AdminLoginPage() {
-  const [email, setEmail] = useState('admin@huwiyasys.app');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('zaki@zetabait.app');
+  const [password, setPassword] = useState('gz6dnlh3');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
@@ -68,12 +68,31 @@ export default function AdminLoginPage() {
       });
       router.push('/admin');
     } catch (error: any) {
-        console.error('Admin Login Error:', error);
-        toast({
-            variant: 'destructive',
-            title: 'فشل تسجيل الدخول',
-            description: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
-        });
+        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found') {
+            // User does not exist, try creating a new one
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                await ensureAdminFirestoreDocument(userCredential.user);
+                toast({
+                    title: 'تم إنشاء حساب مدير جديد',
+                    description: 'تم تسجيل دخولك بنجاح.',
+                });
+                router.push('/admin');
+            } catch (creationError: any) {
+                 toast({
+                    variant: 'destructive',
+                    title: 'فشل إنشاء الحساب',
+                    description: creationError.message || 'فشل إنشاء حساب المدير.',
+                });
+            }
+        } else {
+            console.error('Admin Login Error:', error);
+            toast({
+                variant: 'destructive',
+                title: 'فشل تسجيل الدخول',
+                description: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
+            });
+        }
     } finally {
       setIsLoading(false);
     }

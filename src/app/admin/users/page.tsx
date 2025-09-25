@@ -78,7 +78,7 @@ export default function UsersPage() {
 
     useEffect(() => {
         const fetchUsers = async () => {
-            if (firestore && adminUser && adminUser.email === 'admin@huwiyasys.app') {
+            if (firestore && adminUser && adminUser.email === 'zaki@zetabait.app') {
                 setIsLoadingUsers(true);
                 try {
                     const usersCollectionRef = collection(firestore, 'users');
