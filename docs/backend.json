@@ -1,0 +1,281 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the Mobile Mate application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user entity."
+        },
+        "username": {
+          "type": "string",
+          "description": "The username of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the user.",
+          "format": "email"
+        },
+        "registrationDate": {
+          "type": "string",
+          "description": "The date and time the user registered.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "username",
+        "email",
+        "registrationDate"
+      ]
+    },
+    "App": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "App",
+      "type": "object",
+      "description": "Represents an app installed on the user's device.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the app entity."
+        },
+        "appName": {
+          "type": "string",
+          "description": "The name of the app."
+        },
+        "packageName": {
+          "type": "string",
+          "description": "The package name of the app (e.g., com.example.app)."
+        },
+        "installDate": {
+          "type": "string",
+          "description": "The date and time the app was installed.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "appName",
+        "packageName",
+        "installDate"
+      ]
+    },
+    "AppUsage": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AppUsage",
+      "type": "object",
+      "description": "Represents the usage of an app by a user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the app usage record."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N AppUsage)"
+        },
+        "appId": {
+          "type": "string",
+          "description": "Reference to App. (Relationship: App 1:N AppUsage)"
+        },
+        "usageDate": {
+          "type": "string",
+          "description": "The date of the app usage.",
+          "format": "date-time"
+        },
+        "usageTime": {
+          "type": "number",
+          "description": "The usage time of the app in seconds."
+        },
+        "dataConsumption": {
+          "type": "number",
+          "description": "The data consumption of the app in bytes."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "appId",
+        "usageDate",
+        "usageTime",
+        "dataConsumption"
+      ]
+    },
+    "AppPermission": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AppPermission",
+      "type": "object",
+      "description": "Represents a permission granted to an app.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the app permission entity."
+        },
+        "appId": {
+          "type": "string",
+          "description": "Reference to App. (Relationship: App 1:N AppPermission)"
+        },
+        "permissionName": {
+          "type": "string",
+          "description": "The name of the permission (e.g., android.permission.READ_CONTACTS)."
+        },
+        "isGranted": {
+          "type": "boolean",
+          "description": "Indicates whether the permission is granted to the app."
+        }
+      },
+      "required": [
+        "id",
+        "appId",
+        "permissionName",
+        "isGranted"
+      ]
+    },
+    "AppRecommendation": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AppRecommendation",
+      "type": "object",
+      "description": "Represents a recommended app for a user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the app recommendation entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N AppRecommendation)"
+        },
+        "appId": {
+          "type": "string",
+          "description": "Reference to App. (Relationship: App 1:N AppRecommendation)"
+        },
+        "recommendationReason": {
+          "type": "string",
+          "description": "The reason for recommending the app."
+        },
+        "recommendationDate": {
+          "type": "string",
+          "description": "The date the app was recommended.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "appId",
+        "recommendationReason",
+        "recommendationDate"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profile information. Uses path-based ownership for data isolation.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/apps/{appId}",
+        "definition": {
+          "entityName": "App",
+          "schema": {
+            "$ref": "#/backend/entities/App"
+          },
+          "description": "Stores apps installed by a user.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            },
+            {
+              "name": "appId",
+              "description": "The unique identifier of the app."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/appUsage/{appUsageId}",
+        "definition": {
+          "entityName": "AppUsage",
+          "schema": {
+            "$ref": "#/backend/entities/AppUsage"
+          },
+          "description": "Stores app usage data for each app used by a user. Uses path-based ownership.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            },
+            {
+              "name": "appUsageId",
+              "description": "The unique identifier of the app usage record."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/appPermissions/{appPermissionId}",
+        "definition": {
+          "entityName": "AppPermission",
+          "schema": {
+            "$ref": "#/backend/entities/AppPermission"
+          },
+          "description": "Stores app permission data for each app used by a user. Uses path-based ownership.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            },
+            {
+              "name": "appPermissionId",
+              "description": "The unique identifier of the app permission record."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/appRecommendations/{appRecommendationId}",
+        "definition": {
+          "entityName": "AppRecommendation",
+          "schema": {
+            "$ref": "#/backend/entities/AppRecommendation"
+          },
+          "description": "Stores app recommendation data for each user. Uses path-based ownership.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            },
+            {
+              "name": "appRecommendationId",
+              "description": "The unique identifier of the app recommendation record."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to ensure data isolation and facilitate secure access patterns for the Mobile Mate application.  The primary focus is on maintaining authorization independence. The structure leverages path-based ownership and denormalization. The app uses path-based ownership for User data (apps, appUsage, appPermission and AppRecommendation).  This allows for simple, secure rules based on `request.auth.uid`. This approach avoids complex `get()` calls within security rules, which are a key source of security vulnerabilities and performance bottlenecks.\n\n**QAPs (Rules are not Filters):** The structure supports secure `list` operations because each collection is designed with homogeneous security requirements. For instance, `appUsage` is located at `/users/{userId}/appUsage/{appUsageId}`.  A rule can allow a user to list all `appUsage` documents where `request.auth.uid == userId`, and prevent listing of other users' documents.  No filtering based on document data is required, thus complying with the QAPs principle."
+  }
+}

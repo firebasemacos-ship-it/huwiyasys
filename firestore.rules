@@ -1,0 +1,128 @@
+/**
+ * @fileoverview Firestore Security Rules for Mobile Mate application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for all data stored within the application.
+ * Each user has exclusive access to their profile information, installed apps, app usage data,
+ * app permissions, and app recommendations.
+ *
+ * Data Structure:
+ * All data is nested under the /users/{userId} collection.
+ * User-specific data (apps, appUsage, appPermission and AppRecommendation) is stored in
+ * subcollections under each user's document.
+ *
+ * Key Security Decisions:
+ * - All data is private and accessible only to the owning user.
+ * - User listing is implicitly denied; only operations on specific user IDs are permitted.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Defines the global function isSignedIn.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Defines the global function isOwner.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    /**
+     * @description Defines the global function isExistingOwner.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Security rules for the /users/{userId} collection.
+     * @path /users/{userId}
+     * @allow (create) - User with UID 'user123' can create their own profile document with id 'user123'.
+     * @allow (get, update, delete) - User with UID 'user123' can read, update, and delete their own profile document with id 'user123'.
+     * @deny (create) - User with UID 'user456' cannot create a user document with id 'user123'.
+     * @deny (get, update, delete) - User with UID 'user456' cannot read, update, or delete the profile document of user 'user123'.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree. Validates that the userId in the path matches the authenticated user's ID for create operations and update operations.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Security rules for the /users/{userId}/apps/{appId} collection.
+     * @path /users/{userId}/apps/{appId}
+     * @allow (create) - User with UID 'user123' can create an app document under their user document.
+     * @allow (get, list, update, delete) - User with UID 'user123' can read, list, update, and delete their own app documents.
+     * @deny (create) - User with UID 'user456' cannot create an app document under the 'user123' document.
+     * @deny (get, list, update, delete) - User with UID 'user456' cannot read, list, update, or delete app documents under the 'user123' document.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     */
+    match /users/{userId}/apps/{appId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Security rules for the /users/{userId}/appUsage/{appUsageId} collection.
+     * @path /users/{userId}/appUsage/{appUsageId}
+     * @allow (create) - User with UID 'user123' can create app usage data under their user document.
+     * @allow (get, list, update, delete) - User with UID 'user123' can read, list, update, and delete their own app usage data.
+     * @deny (create) - User with UID 'user456' cannot create app usage data under the 'user123' document.
+     * @deny (get, list, update, delete) - User with UID 'user456' cannot read, list, update, or delete app usage data under the 'user123' document.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     */
+    match /users/{userId}/appUsage/{appUsageId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Security rules for the /users/{userId}/appPermissions/{appPermissionId} collection.
+     * @path /users/{userId}/appPermissions/{appPermissionId}
+     * @allow (create) - User with UID 'user123' can create app permission data under their user document.
+     * @allow (get, list, update, delete) - User with UID 'user123' can read, list, update, and delete their own app permission data.
+     * @deny (create) - User with UID 'user456' cannot create app permission data under the 'user123' document.
+     * @deny (get, list, update, delete) - User with UID 'user456' cannot read, list, update, or delete app permission data under the 'user123' document.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     */
+    match /users/{userId}/appPermissions/{appPermissionId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Security rules for the /users/{userId}/appRecommendations/{appRecommendationId} collection.
+     * @path /users/{userId}/appRecommendations/{appRecommendationId}
+     * @allow (create) - User with UID 'user123' can create app recommendation data under their user document.
+     * @allow (get, list, update, delete) - User with UID 'user123' can read, list, update, and delete their own app recommendation data.
+     * @deny (create) - User with UID 'user456' cannot create app recommendation data under the 'user123' document.
+     * @deny (get, list, update, delete) - User with UID 'user456' cannot read, list, update, or delete app recommendation data under the 'user123' document.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     */
+    match /users/{userId}/appRecommendations/{appRecommendationId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+  }
+}
