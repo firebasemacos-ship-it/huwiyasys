@@ -25,7 +25,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useFirestore } from '@/firebase';
+import { useAuth, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { collection, addDoc } from 'firebase/firestore';
 
@@ -62,11 +62,9 @@ export default function UsersPage() {
         const email = `${newContractNumber}@huwiyasys.app`;
 
         try {
-            // 1. Create user in Firebase Auth
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
-            
-            // 2. Save user details in Firestore
+
             const usersCollection = collection(firestore, 'users');
             const newUserDoc = {
                 uid: user.uid,
@@ -76,18 +74,26 @@ export default function UsersPage() {
                 tempPassword: password, // Note: Storing password in Firestore is not recommended for production
                 createdAt: new Date().toISOString(),
             };
-            await addDoc(usersCollection, newUserDoc);
 
-            // 3. Update local state to show the new user
-            setUsers([...users, { id: user.uid, displayName: newUserName, contractNumber: newContractNumber, tempPassword: password }]);
-
-            toast({ title: 'تم إضافة المستخدم بنجاح', description: `تم إنشاء حساب لـ ${newUserName}.` });
-            setDialogOpen(false);
-            setNewUserName('');
-            setNewContractNumber('');
+            addDoc(usersCollection, newUserDoc)
+              .then(() => {
+                  setUsers([...users, { id: user.uid, displayName: newUserName, contractNumber: newContractNumber, tempPassword: password }]);
+                  toast({ title: 'تم إضافة المستخدم بنجاح', description: `تم إنشاء حساب لـ ${newUserName}.` });
+                  setDialogOpen(false);
+                  setNewUserName('');
+                  setNewContractNumber('');
+              })
+              .catch(serverError => {
+                  const permissionError = new FirestorePermissionError({
+                    path: `users/${user.uid}`,
+                    operation: 'create',
+                    requestResourceData: newUserDoc,
+                  });
+                  errorEmitter.emit('permission-error', permissionError);
+              });
 
         } catch (error: any) {
-            console.error("Error adding user:", error);
+            console.error("Error creating auth user:", error);
             if (error.code === 'auth/email-already-in-use') {
                  toast({ variant: 'destructive', title: 'فشل إضافة المستخدم', description: 'رقم العقد هذا مستخدم بالفعل.' });
             } else {
