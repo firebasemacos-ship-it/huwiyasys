@@ -9,39 +9,37 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, User } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { Logo } from '@/components/icons';
 import { LoaderCircle } from 'lucide-react';
 
 export default function AdminLoginPage() {
-  const [email, setEmail] = useState('admin@huwiyasys.app');
-  const [password, setPassword] = useState('Admin12345!');
+  const [email, setEmail] = useState('manager@huwiyasys.app');
+  const [password, setPassword] = useState('Manager12345!');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
   const auth = useAuth();
   const firestore = useFirestore();
 
-  const ensureAdminFirestoreDocument = async (user: User) => {
+  const ensureAdminFirestoreDocument = async (user: User, adminEmail: string) => {
     if (!firestore) return;
     const adminDocRef = doc(firestore, 'admins', user.uid);
 
     try {
-        // Always set/update the doc on login to ensure it's correct
         const adminUserData = {
             uid: user.uid,
-            displayName: 'Admin',
+            displayName: adminEmail === 'admin@huwiyasys.app' ? 'Admin' : 'Manager',
             email: user.email,
             isAdmin: true, // This is critical for security rules
             createdAt: new Date().toISOString(),
-            contractNumber: '000000',
+            contractNumber: adminEmail === 'admin@huwiyasys.app' ? '000000' : '000001',
         };
         await setDoc(adminDocRef, adminUserData, { merge: true });
     } catch (error) {
         console.error("Failed to ensure admin firestore document:", error);
     }
   };
-
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,7 +56,7 @@ export default function AdminLoginPage() {
 
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      await ensureAdminFirestoreDocument(userCredential.user);
+      await ensureAdminFirestoreDocument(userCredential.user, email);
       toast({
         title: 'تم تسجيل الدخول بنجاح',
         description: 'جاري تحويلك إلى لوحة التحكم.',
@@ -67,9 +65,8 @@ export default function AdminLoginPage() {
     } catch (error: any) {
         if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
             try {
-                // This will create the admin auth user for the first time
                 const newUserCredential = await createUserWithEmailAndPassword(auth, email, password);
-                await ensureAdminFirestoreDocument(newUserCredential.user);
+                await ensureAdminFirestoreDocument(newUserCredential.user, email);
 
                 toast({
                     title: 'تم إنشاء حساب المسؤول وتسجيل الدخول',
