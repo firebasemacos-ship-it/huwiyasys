@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, DocumentData } from 'firebase/firestore';
+import { doc, DocumentData, getDocs, collection, query, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -68,36 +68,82 @@ function CheckoutDialog({ totalAmount }: { totalAmount: number }) {
 
 
     const handlePayment = async () => {
+        if (!firestore) return;
+        setPaymentStatus('processing');
+
+        let hasSufficientBalance = false;
         
-        let cardUsed: WalletInfo | undefined;
-        if (selectedPayment === 'primary') {
-            cardUsed = userData?.wallet;
-        } else if (selectedPayment === 'new') {
-            if (!newCardNumber || !newCardExpiry || !newCardCvv) {
-                toast({ variant: 'destructive', title: 'بيانات ناقصة', description: 'الرجاء إدخال جميع بيانات البطاقة الجديدة.' });
+        try {
+            if (selectedPayment === 'primary') {
+                if (userData?.wallet && userData.wallet.balance >= totalAmount) {
+                    hasSufficientBalance = true;
+                }
+            } else {
+                let cardToVerify: { cardNumber: string; expiryDate?: string; cvv?: string; };
+                
+                if (selectedPayment === 'new') {
+                     if (!newCardNumber || !newCardExpiry || !newCardCvv) {
+                        toast({ variant: 'destructive', title: 'بيانات ناقصة', description: 'الرجاء إدخال جميع بيانات البطاقة الجديدة.' });
+                        setPaymentStatus('idle');
+                        return;
+                    }
+                    cardToVerify = { cardNumber: newCardNumber, expiryDate: newCardExpiry, cvv: newCardCvv };
+                } else {
+                    // It's a linked wallet, we need to find its details
+                    const linkedWallet = userData?.linkedWallets?.find(w => w.cardNumber === selectedPayment);
+                    if (!linkedWallet) {
+                        toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على البطاقة المرتبطة.' });
+                        setPaymentStatus('idle');
+                        return;
+                    }
+                    cardToVerify = linkedWallet;
+                }
+                
+                const usersRef = collection(firestore, 'users');
+                const q = query(usersRef, where("wallet.cardNumber", "==", cardToVerify.cardNumber));
+                const querySnapshot = await getDocs(q);
+
+                if (querySnapshot.empty) {
+                     toast({ variant: 'destructive', title: 'خطأ', description: 'البطاقة المستخدمة غير صالحة.' });
+                     setPaymentStatus('idle');
+                     return;
+                }
+                
+                let cardOwnerData: UserProfile | null = null;
+                querySnapshot.forEach(doc => {
+                    const foundUser = doc.data() as UserProfile;
+                     // For new cards, verify expiry and cvv. For linked cards, this isn't strictly necessary as they're already "trusted" but good for consistency.
+                    if (cardToVerify.expiryDate && cardToVerify.cvv) {
+                         if(foundUser.wallet.expiryDate === cardToVerify.expiryDate && foundUser.wallet.cvv === cardToVerify.cvv) {
+                            cardOwnerData = foundUser;
+                         }
+                    } else {
+                        // This branch is for linked cards that might not have cvv/expiry stored in the linking user's doc
+                        cardOwnerData = foundUser;
+                    }
+                });
+
+                if (cardOwnerData && cardOwnerData.wallet.balance >= totalAmount) {
+                    hasSufficientBalance = true;
+                }
+            }
+            
+            if (!hasSufficientBalance) {
+                toast({ variant: 'destructive', title: 'خطأ في الدفع', description: 'الرصيد غير كافٍ لإتمام عملية الشراء.' });
+                setPaymentStatus('idle');
                 return;
             }
-            cardUsed = { cardNumber: newCardNumber, expiryDate: newCardExpiry, cvv: newCardCvv, balance: Infinity, status: 'active' };
-        } else {
-            cardUsed = userData?.linkedWallets?.find(w => w.cardNumber === selectedPayment);
-        }
 
-        if (!cardUsed) {
-            toast({ variant: 'destructive', title: 'خطأ في الدفع', description: 'لم يتم العثور على طريقة الدفع المختارة.' });
-            return;
-        }
+            // If we are here, balance is sufficient. Simulate payment processing.
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            // In a real app, you would deduct balance from the correct card owner's document.
+            setPaymentStatus('success');
 
-        if (cardUsed.balance < totalAmount) {
-             toast({ variant: 'destructive', title: 'خطأ في الدفع', description: 'الرصيد غير كافٍ لإتمام عملية الشراء.' });
-             return;
+        } catch (error) {
+            console.error("Payment error:", error);
+            toast({ variant: 'destructive', title: 'خطأ', description: 'حدث خطأ أثناء معالجة الدفع.' });
+            setPaymentStatus('idle');
         }
-
-        setPaymentStatus('processing');
-        // Simulate payment processing
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // In a real app, you would connect to a payment gateway here and deduct balance.
-        setPaymentStatus('success');
     };
 
     if (paymentStatus === 'processing' || paymentStatus === 'success') {
