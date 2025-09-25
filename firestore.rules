@@ -1,149 +1,85 @@
-/**
- * @fileoverview Firestore Security Rules for the application.
- *
- * Core Philosophy:
- * This ruleset enforces a user-ownership model for user profiles and their associated data.
- * Products and Categories are publicly readable, but only owners can create, update, or delete them.
- * Super-admin access is granted to users with a specific email address, allowing full read and write privileges.
- *
- * Data Structure:
- * - /users/{userId}: Stores user profile information.
- * - /users/{userId}/transactions/{transactionId}: Stores a user's transaction history.
- * - /products/{productId}: Stores product information.
- * - /categories/{categoryId}: Stores category information.
- *
- * Key Security Decisions:
- * - User profiles are accessible only to the owner and super-admins.
- * - User transaction history is accessible only to the owner.
- * - Products are publicly readable, but only the owner can modify them.
- * - Categories are publicly readable, but write access is restricted (TODO: Determine write access).
- * - Listing of user documents is disallowed to prevent information leakage.
- *
- * Denormalization for Authorization:
- * - The `Product` entity requires an `ownerId` field for authorization checks.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Grants full read and write access to super administrators.
-     * @path /{document=**}
-     * @allow (read, write) if the user's email is "admin@huwiyasys.app".
-     * @deny (none) - Super admins have full access.
-     * @principle Uses a super-admin role for elevated privileges.
-     */
-    function isSuperAdmin() {
-      return request.auth != null &&
-             request.auth.token.email == "admin@huwiyasys.app";
-    }
-
-    match /{document=**} {
-      allow read, write: if isSuperAdmin();
-    }
-
-    /**
-     * @description Manages access to user profile documents.
-     * @path /users/{userId}
-     * @allow (get) if the request is made by the owner or a super admin.
-     * @allow (create) if the user is signed in and the request is made by the owner and the uid in the data matches the userId.
-     * @allow (update) if the request is made by the owner and the uid in the data matches the userId and the document exists.
-     * @allow (delete) if the request is made by the owner and the document exists.
-     * @deny (get) if the request is not made by the owner or a super admin.
-     * @deny (create) if the user is not signed in or the request is not made by the owner or the uid in the data does not match the userId.
-     * @deny (update) if the request is not made by the owner or the uid in the data does not match the userId or the document does not exist.
-     * @deny (delete) if the request is not made by the owner or the document does not exist.
-     * @principle Enforces document ownership for user profiles.
+     * @description Enforces user-ownership for user profiles. Only the user or an admin can read/write their own profile.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
-      allow get: if isOwner(userId) || isSuperAdmin();
-      allow list: if false; // Listing user documents is disallowed.
-
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.uid == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.uid == resource.data.uid;
-      allow delete: if isExistingOwner(userId);
-    }
-
-     /**
-      * @description Manages access to user transaction documents.
-      * @path /users/{userId}/transactions/{transactionId}
-      * @allow (get) if the request is made by the owner.
-      * @allow (create) if the request is made by the owner.
-      * @allow (update) if the request is made by the owner and the document exists.
-      * @allow (delete) if the request is made by the owner and the document exists.
-      * @deny (get) if the request is not made by the owner.
-      * @deny (create) if the request is not made by the owner.
-      * @deny (update) if the request is not made by the owner or the document does not exist.
-      * @deny (delete) if the request is not made by the owner or the document does not exist.
-      * @principle Enforces document ownership for user transactions.
-      */
-    match /users/{userId}/transactions/{transactionId} {
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
       allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && isSelfCreation(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
     }
 
     /**
-     * @description Manages access to product documents.
-     * @path /products/{productId}
-     * @allow (get, list) - Publicly readable.
-     * @allow (create) if the request is made by the owner and the ownerId in the data matches the user's ID.
-     * @allow (update) if the request is made by the owner and the ownerId in the existing data matches the user's ID and the document exists.
-     * @allow (delete) if the request is made by the owner and the ownerId in the existing data matches the user's ID and the document exists.
-     * @deny (create) if the request is not made by the owner or the ownerId in the data does not match the user's ID.
-     * @deny (update) if the request is not made by the owner or the ownerId in the existing data does not match the user's ID or the document does not exist.
-     * @deny (delete) if the request is not made by the owner or the ownerId in the existing data does not match the user's ID or the document does not exist.
-     * @principle Enforces public read access with owner-only writes for products.
+     * @description Enforces user-ownership for transactions. Only the user can read/write their own transactions.
+     */
+    match /users/{userId}/transactions/{transactionId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
+    }
+
+    /**
+     * @description Restricts access to admin profiles to authenticated admins only.
+     */
+    match /admins/{adminId} {
+      allow get: if isAdmin(adminId);
+      allow list: if false;
+      allow create: if isSignedIn() && isAdminCreation(adminId);
+      allow update: if isAdmin(adminId);
+      allow delete: if isAdmin(adminId);
+    }
+
+    /**
+     * @description Allows public read access to products, but restricts write access to owners only.
      */
     match /products/{productId} {
-      function isOwner(ownerId) {
-        return request.auth.uid == ownerId;
-      }
-
-      function isExistingOwner(ownerId) {
-        return isOwner(ownerId) && resource != null;
-      }
-
-      allow get, list: if true;
-
-      allow create: if request.auth.uid == request.resource.data.ownerId;
-      allow update: if isExistingOwner(resource.data.ownerId);
-      allow delete: if isExistingOwner(resource.data.ownerId);
+      allow get: if true;
+      allow list: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && isProductOwner(productId);
+      allow delete: if isSignedIn() && isProductOwner(productId);
     }
 
     /**
-     * @description Manages access to category documents.
-     * @path /categories/{categoryId}
-     * @allow (get, list) - Publicly readable.
-     * @deny (create, update, delete) - Write operations are disabled.
-     * @principle Implements public read-only access for categories.
+     * @description Allows public read access to product categories.
      */
     match /categories/{categoryId} {
-      allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow get: if true;
+      allow list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
+  }
+
+  // Helper functions
+  function isSignedIn() {
+    return request.auth != null;
+  }
+
+  function isOwner(userId) {
+    return request.auth.uid == userId;
+  }
+
+  function isAdmin(adminId) {
+    return request.auth.uid == adminId && exists(/databases/$(database)/documents/admins/$(adminId)) ;
+  }
+
+  function isSelfCreation(userId) {
+    return request.auth.uid == userId;
+  }
+
+  function isAdminCreation(adminId) {
+      return request.auth.uid == adminId;
+  }
+
+  function isProductOwner(productId) {
+    return request.auth.uid == get(/databases/$(database)/documents/products/$(productId)).data.ownerId;
   }
 }
