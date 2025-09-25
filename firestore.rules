@@ -3,134 +3,143 @@
  *
  * Core Philosophy:
  * This ruleset enforces a user-ownership model for user profiles and transactions.
- * Products and categories are publicly readable, but only authorized users can create, update, or delete them.
+ * Products and Categories are publicly readable, but write access is restricted.
+ * Admin profiles are readable and writable by admins only.
  *
  * Data Structure:
- * - /users/{userId}: Stores user profile information, accessible only to the user themselves.
- * - /users/{userId}/transactions/{transactionId}: Stores transaction history for each user, accessible only to the user themselves.
- * - /admins/{adminId}: Stores admin user profiles, only accessible by the admin themselves.
- * - /products/{productId}: Stores product information, publicly readable but writeable by authorized users only.
- * - /categories/{categoryId}: Stores product categories, publicly readable but writeable by authorized users only.
+ * - /users/{userId}: User profiles, owned by the user.
+ * - /users/{userId}/transactions/{transactionId}: Transaction history, owned by the user.
+ * - /admins/{adminId}: Admin profiles, readable and writable by admins only.
+ * - /products/{productId}: Publicly readable product catalog.
+ * - /categories/{categoryId}: Publicly readable category list.
  *
  * Key Security Decisions:
- * - Users can only access their own profile data and transaction history.
- * - Listing user documents is disallowed to prevent unauthorized data access.
- * - Public read access is granted for /products and /categories.
- * - The `isAdmin` flag in the user profile determines elevated privileges.  Currently, no rules leverage the `isAdmin` field, but it's included in the data model.
+ * - Users can only read and write their own profile data and transaction history.
+ * - Listing of users is disallowed.
+ * - Products and Categories are publicly readable to enable the browsing of the product catalog.
+ * - Only authenticated admins can manage admin profiles.
+ * - All write operations require an authenticated user.
  *
  * Denormalization for Authorization:
- * No specific denormalization is used in this ruleset. The current security model relies on path-based authorization (user ownership) and role-based authorization (admin status - currently not used).
+ * - Currently, no denormalization is required as ownership is determined by the document path.
  *
  * Structural Segregation:
- * Private user data is stored under the /users/{userId} path, while public product and category data are stored in top-level collections.
+ * - Private user data (transactions) is stored in a subcollection under the user's profile.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Protects user profile data. Only the user themselves can read or write their profile.
+     * @description Allows users to read and write their own profile data.
      * @path /users/{userId}
-     * @allow (create) User with uid 'user123' creates their profile at /users/user123.
-     * @allow (get) User with uid 'user123' reads their profile at /users/user123.
-     * @allow (update) User with uid 'user123' updates their profile at /users/user123.
-     * @allow (delete) User with uid 'user123' deletes their profile at /users/user123.
-     * @deny (get) User with uid 'user456' tries to read user 'user123's profile.
-     * @deny (create) User with uid 'user123' tries to create a profile at /users/user456.
-     * @principle Enforces document ownership for all operations on user profiles.
+     * @allow (create) - Authenticated user with matching userId in the document.
+     * @allow (get) - Authenticated user accessing their own profile.
+     * @allow (update) - Authenticated user updating their own profile.
+     * @allow (delete) - Authenticated user deleting their own profile.
+     * @deny (create) - Authenticated user attempting to create a profile with a different userId.
+     * @deny (get) - Authenticated user attempting to read another user's profile.
+     * @deny (update) - Authenticated user attempting to update another user's profile.
+     * @deny (delete) - Authenticated user attempting to delete another user's profile.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
       allow get: if isOwner(userId);
-      allow list: if false;
+      allow list: if false; // Listing users is not permitted.
       allow create: if isOwner(userId) && request.resource.data.uid == userId;
       allow update: if isExistingOwner(userId) && request.resource.data.uid == resource.data.uid;
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Protects user transaction data. Only the user themselves can read or write their transactions.
+     * @description Allows users to manage their own transaction history.
      * @path /users/{userId}/transactions/{transactionId}
-     * @allow (create) User with uid 'user123' creates a transaction at /users/user123/transactions/tx1.
-     * @allow (get) User with uid 'user123' reads their transaction at /users/user123/transactions/tx1.
-     * @allow (update) User with uid 'user123' updates their transaction at /users/user123/transactions/tx1.
-     * @allow (delete) User with uid 'user123' deletes their transaction at /users/user123/transactions/tx1.
-     * @deny (get) User with uid 'user456' tries to read user 'user123's transaction.
-     * @deny (create) User with uid 'user123' tries to create a transaction at /users/user456/transactions/tx1.
-     * @principle Enforces document ownership for all operations on user transactions.
+     * @allow (create) - Authenticated user adding a transaction to their own profile.
+     * @allow (get) - Authenticated user accessing their own transaction.
+     * @allow (update) - Authenticated user updating their own transaction.
+     * @allow (delete) - Authenticated user deleting their own transaction.
+     * @deny (create) - Authenticated user attempting to add a transaction to another user's profile.
+     * @deny (get) - Authenticated user attempting to read another user's transaction.
+     * @deny (update) - Authenticated user attempting to update another user's transaction.
+     * @deny (delete) - Authenticated user attempting to delete another user's transaction.
+     * @principle Restricts access to a user's own data tree.
      */
     match /users/{userId}/transactions/{transactionId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if isOwner(userId) && resource != null;
+        allow delete: if isOwner(userId) && resource != null;
     }
 
-    /**
-     * @description Protects admin profile data. Only the admin themselves can read or write their profile.
-     * @path /admins/{adminId}
-     * @allow (create) User with uid 'admin123' creates their admin profile at /admins/admin123.
-     * @allow (get) User with uid 'admin123' reads their admin profile at /admins/admin123.
-     * @allow (update) User with uid 'admin123' updates their admin profile at /admins/admin123.
-     * @allow (delete) User with uid 'admin123' deletes their admin profile at /admins/admin123.
-     * @deny (get) User with uid 'user456' tries to read admin 'admin123's profile.
-     * @deny (create) User with uid 'admin123' tries to create a profile at /admins/admin456.
-     * @principle Enforces document ownership for all operations on admin profiles.
-     */
-    match /admins/{adminId} {
-      allow get: if isOwner(adminId);
-      allow list: if false;
-      allow create: if isOwner(adminId) && request.resource.data.uid == adminId;
-      allow update: if isExistingOwner(adminId) && request.resource.data.uid == resource.data.uid;
-      allow delete: if isExistingOwner(adminId);
-    }
+        /**
+         * @description Allows admins to read and write admin profile data.
+         * @path /admins/{adminId}
+         * @allow (create) - Authenticated admin user creating an admin profile.
+         * @allow (get) - Authenticated admin user accessing admin profile.
+         * @allow (update) - Authenticated admin user updating admin profile.
+         * @allow (delete) - Authenticated admin user deleting admin profile.
+         * @deny (create) - Non-admin user attempting to create an admin profile.
+         * @deny (get) - Non-admin user attempting to access admin profile.
+         * @deny (update) - Non-admin user attempting to update admin profile.
+         * @deny (delete) - Non-admin user attempting to delete admin profile.
+         * @principle Restricts admin profile management to authenticated admins.
+         */
+        match /admins/{adminId} {
+          function isAdmin() {
+                return request.auth != null && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.isAdmin == true;
+          }
+                allow get: if isAdmin();
+                allow list: if false;
+                allow create: if isAdmin() && request.resource.data.uid == adminId;
+                allow update: if isAdmin() && resource != null;
+                allow delete: if isAdmin() && resource != null;
+        }
 
-    /**
-     * @description Allows public read access to products but restricts write access.
-     * @path /products/{productId}
-     * @allow (get) Any user can read a product.
-     * @allow (list) Any user can list products.
-     * @deny (create) Anonymous user tries to create a product.
-     * @deny (update) Regular user tries to update a product.
-     * @deny (delete) Regular user tries to delete a product.
-     * @principle Public read access with owner-only writes.
-     */
-    match /products/{productId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
-      allow update: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
-      allow delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
-    }
+        /**
+         * @description Allows public read access to products, but restricts write access.
+         * @path /products/{productId}
+         * @allow (get) - Any user can read product details.
+         * @allow (list) - Any user can list products.
+         * @deny (create) - Only authenticated admins can create a product.
+         * @deny (update) - Only authenticated admins can update a product.
+         * @deny (delete) - Only authenticated admins can delete a product.
+         * @principle Public read access with restricted write access.
+         */
+        match /products/{productId} {
+            allow get: if true;
+            allow list: if true;
+            allow create: if false; // TODO: Add admin validation once the schema is updated with an ownership field.
+            allow update: if false; // TODO: Add admin validation once the schema is updated with an ownership field.
+            allow delete: if false; // TODO: Add admin validation once the schema is updated with an ownership field.
+        }
 
-    /**
-     * @description Allows public read access to categories but restricts write access.
-     * @path /categories/{categoryId}
-     * @allow (get) Any user can read a category.
-     * @allow (list) Any user can list categories.
-     * @deny (create) Anonymous user tries to create a category.
-     * @deny (update) Regular user tries to update a category.
-     * @deny (delete) Regular user tries to delete a category.
-     * @principle Public read access with owner-only writes.
-     */
-    match /categories/{categoryId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
-      allow update: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
-      allow delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
-    }
-  }
-
-  function isSignedIn() {
-    return request.auth != null;
-  }
-
-  function isOwner(userId) {
-    return isSignedIn() && request.auth.uid == userId;
-  }
-
-  function isExistingOwner(userId) {
-    return isOwner(userId) && resource != null;
+        /**
+         * @description Allows public read access to categories, but restricts write access.
+         * @path /categories/{categoryId}
+         * @allow (get) - Any user can read category details.
+         * @allow (list) - Any user can list categories.
+         * @deny (create) - Only authenticated admins can create a category.
+         * @deny (update) - Only authenticated admins can update a category.
+         * @deny (delete) - Only authenticated admins can delete a category.
+         * @principle Public read access with restricted write access.
+         */
+        match /categories/{categoryId} {
+            allow get: if true;
+            allow list: if true;
+            allow create: if false; // TODO: Add admin validation once the schema is updated with an ownership field.
+            allow update: if false; // TODO: Add admin validation once the schema is updated with an ownership field.
+            allow delete: if false; // TODO: Add admin validation once the schema is updated with an ownership field.
+        }
   }
 }
