@@ -3,43 +3,63 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isSuperAdmin() {
-      return request.auth.token.email == 'zaki@zetabait.app';
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
     }
 
     function isOwner(userId) {
       return request.auth.uid == userId;
+    }
+    
+    function isSuperAdmin() {
+      return request.auth.token.email == 'zaki@zetabait.app';
     }
 
     function isAdmin() {
       return exists(/databases/$(database)/documents/managers/$(request.auth.uid));
     }
 
+    // Rules for 'users' collection
     match /users/{userId} {
-      allow read;
+      allow read: if isSignedIn();
       allow write: if isOwner(userId) || isSuperAdmin();
+
+      // Rules for 'transactions' subcollection
+      match /transactions/{transactionId} {
+        allow read, write: if isOwner(userId) || isSuperAdmin();
+      }
+    }
+
+    // Rules for 'managers' collection
+    match /managers/{managerId} {
+       allow read, write: if isSuperAdmin() || isOwner(managerId);
     }
     
-    match /managers/{managerId} {
-      allow read, write: if isOwner(managerId) || isSuperAdmin();
-    }
-
+    // Rules for 'products' collection
     match /products/{productId} {
-      allow read;
-      allow write: if isSuperAdmin();
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
-
+    
+    // Rules for 'categories' collection
     match /categories/{categoryId} {
-      allow read;
-      allow write: if isSuperAdmin();
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
+    // Rules for 'cardLinkRequests' collection
     match /cardLinkRequests/{requestId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if isSignedIn();
     }
 
-    match /users/{userId}/transactions/{transactionId} {
-      allow read, write: if isOwner(userId) || isSuperAdmin();
+    // Rules for 'banners' collection
+    match /banners/{bannerId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
+
   }
 }
+
+    

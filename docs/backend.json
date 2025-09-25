@@ -246,6 +246,43 @@
         "status",
         "createdAt"
       ]
+    },
+    "Banner": {
+      "title": "Banner",
+      "description": "Represents a promotional banner.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "The main title of the banner."
+        },
+        "description": {
+          "type": "string",
+          "description": "A short description for the banner."
+        },
+        "imageUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL of the banner image."
+        },
+        "link": {
+          "type": "string",
+          "description": "The destination URL when the banner is clicked."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "draft"
+          ],
+          "description": "The status of the banner (active or draft)."
+        }
+      },
+      "required": [
+        "title",
+        "imageUrl",
+        "status"
+      ]
     }
   },
   "auth": {
@@ -289,6 +326,14 @@
         "$ref": "#/entities/CardLinkRequest"
       },
       "description": "Stores requests to link payment cards between users."
+    },
+    "/banners/{bannerId}": {
+      "schema": {
+        "$ref": "#/entities/Banner"
+      },
+      "description": "Stores promotional banners for the app."
     }
   }
 }
+
+    
