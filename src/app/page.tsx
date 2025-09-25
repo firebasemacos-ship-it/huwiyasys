@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -43,28 +44,19 @@ export default function LoginPage() {
         setIsLoading(false);
         return;
     }
-    const email = contractNumber.includes('@') ? contractNumber : `${contractNumber}@huwiyasys.app`;
+    const email = `${contractNumber}@huwiyasys.app`;
     
-    // Redirect admin to the correct login page
-    if (email === 'zaki@zetabait.app') {
-        router.push('/admin/login');
-        toast({ title: 'جاري تحويلك لصفحة المدير', description: 'الرجاء تسجيل الدخول من صفحة الإدارة.' });
-        setIsLoading(false);
-        return;
-    }
-
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
-      // Check user's card status
       const userDocRef = doc(firestore, 'users', user.uid);
       const userDoc = await getDoc(userDocRef);
 
       if (userDoc.exists()) {
         const userData = userDoc.data();
         if (userData.wallet?.status === 'suspended') {
-            await auth.signOut(); // Sign out the user
+            await auth.signOut();
             toast({
                 variant: 'destructive',
                 title: 'فشل تسجيل الدخول',
@@ -75,7 +67,6 @@ export default function LoginPage() {
             router.push('/shop');
         }
       } else {
-          // This case should ideally not happen if user creation is robust
           await auth.signOut();
           toast({ variant: 'destructive', title: 'خطأ في الحساب', description: 'لم يتم العثور على بيانات المستخدم.' });
       }
@@ -117,7 +108,7 @@ export default function LoginPage() {
                     </div>
                 </div>
                 <CardTitle className="text-2xl">مرحباً بك</CardTitle>
-                <CardDescription>سجل الدخول للمتابعة.</CardDescription>
+                <CardDescription>سجل الدخول لحسابك للمتابعة.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="space-y-2">

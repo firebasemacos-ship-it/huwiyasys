@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -69,7 +70,6 @@ export default function AdminLoginPage() {
       router.push('/admin');
     } catch (error: any) {
         if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found') {
-            // User does not exist, try creating a new one
             try {
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 await ensureAdminFirestoreDocument(userCredential.user);
@@ -106,8 +106,8 @@ export default function AdminLoginPage() {
             <div className="mb-4 flex justify-center">
               <Logo className="h-12 w-12 text-primary" />
             </div>
-            <CardTitle className="text-2xl">لوحة التحكم</CardTitle>
-            <CardDescription>الرجاء تسجيل الدخول للمتابعة.</CardDescription>
+            <CardTitle className="text-2xl">دخول المدير</CardTitle>
+            <CardDescription>الرجاء تسجيل الدخول للمتابعة إلى لوحة التحكم.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -137,7 +137,7 @@ export default function AdminLoginPage() {
           <CardFooter>
             <Button type="submit" className="w-full" disabled={isLoading || !auth}>
               {isLoading && <LoaderCircle className="ml-2 h-4 w-4 animate-spin" />}
-              {isLoading ? 'جاري تسجيل الدخول...' : 'تسجيل الدخول'}
+              {isLoading ? 'جاري تسجيل الدخول...' : 'دخول'}
             </Button>
           </CardFooter>
         </form>
@@ -145,3 +145,4 @@ export default function AdminLoginPage() {
     </div>
   );
 }
+
