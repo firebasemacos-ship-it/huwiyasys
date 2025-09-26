@@ -196,7 +196,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                             </Label>
                         ))}
                         
-                        <Label htmlFor="new" className="flex items-center gap-4 rounded-md border p-4 hover:bg-accent has-[[data-state=checked]]:border-primary">
+                        <Label htmlFor="new" className="flex items-center gap-4 rounded-md border p-4 hover-bg-accent has-[[data-state=checked]]:border-primary">
                             <RadioGroupItem value="new" id="new" />
                             <span>استخدام بطاقة جديدة</span>
                         </Label>
@@ -245,6 +245,12 @@ export default function CartPage() {
   const { user, isUserLoading } = useUser();
   const { items: cartItems, updateQuantity, removeItem, clearCart } = useCart();
   const [isCheckoutOpen, setCheckoutOpen] = useState(false);
+  
+  // Hydration fix:
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const subtotal = useMemo(() => cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0), [cartItems]);
   const deliveryFee = 10;
@@ -267,7 +273,12 @@ export default function CartPage() {
         </header>
 
         <main className="flex-1 overflow-y-auto bg-muted/20 p-4 pb-40">
-          {cartItems.length > 0 ? (
+          {!isClient ? (
+             <div className="space-y-4">
+                <Skeleton className="h-28 w-full rounded-xl" />
+                <Skeleton className="h-28 w-full rounded-xl" />
+            </div>
+          ) : cartItems.length > 0 ? (
             <div className="space-y-4">
               {cartItems.map((item) => (
                 <Card key={item.id} className="overflow-hidden rounded-xl">
@@ -312,7 +323,7 @@ export default function CartPage() {
           )}
         </main>
         
-        {cartItems.length > 0 && (
+        {isClient && cartItems.length > 0 && (
             <div className="fixed bottom-24 z-30 w-full border-t border-white/10 bg-background/30 p-4 shadow-t-strong backdrop-blur-lg">
                 <div className="space-y-2 text-sm">
                     <div className="flex justify-between">

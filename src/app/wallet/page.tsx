@@ -322,12 +322,17 @@ export default function WalletPage() {
   }
   
   const copyToClipboard = (text: string | undefined) => {
-    if(!text || !navigator.clipboard) return;
+    if(!text || !navigator.clipboard) {
+        // Silently ignore if clipboard API is not available (e.g., in non-secure contexts)
+        console.warn('Clipboard API not available.');
+        return;
+    };
     navigator.clipboard.writeText(text).then(() => {
         toast({ title: 'تم النسخ!', description: 'تم نسخ رقم البطاقة إلى الحافظة.' });
     }).catch(err => {
-        // Silently ignore errors in non-secure contexts (like dev environments)
         console.warn('Could not copy text to clipboard:', err);
+        // Optionally, you can show a toast message that copying failed,
+        // but for this case, we'll ignore it to prevent user confusion on dev environments.
     });
   };
 
