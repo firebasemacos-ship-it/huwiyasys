@@ -157,7 +157,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
             // --- Process Payment & Order ---
             const ownerDocRef = doc(firestore, 'users', paymentCardOwnerId);
 
-            // 1. Update balance
+            // 1. Update card owner's balance
             batch.update(ownerDocRef, { 'wallet.balance': increment(-totalAmount) });
 
             // 2. Create transaction for card owner
@@ -167,20 +167,22 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                 type: 'شراء',
                 amount: -totalAmount,
                 date: serverTimestamp(),
-                description: `شراء من قبل ${userData.displayName}`
+                description: paymentCardOwnerId === user.uid 
+                    ? `شراء منتجات` 
+                    : `شراء منتجات من قبل ${userData.displayName}`
             });
             
             // 3. Create transaction for the buyer (if different from owner)
-            if (paymentCardOwnerId !== user.uid) {
-                 const buyerTransactionsColRef = collection(firestore, 'users', user.uid, 'transactions');
-                 const buyerTransactionRef = doc(buyerTransactionsColRef);
-                 batch.set(buyerTransactionRef, {
-                    type: 'شراء',
-                    amount: -totalAmount,
-                    date: serverTimestamp(),
-                    description: `تم الدفع باستخدام بطاقة ${paymentCardOwnerData.displayName}`
-                });
-            }
+            const buyerTransactionsColRef = collection(firestore, 'users', user.uid, 'transactions');
+            const buyerTransactionRef = doc(buyerTransactionsColRef);
+            batch.set(buyerTransactionRef, {
+                type: 'شراء',
+                amount: -totalAmount,
+                date: serverTimestamp(),
+                description: paymentCardOwnerId === user.uid 
+                    ? `شراء منتجات` 
+                    : `تم الدفع باستخدام بطاقة ${paymentCardOwnerData.displayName}`
+            });
 
             // 4. Create Order document
             const orderRef = doc(collection(firestore, 'orders'));
