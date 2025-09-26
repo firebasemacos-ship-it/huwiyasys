@@ -87,6 +87,11 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                         return;
                     }
                     cardToVerify = { cardNumber: newCardNumber.replace(/\s/g, ''), expiryDate: newCardExpiry, cvv: newCardCvv };
+                     if (cardToVerify.cardNumber.length !== 16) {
+                        toast({ variant: 'destructive', title: 'خطأ في البطاقة', description: 'يجب أن يتكون رقم البطاقة من 16 رقمًا.' });
+                        setPaymentStatus('idle');
+                        return;
+                    }
                 } else {
                     const linkedWallet = userData.linkedWallets?.find(w => w.cardNumber === selectedPayment);
                     if (!linkedWallet) {

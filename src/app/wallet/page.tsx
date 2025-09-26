@@ -54,7 +54,7 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
     useEffect(() => {
         const findUser = async () => {
             const sanitizedCardNumber = debouncedCardNumber.replace(/\s/g, '');
-            if (!sanitizedCardNumber || sanitizedCardNumber.length < 16 || !firestore) {
+            if (!sanitizedCardNumber || sanitizedCardNumber.length !== 16 || !firestore) {
                 setFoundUser(null);
                 return;
             }
