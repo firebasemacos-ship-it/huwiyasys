@@ -38,7 +38,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, DocumentData, query, orderBy } from 'firebase/firestore';
+import { collection, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, DocumentData, query, orderBy, writeBatch } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 
@@ -81,22 +81,36 @@ function SubscriptionDialog({ subscription, users, onSave, onClose }: { subscrip
             planName,
             status,
             endDate,
-            updatedAt: serverTimestamp(),
         };
 
         try {
+            const batch = writeBatch(firestore);
+
             if (subscription) {
-                await updateDoc(doc(firestore, 'subscriptions', subscription.id), subscriptionData);
-                toast({ title: "تم تحديث الاشتراك بنجاح" });
+                 const mainSubscriptionRef = doc(firestore, 'subscriptions', subscription.id);
+                 batch.update(mainSubscriptionRef, { ...subscriptionData, updatedAt: serverTimestamp() });
+                 
+                 const userSubscriptionRef = doc(firestore, 'users', userId, 'userSubscriptions', subscription.id);
+                 batch.update(userSubscriptionRef, { ...subscriptionData, updatedAt: serverTimestamp() });
+
+                 toast({ title: "تم تحديث الاشتراك بنجاح" });
+
             } else {
-                await addDoc(collection(firestore, 'subscriptions'), { 
-                    ...subscriptionData, 
-                    createdAt: serverTimestamp() 
-                });
+                const mainSubscriptionsCol = collection(firestore, 'subscriptions');
+                const newSubDocRef = doc(mainSubscriptionsCol); // Create a new doc ref to get the ID
+
+                batch.set(newSubDocRef, { ...subscriptionData, createdAt: serverTimestamp() });
+                
+                const userSubscriptionRef = doc(firestore, 'users', userId, 'userSubscriptions', newSubDocRef.id);
+                batch.set(userSubscriptionRef, { ...subscriptionData, createdAt: serverTimestamp() });
+
                 toast({ title: "تمت إضافة الاشتراك بنجاح" });
             }
+            
+            await batch.commit();
             onSave();
             onClose();
+
         } catch (error: any) {
             console.error("Error saving subscription: ", error);
             toast({ variant: 'destructive', title: "خطأ", description: error.message });
@@ -202,12 +216,20 @@ export default function SubscriptionsPage() {
         }
     }, [error, toast]);
 
-    const updateSubscriptionStatus = async (subscriptionId: string, status: Subscription['status']) => {
+    const updateSubscriptionStatus = async (subscription: Subscription, status: Subscription['status']) => {
         if (!firestore) return;
-        const subscriptionRef = doc(firestore, 'subscriptions', subscriptionId);
+
         try {
-            await updateDoc(subscriptionRef, { status });
-            toast({ title: 'تم تحديث حالة الاشتراك بنجاح' });
+             const batch = writeBatch(firestore);
+
+             const mainSubscriptionRef = doc(firestore, 'subscriptions', subscription.id);
+             batch.update(mainSubscriptionRef, { status });
+
+             const userSubscriptionRef = doc(firestore, 'users', subscription.userId, 'userSubscriptions', subscription.id);
+             batch.update(userSubscriptionRef, { status });
+             
+             await batch.commit();
+             toast({ title: 'تم تحديث حالة الاشتراك بنجاح' });
         } catch (err) {
             console.error("Error updating subscription status:", err);
             toast({ variant: 'destructive', title: 'فشل تحديث الحالة', description: (err as Error).message });
@@ -231,7 +253,16 @@ export default function SubscriptionsPage() {
         if (!subscriptionToDelete || !firestore) return;
         
         try {
-            await deleteDoc(doc(firestore, 'subscriptions', subscriptionToDelete.id));
+            const batch = writeBatch(firestore);
+
+            const mainSubscriptionRef = doc(firestore, 'subscriptions', subscriptionToDelete.id);
+            batch.delete(mainSubscriptionRef);
+
+            const userSubscriptionRef = doc(firestore, 'users', subscriptionToDelete.userId, 'userSubscriptions', subscriptionToDelete.id);
+            batch.delete(userSubscriptionRef);
+
+            await batch.commit();
+
             toast({ title: `تم حذف الاشتراك بنجاح` });
             setDeleteDialogOpen(false);
             setSubscriptionToDelete(null);
@@ -309,11 +340,11 @@ export default function SubscriptionsPage() {
                                                 <DropdownMenuItem onSelect={() => handleEditSubscription(sub)} disabled={isLoadingUsers}>تعديل</DropdownMenuItem>
                                                 <DropdownMenuItem onSelect={() => confirmDelete(sub)} className="text-destructive">حذف</DropdownMenuItem>
                                                 <DropdownMenuLabel>تغيير الحالة السريع</DropdownMenuLabel>
-                                                <DropdownMenuItem onSelect={() => updateSubscriptionStatus(sub.id, 'active')}>
+                                                <DropdownMenuItem onSelect={() => updateSubscriptionStatus(sub, 'active')}>
                                                     <CheckCircle className="ml-2 h-4 w-4" />
                                                     <span>تنشيط</span>
                                                 </DropdownMenuItem>
-                                                <DropdownMenuItem onSelect={() => updateSubscriptionStatus(sub.id, 'cancelled')} className="text-destructive">
+                                                <DropdownMenuItem onSelect={() => updateSubscriptionStatus(sub, 'cancelled')} className="text-destructive">
                                                     <XCircle className="ml-2 h-4 w-4" />
                                                     <span>إلغاء</span>
                                                 </DropdownMenuItem>

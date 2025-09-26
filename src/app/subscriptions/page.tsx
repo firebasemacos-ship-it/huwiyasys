@@ -2,7 +2,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Home, MoreHorizontal, Search, ShoppingCart, Star, Ticket, Wallet as WalletIcon, ArrowLeft, LoaderCircle } from 'lucide-react';
+import { Home, MoreHorizontal, Search, ShoppingCart, Star, Ticket, Wallet as WalletIcon, ArrowLeft, LoaderCircle, XCircle } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, DocumentData } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,9 +24,9 @@ export default function SubscriptionsPage() {
 
     const subscriptionsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
+        // Correctly query the subcollection for the current user
         return query(
-            collection(firestore, 'subscriptions'), 
-            where('userId', '==', user.uid), 
+            collection(firestore, 'users', user.uid, 'userSubscriptions'), 
             orderBy('createdAt', 'desc')
         );
     }, [firestore, user]);

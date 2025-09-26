@@ -441,6 +441,12 @@
       },
       "description": "Stores a user's transaction history."
     },
+    "/users/{userId}/userSubscriptions/{subscriptionId}": {
+        "schema": {
+            "$ref": "#/entities/Subscription"
+        },
+        "description": "A subcollection containing a copy of the user's subscriptions for client-side reading."
+    },
     "/managers/{managerId}": {
       "schema": {
         "$ref": "#/entities/UserProfile"
@@ -487,7 +493,7 @@
         "schema": {
             "$ref": "#/entities/Subscription"
         },
-        "description": "Stores user subscriptions."
+        "description": "Main collection for all subscriptions, managed by admins."
     }
   }
 }
