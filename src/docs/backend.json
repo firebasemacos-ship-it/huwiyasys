@@ -246,6 +246,138 @@
         "status",
         "createdAt"
       ]
+    },
+    "Banner": {
+      "title": "Banner",
+      "description": "Represents a promotional banner.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "The main title of the banner."
+        },
+        "description": {
+          "type": "string",
+          "description": "A short description for the banner."
+        },
+        "imageUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL of the banner image."
+        },
+        "link": {
+          "type": "string",
+          "description": "The destination URL when the banner is clicked."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "draft"
+          ],
+          "description": "The status of the banner (active or draft)."
+        }
+      },
+      "required": [
+        "title",
+        "imageUrl",
+        "status"
+      ]
+    },
+     "RechargeCard": {
+      "title": "Recharge Card",
+      "description": "Represents a prepaid recharge card.",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "The unique recharge code."
+        },
+        "amount": {
+          "type": "number",
+          "description": "The value of the card."
+        },
+        "isUsed": {
+          "type": "boolean",
+          "default": false,
+          "description": "Flag to indicate if the card has been used."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the card was created."
+        },
+        "usedBy": {
+          "type": "string",
+          "description": "The UID of the user who redeemed the card."
+        },
+        "usedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the card was redeemed."
+        }
+      },
+      "required": [
+        "code",
+        "amount",
+        "isUsed",
+        "createdAt"
+      ]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Represents a customer's order.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The ID of the user who placed the order."
+        },
+        "userName": {
+          "type": "string",
+          "description": "The name of the user who placed the order."
+        },
+        "items": {
+          "type": "array",
+          "description": "List of items in the order.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "price": { "type": "number" },
+              "quantity": { "type": "number" }
+            },
+            "required": ["id", "name", "price", "quantity"]
+          }
+        },
+        "totalAmount": {
+          "type": "number",
+          "description": "The total amount of the order."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "processing", "completed", "cancelled"],
+          "description": "The current status of the order."
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "The card number used for payment (last 4 digits)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the order was created."
+        }
+      },
+      "required": [
+        "userId",
+        "userName",
+        "items",
+        "totalAmount",
+        "status",
+        "createdAt"
+      ]
     }
   },
   "auth": {
@@ -266,7 +398,7 @@
       },
       "description": "Stores a user's transaction history."
     },
-    "/admins/{adminId}": {
+    "/managers/{managerId}": {
       "schema": {
         "$ref": "#/entities/UserProfile"
       },
@@ -289,6 +421,26 @@
         "$ref": "#/entities/CardLinkRequest"
       },
       "description": "Stores requests to link payment cards between users."
+    },
+    "/banners/{bannerId}": {
+      "schema": {
+        "$ref": "#/entities/Banner"
+      },
+      "description": "Stores promotional banners for the app."
+    },
+     "/rechargeCards/{cardId}": {
+      "schema": {
+        "$ref": "#/entities/RechargeCard"
+      },
+      "description": "Stores generated recharge cards."
+    },
+    "/orders/{orderId}": {
+        "schema": {
+            "$ref": "#/entities/Order"
+        },
+        "description": "Stores customer orders."
     }
   }
 }
+
+    

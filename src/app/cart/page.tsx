@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, DocumentData, getDocs, collection, query, where, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, DocumentData, getDocs, collection, query, where, updateDoc, addDoc, serverTimestamp, writeBatch, increment } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCart } from '@/hooks/use-cart';
@@ -65,13 +65,17 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
         let paymentCardOwnerId: string | null = null;
         let paymentCardOwnerData: UserProfile | null = null;
         let cardVerified = false;
+        let paymentCardDetails;
 
         try {
+            const batch = writeBatch(firestore);
+
             if (selectedPayment === 'primary') {
                 if (userData.wallet && userData.wallet.balance >= totalAmount) {
                     paymentCardOwnerId = user.uid;
                     paymentCardOwnerData = userData;
                     cardVerified = true;
+                    paymentCardDetails = `**** ${userData.wallet.cardNumber.slice(-4)}`;
                 } else {
                      toast({ variant: 'destructive', title: 'خطأ في الدفع', description: 'الرصيد في بطاقتك الأساسية غير كافٍ.' });
                      setPaymentStatus('idle');
@@ -81,17 +85,19 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                 let cardToVerify: { cardNumber: string; expiryDate?: string; cvv?: string; };
 
                 if (selectedPayment === 'new') {
-                    if (!newCardNumber || !newCardExpiry || !newCardCvv) {
+                    const sanitizedCardNumber = newCardNumber.replace(/\s/g, '');
+                    if (!sanitizedCardNumber || !newCardExpiry || !newCardCvv) {
                         toast({ variant: 'destructive', title: 'بيانات ناقصة', description: 'الرجاء إدخال جميع بيانات البطاقة الجديدة.' });
                         setPaymentStatus('idle');
                         return;
                     }
-                    cardToVerify = { cardNumber: newCardNumber.replace(/\s/g, ''), expiryDate: newCardExpiry, cvv: newCardCvv };
-                     if (cardToVerify.cardNumber.length !== 16) {
+                    if (sanitizedCardNumber.length !== 16) {
                         toast({ variant: 'destructive', title: 'خطأ في البطاقة', description: 'يجب أن يتكون رقم البطاقة من 16 رقمًا.' });
                         setPaymentStatus('idle');
                         return;
                     }
+                    cardToVerify = { cardNumber: sanitizedCardNumber, expiryDate: newCardExpiry, cvv: newCardCvv };
+
                 } else {
                     const linkedWallet = userData.linkedWallets?.find(w => w.cardNumber === selectedPayment);
                     if (!linkedWallet) {
@@ -120,6 +126,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                                 paymentCardOwnerId = docSnap.id;
                                 paymentCardOwnerData = foundUser;
                                 cardVerified = true;
+                                paymentCardDetails = `**** ${foundUser.wallet.cardNumber.slice(-4)}`;
                             } else {
                                 toast({ variant: 'destructive', title: 'خطأ في الدفع', description: 'رصيد البطاقة المحددة غير كافٍ.' });
                                 setPaymentStatus('idle');
@@ -146,16 +153,16 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                 return;
             }
 
-            // --- Process Payment ---
-            const newBalance = paymentCardOwnerData.wallet.balance - totalAmount;
+            // --- Process Payment & Order ---
             const ownerDocRef = doc(firestore, 'users', paymentCardOwnerId);
 
             // 1. Update balance
-            await updateDoc(ownerDocRef, { 'wallet.balance': newBalance });
+            batch.update(ownerDocRef, { 'wallet.balance': increment(-totalAmount) });
 
             // 2. Create transaction for card owner
             const ownerTransactionsColRef = collection(firestore, 'users', paymentCardOwnerId, 'transactions');
-            await addDoc(ownerTransactionsColRef, {
+            const ownerTransactionRef = doc(ownerTransactionsColRef);
+            batch.set(ownerTransactionRef, {
                 type: 'شراء',
                 amount: -totalAmount,
                 date: serverTimestamp(),
@@ -165,7 +172,8 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
             // 3. Create transaction for the buyer (if different from owner)
             if (paymentCardOwnerId !== user.uid) {
                  const buyerTransactionsColRef = collection(firestore, 'users', user.uid, 'transactions');
-                 await addDoc(buyerTransactionsColRef, {
+                 const buyerTransactionRef = doc(buyerTransactionsColRef);
+                 batch.set(buyerTransactionRef, {
                     type: 'شراء',
                     amount: -totalAmount,
                     date: serverTimestamp(),
@@ -173,6 +181,19 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                 });
             }
 
+            // 4. Create Order document
+            const orderRef = doc(collection(firestore, 'orders'));
+            batch.set(orderRef, {
+                userId: user.uid,
+                userName: userData.displayName,
+                items: cartItems.map(item => ({ id: item.id, name: item.name, price: item.price, quantity: item.quantity })),
+                totalAmount: totalAmount,
+                status: 'pending',
+                paymentMethod: paymentCardDetails,
+                createdAt: serverTimestamp(),
+            });
+
+            await batch.commit();
             setPaymentStatus('success');
 
         } catch (error) {
@@ -432,3 +453,5 @@ export default function CartPage() {
     </div>
   );
 }
+
+    
