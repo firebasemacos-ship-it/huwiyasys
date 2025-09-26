@@ -331,7 +331,7 @@ export default function WalletPage() {
     }
   }
   
-  const copyToClipboard = (text: string) => {
+  const copyToClipboard = (text: string | undefined) => {
     if(!text) return;
     navigator.clipboard.writeText(text);
     toast({ title: 'تم النسخ!', description: 'تم نسخ رقم البطاقة إلى الحافظة.' });
@@ -421,7 +421,7 @@ export default function WalletPage() {
                                             className="h-8 w-8 shrink-0"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                copyToClipboard(userData?.wallet?.cardNumber || '');
+                                                copyToClipboard(userData?.wallet?.cardNumber);
                                             }}
                                         >
                                             <Copy className="h-5 w-5" />
