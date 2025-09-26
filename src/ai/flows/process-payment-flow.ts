@@ -14,7 +14,7 @@ import { getFirestore, doc, collection, runTransaction, serverTimestamp, where, 
 import { initializeFirebase } from '@/firebase/server';
 
 // Define input schema for the payment flow
-export const ProcessPaymentInputSchema = z.object({
+const ProcessPaymentInputSchema = z.object({
   buyerId: z.string().describe("The UID of the user making the purchase."),
   buyerName: z.string().describe("The name of the user making the purchase."),
   cartItems: z.array(z.object({
@@ -34,7 +34,7 @@ export const ProcessPaymentInputSchema = z.object({
 export type ProcessPaymentInput = z.infer<typeof ProcessPaymentInputSchema>;
 
 // Define output schema for the payment flow
-export const ProcessPaymentOutputSchema = z.object({
+const ProcessPaymentOutputSchema = z.object({
   success: z.boolean().describe("Whether the payment was successful."),
   orderId: z.string().optional().describe("The ID of the created order if successful."),
   message: z.string().describe("A message detailing the outcome."),
