@@ -10,7 +10,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getFirestore, doc, collection, runTransaction, serverTimestamp, where, query, getDocs, increment } from 'firebase/firestore';
+import { getFirestore, doc, collection, runTransaction, serverTimestamp, where, query, getDocs, increment, writeBatch } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase/server';
 
 // Define input schema for the payment flow
@@ -60,7 +60,7 @@ const processPaymentFlow = ai.defineFlow(
     const { buyerId, buyerName, cartItems, totalAmount, paymentCard } = input;
 
     try {
-      // --- 1. Find and Verify Card Owner (READ operation, outside transaction) ---
+      // --- 1. Find and Verify Card Owner ---
       const usersRef = collection(firestore, 'users');
       const cardQuery = query(usersRef, where("wallet.cardNumber", "==", paymentCard.cardNumber));
       const cardOwnerSnapshot = await getDocs(cardQuery);
@@ -73,15 +73,13 @@ const processPaymentFlow = ai.defineFlow(
       const cardOwnerId = cardOwnerDoc.id;
       const cardOwnerData = cardOwnerDoc.data();
 
-      // --- 2. Validate Card Details and Balance (READ operation, outside transaction) ---
-      // For new cards, validate CVV and expiry
+      // --- 2. Validate Card Details and Balance ---
       if (paymentCard.type === 'new') {
         if (cardOwnerData.wallet.cvv !== paymentCard.cvv || cardOwnerData.wallet.expiryDate !== paymentCard.expiryDate) {
           throw new Error("بيانات البطاقة (CVV أو تاريخ الانتهاء) غير صحيحة.");
         }
       }
       
-      // For all cards, check status and balance
       if (cardOwnerData.wallet.status !== 'active') {
            throw new Error(`بطاقة ${cardOwnerData.displayName} معلقة حاليًا.`);
       }
@@ -89,52 +87,51 @@ const processPaymentFlow = ai.defineFlow(
         throw new Error(`الرصيد في بطاقة ${cardOwnerData.displayName} غير كافٍ.`);
       }
 
-      // --- 3. Perform Firestore Writes within a Transaction ---
-      const orderId = await runTransaction(firestore, async (transaction) => {
-        
-        const cardOwnerRef = doc(firestore, 'users', cardOwnerId);
-        
-        // a. Debit the card owner's wallet
-        transaction.update(cardOwnerRef, { "wallet.balance": increment(-totalAmount) });
+      // --- 3. Perform Firestore Writes within a Batch ---
+      const batch = writeBatch(firestore);
+      
+      const cardOwnerRef = doc(firestore, 'users', cardOwnerId);
+      
+      // a. Debit the card owner's wallet
+      batch.update(cardOwnerRef, { "wallet.balance": increment(-totalAmount) });
 
-        // b. Create transaction log for the card owner
-        const ownerTransactionRef = doc(collection(firestore, `users/${cardOwnerId}/transactions`));
-        transaction.set(ownerTransactionRef, {
-            type: 'شراء',
-            amount: -totalAmount,
-            date: serverTimestamp(),
-            description: cardOwnerId === buyerId 
-                ? `شراء منتجات من التطبيق` 
-                : `شراء منتجات من قبل المستخدم ${buyerName} (${buyerId.slice(0,5)}...)`
-        });
-        
-        // c. Create transaction log for the buyer (if different from owner)
-        if (cardOwnerId !== buyerId) {
-            const buyerTransactionRef = doc(collection(firestore, `users/${buyerId}/transactions`));
-            transaction.set(buyerTransactionRef, {
-                type: 'شراء',
-                amount: 0, // Buyer's own balance is not affected
-                date: serverTimestamp(),
-                description: `تم الدفع باستخدام بطاقة ${cardOwnerData.displayName}`
-            });
-        }
-
-        // d. Create the order document
-        const orderRef = doc(collection(firestore, 'orders'));
-        transaction.set(orderRef, {
-            userId: buyerId,
-            userName: buyerName,
-            items: cartItems,
-            totalAmount: totalAmount,
-            status: 'pending',
-            paymentMethod: `**** ${paymentCard.cardNumber.slice(-4)}`,
-            createdAt: serverTimestamp(),
-        });
-
-        return orderRef.id; // Return the new order ID from the transaction
+      // b. Create transaction log for the card owner
+      const ownerTransactionRef = doc(collection(firestore, `users/${cardOwnerId}/transactions`));
+      batch.set(ownerTransactionRef, {
+          type: 'شراء',
+          amount: -totalAmount,
+          date: serverTimestamp(),
+          description: cardOwnerId === buyerId 
+              ? `شراء منتجات من التطبيق` 
+              : `شراء منتجات من قبل المستخدم ${buyerName} (${buyerId.slice(0,5)}...)`
       });
       
-      return { success: true, orderId: orderId, message: "تم الدفع بنجاح!" };
+      // c. Create transaction log for the buyer (if different from owner)
+      if (cardOwnerId !== buyerId) {
+          const buyerTransactionRef = doc(collection(firestore, `users/${buyerId}/transactions`));
+          batch.set(buyerTransactionRef, {
+              type: 'شراء',
+              amount: 0, // Buyer's own balance is not affected
+              date: serverTimestamp(),
+              description: `تم الدفع باستخدام بطاقة ${cardOwnerData.displayName}`
+          });
+      }
+
+      // d. Create the order document
+      const orderRef = doc(collection(firestore, 'orders'));
+      batch.set(orderRef, {
+          userId: buyerId,
+          userName: buyerName,
+          items: cartItems,
+          totalAmount: totalAmount,
+          status: 'pending',
+          paymentMethod: `**** ${paymentCard.cardNumber.slice(-4)}`,
+          createdAt: serverTimestamp(),
+      });
+
+      await batch.commit();
+      
+      return { success: true, orderId: orderRef.id, message: "تم الدفع بنجاح!" };
 
     } catch (error: any) {
       console.error("Payment Flow Error:", error);
