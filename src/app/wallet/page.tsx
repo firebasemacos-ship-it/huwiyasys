@@ -493,15 +493,29 @@ export default function WalletPage() {
   }
   
   const copyToClipboard = (text: string | undefined) => {
-    if(!text || !navigator.clipboard) {
-        // Silently ignore if clipboard API is not available (e.g., in non-secure contexts)
-        console.warn('Clipboard API not available.');
+    if (!text) return;
+    // The Clipboard API is only available in secure contexts (HTTPS)
+    if (!navigator.clipboard) {
+        console.warn('Clipboard API not available. This is expected in non-secure contexts (like HTTP).');
+        toast({
+            variant: "destructive",
+            title: 'فشل النسخ',
+            description: 'لا يمكن الوصول إلى الحافظة في بيئة غير آمنة.',
+        });
         return;
-    };
+    }
     navigator.clipboard.writeText(text).then(() => {
         toast({ title: 'تم النسخ!', description: 'تم نسخ رقم البطاقة إلى الحافظة.' });
     }).catch(err => {
-        console.warn('Could not copy text to clipboard:', err);
+        // Log the error for debugging but don't bother the user if it's a permission issue.
+        console.error('Could not copy text: ', err);
+        if (err.name !== 'NotAllowedError') {
+             toast({
+                variant: "destructive",
+                title: 'فشل النسخ',
+                description: 'لم يتمكن المتصفح من نسخ النص.',
+            });
+        }
     });
   };
 
@@ -810,4 +824,5 @@ export default function WalletPage() {
     </div>
   );
 }
+
 

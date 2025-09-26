@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, DocumentData, runTransaction, collection, query, where, getDocs, serverTimestamp, increment, addDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, DocumentData, runTransaction, collection, query, where, getDocs, serverTimestamp, increment, addDoc, getDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCart } from '@/hooks/use-cart';
@@ -65,7 +65,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
         if (paymentStatus !== 'awaiting_approval' || !paymentRequestId || !firestore) return;
 
         const requestRef = doc(firestore, 'paymentRequests', paymentRequestId);
-        const unsubscribe = onDoc(requestRef, (snapshot) => {
+        const unsubscribe = onSnapshot(requestRef, (snapshot) => {
             const data = snapshot.data();
             if (data?.status === 'processed') {
                 setPaymentStatus('success');
