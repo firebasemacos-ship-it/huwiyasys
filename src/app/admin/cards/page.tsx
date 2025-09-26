@@ -62,6 +62,7 @@ function CardManagementDialog({ user, onUserUpdate, onClose }: { user: UserData;
     const { toast } = useToast();
     const firestore = useFirestore();
     const [amount, setAmount] = useState(0);
+    const [reason, setReason] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const { user: adminUser } = useUser();
 
@@ -96,6 +97,7 @@ function CardManagementDialog({ user, onUserUpdate, onClose }: { user: UserData;
             toast({ title: 'نجاح', description: 'تم تحديث بيانات البطاقة.' });
              if (updateData.balance !== undefined) {
                setAmount(0); // Reset amount after transaction
+               setReason(''); // Reset reason after transaction
             }
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'خطأ', description: error.message });
@@ -108,7 +110,7 @@ function CardManagementDialog({ user, onUserUpdate, onClose }: { user: UserData;
       if(amount > 0) {
         handleUpdate(
             { balance: user.wallet!.balance + Number(amount) },
-            { type: 'إيداع إداري', amount: Number(amount), description: `إيداع من قبل المدير ${adminUser?.email}` }
+            { type: 'إيداع إداري', amount: Number(amount), description: reason || `إيداع من قبل المدير ${adminUser?.email}` }
         );
       }
     }
@@ -117,7 +119,7 @@ function CardManagementDialog({ user, onUserUpdate, onClose }: { user: UserData;
       if(amount > 0 && user.wallet!.balance >= amount) {
         handleUpdate(
             { balance: user.wallet!.balance - Number(amount) },
-            { type: 'سحب إداري', amount: -Number(amount), description: `سحب من قبل المدير ${adminUser?.email}` }
+            { type: 'سحب إداري', amount: -Number(amount), description: reason || `سحب من قبل المدير ${adminUser?.email}` }
         );
       } else {
         toast({ variant: 'destructive', title: 'خطأ', description: 'المبلغ المطلوب للسحب أكبر من الرصيد المتاح.' });
@@ -147,8 +149,12 @@ function CardManagementDialog({ user, onUserUpdate, onClose }: { user: UserData;
             </DialogHeader>
             <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
-                    <Label className="text-right">المبلغ</Label>
-                    <Input value={amount} onChange={(e) => setAmount(Number(e.target.value))} type="number" className="col-span-3" />
+                    <Label htmlFor="amount" className="text-right">المبلغ</Label>
+                    <Input id="amount" value={amount} onChange={(e) => setAmount(Number(e.target.value))} type="number" className="col-span-3" />
+                </div>
+                 <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="reason" className="text-right">السبب</Label>
+                    <Input id="reason" value={reason} onChange={(e) => setReason(e.target.value)} className="col-span-3" placeholder="اختياري..." />
                 </div>
                 <div className="flex gap-2">
                     <Button onClick={handleDeposit} disabled={isLoading} className="flex-1">
