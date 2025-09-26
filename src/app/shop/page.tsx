@@ -24,6 +24,7 @@ import { useFirestore } from '@/firebase';
 import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import Autoplay from "embla-carousel-autoplay";
+import { ThemeToggleButton } from '@/components/theme-toggle-button';
 
 
 const getImage = (id: string) => {
@@ -107,7 +108,8 @@ export default function ShopPage() {
     <div dir="rtl">
       <div className="flex min-h-screen flex-col">
         <header className="sticky top-0 z-40 w-full border-b bg-background/95 p-4 backdrop-blur">
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-between">
+            <ThemeToggleButton />
             <Button variant="ghost" size="icon">
               <MessageSquare className="h-6 w-6 text-primary" />
             </Button>

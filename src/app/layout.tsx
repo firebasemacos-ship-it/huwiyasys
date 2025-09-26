@@ -4,6 +4,7 @@ import { FirebaseClientProvider } from "@/firebase";
 import "./globals.css";
 import { Cairo } from "next/font/google";
 import { CartProvider } from "@/hooks/use-cart";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const cairo = Cairo({
   subsets: ["arabic"],
@@ -23,13 +24,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ar" dir="rtl" className="dark" suppressHydrationWarning>
+    <html lang="ar" dir="rtl" suppressHydrationWarning>
       <body className={`${cairo.variable} font-body antialiased`}>
-        <FirebaseClientProvider>
-          <CartProvider>
-            {children}
-          </CartProvider>
-        </FirebaseClientProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <FirebaseClientProvider>
+            <CartProvider>
+              {children}
+            </CartProvider>
+          </FirebaseClientProvider>
+        </ThemeProvider>
         <Toaster />
       </body>
     </html>
