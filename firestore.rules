@@ -9,69 +9,60 @@ service cloud.firestore {
     }
     
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return request.auth != null && request.auth.uid == userId;
     }
 
-    // Rules for user profiles
+    // Admins have full access to everything for management purposes
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    // Users collection
     match /users/{userId} {
-      // An owner can read and write their own data.
-      // An admin can read and write any user's data.
-      allow read, write: if isOwner(userId) || isAdmin();
+      allow read, update: if isOwner(userId);
+      // Deny create/delete for users on their own docs to be handled by backend/admin
+      allow create, delete: if isAdmin();
 
-      // Transactions are private to the user and admin
+      // Transactions subcollection
       match /transactions/{transactionId} {
-        allow read, create: if isOwner(userId) || isAdmin();
+        allow read, create: if isOwner(userId);
+        // Only allow admin to update/delete for correction
+        allow update, delete: if isAdmin();
       }
-    }
 
-    // Rules for admin/manager profiles
-    match /managers/{managerId} {
-      // Only admins can read other admin profiles
-      allow read: if isAdmin();
-      // Only the owner admin can update their own profile, or another admin
-      allow write: if isOwner(managerId) || isAdmin();
+       // Subscriptions are now an array in the user document,
+       // so they are covered by the parent rule.
+       // No subcollection rule needed.
     }
-
-    // Rules for products, categories, and banners (Content managed by admins)
+    
+    // Public collections
     match /products/{productId} {
-      allow read: if request.auth != null; // Allow any authenticated user to read
-      allow write: if isAdmin(); // Only admins can create, update, delete
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     match /categories/{categoryId} {
-      allow read: if request.auth != null;
+      allow read: if true;
       allow write: if isAdmin();
     }
     
     match /banners/{bannerId} {
-       allow read: if request.auth != null;
-       allow write: if isAdmin();
-    }
-
-    // Rules for orders
-    match /orders/{orderId} {
-      // Users can only create orders for themselves.
-      allow create: if isOwner(request.resource.data.userId);
-      // Admins can read and update any order.
-      allow read, update: if isAdmin();
+      allow read: if true;
+      allow write: if isAdmin();
     }
     
-    // Rules for card linking requests
-    match /cardLinkRequests/{requestId} {
-        // Only involved parties or an admin can read the request.
-        allow read: if isOwner(request.resource.data.requesterId) || isOwner(request.resource.data.ownerId) || isAdmin();
-        // The requester creates it, the owner updates it (to accept/reject), admin can modify.
-        allow create: if isOwner(request.resource.data.requesterId);
-        allow update: if isOwner(request.resource.data.ownerId) || isAdmin();
+    // Write-only or special access collections
+    match /rechargeCards/{cardId} {
+      // Users can't read/list cards, only backend/admin can
+      allow read, write: if isAdmin();
+    }
+    
+    match /orders/{orderId} {
+      allow read, write: if isOwner(resource.data.userId) || isAdmin();
     }
 
-    // Rules for recharge cards
-    match /rechargeCards/{cardId} {
-      // Only admins can create or delete recharge cards
-      allow create, delete: if isAdmin();
-      // Any authenticated user can 'use' (update) a card once.
-      // Admins can read all cards.
-      allow read, update: if request.auth != null;
+    match /cardLinkRequests/{requestId} {
+      allow read, write: if request.auth != null && (request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.requesterId || isAdmin());
     }
   }
 }
