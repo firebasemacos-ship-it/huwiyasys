@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { CardLogo } from '@/components/icons';
 import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, updateDoc, arrayUnion, collection, addDoc, serverTimestamp, query, orderBy, getDocs, where, increment, writeBatch, runTransaction } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, collection, addDoc, serverTimestamp, query, orderBy, getDocs, where, increment, writeBatch, runTransaction, DocumentData } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CardLinkRequestHandler } from '@/components/CardLinkRequestHandler';
 import { AcceptedRequestProcessor } from '@/components/AcceptedRequestProcessor';
@@ -28,7 +28,7 @@ type Wallet = {
     ownerName?: string;
 }
 
-type UserProfile = {
+type UserProfile = DocumentData & {
     id?: string;
     displayName: string;
     wallet: Wallet;
@@ -488,7 +488,7 @@ export default function WalletPage() {
                 <DialogFooter>
                     <Button type="submit" className="w-full" onClick={handleRecharge} disabled={rechargeStatus !== 'idle'}>
                        {rechargeStatus === 'idle' ? <PlusCircle className="ml-2 h-4 w-4" /> : <LoaderCircle className="ml-2 h-4 w-4 animate-spin" />}
-                       {rechargeStatus === 'idle' ? 'شحن' : 'جاري الشحن...'}
+                       {rechargeStatus === 'idle' ? 'شحن' : 'جاري الشحن...' }
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -610,4 +610,5 @@ export default function WalletPage() {
       </div>
     </div>
   );
-}
+
+    
