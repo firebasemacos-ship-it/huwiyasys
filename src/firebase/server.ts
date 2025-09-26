@@ -8,6 +8,7 @@ import { firebaseConfig } from './config';
 
 // This creates a singleton of the Firebase app instance on the server.
 let serverApp: FirebaseApp | null = null;
+const SERVER_APP_NAME = 'server';
 
 interface FirebaseServerServices {
     app: FirebaseApp;
@@ -21,31 +22,32 @@ interface FirebaseServerServices {
  * This should ONLY be used in server environments (like Genkit flows).
  */
 export function initializeFirebase(): FirebaseServerServices {
-  if (getApps().length === 0) {
-    // If no apps are initialized, initialize one.
+  // Check if the server app is already initialized
+  if (getApps().some(app => app.name === SERVER_APP_NAME)) {
+    serverApp = getApp(SERVER_APP_NAME);
+  } else {
+    // If not, initialize it with a unique name.
     // In a server context (like Genkit), we can use the standard config
     // as we'll be operating with higher-level privileges if configured correctly.
     // For Genkit flows running in a Firebase environment (like Cloud Functions),
     // initializeApp() with no args would automatically pick up service account credentials.
     try {
-        serverApp = initializeApp();
+        // Attempt initialization for production Firebase environment
+        serverApp = initializeApp(firebaseConfig, SERVER_APP_NAME);
     } catch (e) {
-        serverApp = initializeApp(firebaseConfig, "server");
-    }
-  } else {
-    // If apps are already initialized, try to get the default app.
-    // If you use named apps, you might need more specific logic here.
-     try {
-        serverApp = getApp("server");
-    } catch (e) {
-        serverApp = getApp();
+        // Fallback for local development or other environments
+        // This might happen if default app is already initialized by another part of the system
+        if (!getApps().length) {
+          initializeApp(firebaseConfig);
+        }
+        console.warn('Could not initialize named server app, falling back to default. This is expected in some environments.');
+        serverApp = getApp(); // Use default app
     }
   }
   
   if (!serverApp) {
       throw new Error("Server Firebase app initialization failed.");
   }
-
 
   const firestore = getFirestore(serverApp);
   const auth = getAuth(serverApp);
