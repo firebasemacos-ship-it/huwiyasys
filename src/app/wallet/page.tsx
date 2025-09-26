@@ -122,8 +122,8 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
                 throw new Error("لا يمكن العثور على اسم المستخدم الخاص بك.");
             }
 
-            const requestsRef = collection(firestore, 'cardLinkRequests');
-            await addDoc(requestsRef, {
+            // Using non-blocking update
+            await addDoc(collection(firestore, 'cardLinkRequests'), {
                 requesterId: currentUser.uid,
                 requesterName: requesterData.displayName,
                 ownerId: foundUser.ownerId,
@@ -132,6 +132,7 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
                 status: 'pending',
                 createdAt: serverTimestamp()
             });
+
             setRequestStatus('sent');
         } catch (error: any) {
              console.error("Error sending link request:", error);
@@ -311,7 +312,7 @@ export default function WalletPage() {
         });
 
         setRechargeStatus('success');
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
         setRechargeDialogOpen(false);
         toast({
@@ -413,7 +414,12 @@ export default function WalletPage() {
                             <Card className="relative h-full w-full overflow-hidden rounded-xl bg-primary text-primary-foreground shadow-lg">
                                 <CardContent className="flex h-full flex-col justify-between p-6">
                                     <div className="flex items-start justify-between">
-                                        <span className="text-lg font-bold">{userData?.displayName || 'المستخدم'}</span>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-12 h-9 bg-yellow-400 rounded-md flex items-center justify-center border-2 border-yellow-500">
+                                                <div className="w-8 h-5 bg-yellow-600 rounded-sm"></div>
+                                            </div>
+                                            <Wifi className="h-6 w-6 -rotate-90 opacity-70" />
+                                        </div>
                                         <CardLogo className="h-20 w-20 opacity-80" />
                                     </div>
                                     <div className="text-left flex items-center gap-2">
@@ -433,12 +439,11 @@ export default function WalletPage() {
                                         </Button>
                                     </div>
                                     <div className="flex items-end justify-between">
+                                        <p className="text-lg font-semibold">{userData?.displayName || 'المستخدم'}</p>
                                         <div>
-                                            <p className="text-sm opacity-80">الرصيد الحالي</p>
-                                            <p className="text-3xl font-bold leading-tight">{displayBalance.toFixed(2)}</p>
-                                            <p className="text-sm font-medium opacity-90">دينار ليبي</p>
+                                            <p className="text-xs opacity-80 text-right">EXPIRES</p>
+                                            <p className="text-sm font-semibold">{userData?.wallet?.expiryDate || '08/30'}</p>
                                         </div>
-                                        <p className="text-sm font-semibold">{userData?.wallet?.expiryDate || '08/30'}</p>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -453,8 +458,15 @@ export default function WalletPage() {
                                         <p className="font-mono text-lg text-black italic">{userData?.wallet?.cvv || '123'}</p>
                                         <p className="text-sm text-slate-600 flex-1 text-right">CVV</p>
                                     </div>
-                                    <div className="text-xs opacity-70 text-left p-2">
-                                        <p>انقر للعودة</p>
+                                    <div className="flex items-end justify-between">
+                                         <div>
+                                            <p className="text-sm opacity-80">الرصيد الحالي</p>
+                                            <p className="text-3xl font-bold leading-tight">{displayBalance.toFixed(2)}</p>
+                                            <p className="text-sm font-medium opacity-90">دينار ليبي</p>
+                                        </div>
+                                        <div className="text-xs opacity-70 text-left p-2">
+                                            <p>انقر للعودة</p>
+                                        </div>
                                     </div>
                                 </div>
                             </Card>
@@ -630,5 +642,3 @@ export default function WalletPage() {
     </div>
   );
 }
-
-    
