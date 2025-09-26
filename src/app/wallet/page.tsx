@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { CardLogo } from '@/components/icons';
 import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, updateDoc, arrayUnion, collection, addDoc, serverTimestamp, query, orderBy, getDocs, where, increment, writeBatch, runTransaction, DocumentData } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, collection, addDoc, serverTimestamp, query, orderBy, getDocs, where, increment, writeBatch, runTransaction, DocumentData, getDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CardLinkRequestHandler } from '@/components/CardLinkRequestHandler';
 import { AcceptedRequestProcessor } from '@/components/AcceptedRequestProcessor';
@@ -105,10 +105,18 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
 
         setRequestStatus('sending');
         try {
+            // Fetch the current user's profile to get their display name reliably
+            const requesterDoc = await getDoc(doc(firestore, 'users', currentUser.uid));
+            const requesterData = requesterDoc.data();
+
+            if (!requesterData?.displayName) {
+                throw new Error("لا يمكن العثور على اسم المستخدم الخاص بك.");
+            }
+
             const requestsRef = collection(firestore, 'cardLinkRequests');
             await addDoc(requestsRef, {
                 requesterId: currentUser.uid,
-                requesterName: currentUser.displayName,
+                requesterName: requesterData.displayName,
                 ownerId: foundUser.id,
                 ownerName: foundUser.data.displayName,
                 cardNumber: foundUser.data.wallet.cardNumber,
@@ -116,9 +124,9 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
                 createdAt: serverTimestamp()
             });
             setRequestStatus('sent');
-        } catch (error) {
+        } catch (error: any) {
              console.error("Error sending link request:", error);
-             toast({ variant: 'destructive', title: 'فشل إرسال الطلب', description: 'حدث خطأ غير متوقع.' });
+             toast({ variant: 'destructive', title: 'فشل إرسال الطلب', description: error.message || 'حدث خطأ غير متوقع.' });
              setRequestStatus('idle');
         }
     };
@@ -610,5 +618,4 @@ export default function WalletPage() {
       </div>
     </div>
   );
-
-    
+}

@@ -83,7 +83,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                      return;
                 }
             } else {
-                let cardToVerify: { cardNumber: string; expiryDate?: string; cvv?: string; };
+                 let cardToVerify: { cardNumber: string; expiryDate?: string; cvv?: string; isNew: boolean };
 
                 if (selectedPayment === 'new') {
                     const sanitizedCardNumber = newCardNumber.replace(/\s/g, '');
@@ -97,8 +97,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                         setPaymentStatus('idle');
                         return;
                     }
-                    cardToVerify = { cardNumber: sanitizedCardNumber, expiryDate: newCardExpiry, cvv: newCardCvv };
-
+                    cardToVerify = { cardNumber: sanitizedCardNumber, expiryDate: newCardExpiry, cvv: newCardCvv, isNew: true };
                 } else {
                     const linkedWallet = userData.linkedWallets?.find(w => w.cardNumber === selectedPayment);
                     if (!linkedWallet) {
@@ -106,7 +105,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                         setPaymentStatus('idle');
                         return;
                     }
-                    cardToVerify = linkedWallet;
+                    cardToVerify = { cardNumber: linkedWallet.cardNumber, isNew: false };
                 }
 
                 const usersRef = collection(firestore, 'users');
@@ -114,29 +113,25 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                 const querySnapshot = await getDocs(q);
 
                 if (!querySnapshot.empty) {
-                    let cardFound = false;
-                    for (const docSnap of querySnapshot.docs) {
-                        const foundUser = docSnap.data() as UserProfile;
-                        const isMatch = (cardToVerify.expiryDate && cardToVerify.cvv)
-                            ? foundUser.wallet.expiryDate === cardToVerify.expiryDate && foundUser.wallet.cvv === cardToVerify.cvv
-                            : true; // For already linked cards, we trust them
+                    const docSnap = querySnapshot.docs[0];
+                    const foundUser = docSnap.data() as UserProfile;
+                    
+                    const isMatch = cardToVerify.isNew
+                        ? foundUser.wallet.expiryDate === cardToVerify.expiryDate && foundUser.wallet.cvv === cardToVerify.cvv
+                        : true; // For linked cards, we trust them as they were pre-authorized
 
-                        if (isMatch) {
-                            cardFound = true;
-                            if (foundUser.wallet.balance >= totalAmount) {
-                                paymentCardOwnerId = docSnap.id;
-                                paymentCardOwnerData = foundUser;
-                                cardVerified = true;
-                                paymentCardDetails = `**** ${foundUser.wallet.cardNumber.slice(-4)}`;
-                            } else {
-                                toast({ variant: 'destructive', title: 'خطأ في الدفع', description: 'رصيد البطاقة المحددة غير كافٍ.' });
-                                setPaymentStatus('idle');
-                                return;
-                            }
-                            break; 
+                    if (isMatch) {
+                        if (foundUser.wallet.balance >= totalAmount) {
+                            paymentCardOwnerId = docSnap.id;
+                            paymentCardOwnerData = foundUser;
+                            cardVerified = true;
+                            paymentCardDetails = `**** ${foundUser.wallet.cardNumber.slice(-4)}`;
+                        } else {
+                            toast({ variant: 'destructive', title: 'خطأ في الدفع', description: 'رصيد البطاقة المحددة غير كافٍ.' });
+                            setPaymentStatus('idle');
+                            return;
                         }
-                    }
-                    if(!cardFound) {
+                    } else {
                         toast({ variant: 'destructive', title: 'خطأ في الدفع', description: 'بيانات البطاقة غير صحيحة.' });
                         setPaymentStatus('idle');
                         return;
@@ -168,11 +163,11 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                 amount: -totalAmount,
                 date: serverTimestamp(),
                 description: paymentCardOwnerId === user.uid 
-                    ? `شراء منتجات` 
-                    : `شراء منتجات من قبل ${userData.displayName}`
+                    ? `شراء منتجات من التطبيق` 
+                    : `شراء منتجات من قبل المستخدم ${userData.displayName}`
             });
             
-            // 3. Create transaction for the buyer (if different from owner)
+            // 3. Create transaction for the buyer
             const buyerTransactionsColRef = collection(firestore, 'users', user.uid, 'transactions');
             const buyerTransactionRef = doc(buyerTransactionsColRef);
             batch.set(buyerTransactionRef, {
@@ -180,7 +175,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                 amount: -totalAmount,
                 date: serverTimestamp(),
                 description: paymentCardOwnerId === user.uid 
-                    ? `شراء منتجات` 
+                    ? `شراء منتجات من التطبيق` 
                     : `تم الدفع باستخدام بطاقة ${paymentCardOwnerData.displayName}`
             });
 
