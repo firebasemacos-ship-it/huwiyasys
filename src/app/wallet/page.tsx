@@ -19,7 +19,6 @@ import { CardLinkRequestHandler } from '@/components/CardLinkRequestHandler';
 import { AcceptedRequestProcessor } from '@/components/AcceptedRequestProcessor';
 import { useDebounce } from 'use-debounce';
 import Link from 'next/link';
-import { PaymentRequestHandler } from '@/components/PaymentRequestHandler';
 
 
 type Wallet = {
@@ -559,9 +558,6 @@ export default function WalletPage() {
 
   return (
     <div className="dark bg-background text-foreground" dir="rtl">
-      <CardLinkRequestHandler />
-      <AcceptedRequestProcessor />
-      <PaymentRequestHandler />
       <div className="flex min-h-screen flex-col">
         <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b bg-background/30 p-4 backdrop-blur-lg">
           <h1 className="text-xl font-bold">المحفظة</h1>
@@ -587,7 +583,7 @@ export default function WalletPage() {
                             <Card className="relative h-full w-full overflow-hidden rounded-xl bg-primary text-primary-foreground shadow-lg">
                                 <CardContent className="flex h-full flex-col justify-between p-6">
                                     <div className="flex items-start justify-between">
-                                        <div className="w-12 h-9 bg-yellow-400 rounded-md flex items-center justify-center border-2 border-yellow-500">
+                                         <div className="w-12 h-9 bg-yellow-400 rounded-md flex items-center justify-center border-2 border-yellow-500">
                                             <div className="w-8 h-5 bg-yellow-600 rounded-sm"></div>
                                         </div>
                                         <CardLogo className="h-20 w-20" />
@@ -824,5 +820,6 @@ export default function WalletPage() {
     </div>
   );
 }
+
 
 

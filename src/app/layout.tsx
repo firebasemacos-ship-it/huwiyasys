@@ -6,6 +6,10 @@ import "./globals.css";
 import { Cairo } from "next/font/google";
 import { CartProvider } from "@/hooks/use-cart";
 import { ThemeProvider } from "@/components/theme-provider";
+import { PaymentRequestHandler } from "@/components/PaymentRequestHandler";
+import { CardLinkRequestHandler } from "@/components/CardLinkRequestHandler";
+import { AcceptedRequestProcessor } from "@/components/AcceptedRequestProcessor";
+
 
 const cairo = Cairo({
   subsets: ["arabic"],
@@ -18,6 +22,17 @@ export const metadata: Metadata = {
   title: "Mobile Mate",
   description: "Your personal assistant for managing and discovering mobile apps.",
 };
+
+function GlobalRequestHandlers() {
+  return (
+    <>
+      <PaymentRequestHandler />
+      <CardLinkRequestHandler />
+      <AcceptedRequestProcessor />
+    </>
+  );
+}
+
 
 export default function RootLayout({
   children,
@@ -36,6 +51,7 @@ export default function RootLayout({
           <FirebaseClientProvider>
             <CartProvider>
               {children}
+              <GlobalRequestHandlers />
             </CartProvider>
           </FirebaseClientProvider>
         </ThemeProvider>
