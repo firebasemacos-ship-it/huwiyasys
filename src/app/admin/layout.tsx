@@ -17,6 +17,7 @@ const dashboardItems = [
     { href: '/admin/orders', title: 'الطلبات', icon: ShoppingBag },
     { href: '/admin/cards', title: 'البطاقات', icon: CreditCard },
     { href: '/admin/recharge-cards', title: 'كروت الشحن', icon: Ticket },
+    { href: '/admin/subscriptions', title: 'الاشتراكات', icon: Ticket },
     { href: '/admin/banners', title: 'البنرات الإعلانية', icon: ImageIcon },
     { href: '/admin/settings', title: 'الإعدادات', icon: Settings },
 ];
