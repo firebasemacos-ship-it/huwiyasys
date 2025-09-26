@@ -19,6 +19,8 @@ import { CardLinkRequestHandler } from '@/components/CardLinkRequestHandler';
 import { AcceptedRequestProcessor } from '@/components/AcceptedRequestProcessor';
 import { useDebounce } from 'use-debounce';
 import Link from 'next/link';
+import { findCardOwner } from '@/ai/flows/find-card-owner-flow';
+
 
 type Wallet = {
     balance: number;
@@ -51,48 +53,53 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
     const [cardNumber, setCardNumber] = useState('');
     const [debouncedCardNumber] = useDebounce(cardNumber, 500);
 
-    const [foundUser, setFoundUser] = useState<{ id: string, data: UserProfile } | null>(null);
+    const [foundUser, setFoundUser] = useState<{ ownerId: string; ownerName: string } | null>(null);
+    const [searchError, setSearchError] = useState<string | null>(null);
+
     const [isSearching, setIsSearching] = useState(false);
     const [requestStatus, setRequestStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
 
     useEffect(() => {
-        const findUser = async () => {
+        const searchForCardOwner = async () => {
             const sanitizedCardNumber = debouncedCardNumber.replace(/\s/g, '');
-            if (!firestore || !sanitizedCardNumber) {
+            if (!sanitizedCardNumber || sanitizedCardNumber.length < 16) {
                 setFoundUser(null);
+                setSearchError(null);
                 return;
             }
             
             setIsSearching(true);
-            try {
-                const usersRef = collection(firestore, 'users');
-                const q = query(usersRef, where("wallet.cardNumber", "==", sanitizedCardNumber));
-                const querySnapshot = await getDocs(q);
+            setFoundUser(null);
+            setSearchError(null);
 
-                if (!querySnapshot.empty) {
-                    const userDoc = querySnapshot.docs[0];
-                    if (userDoc.id === currentUser?.uid) {
-                         toast({ title: "لا يمكن إضافة بطاقتك الخاصة", variant: 'destructive' });
-                         setFoundUser(null);
+            try {
+                const result = await findCardOwner({ cardNumber: sanitizedCardNumber });
+
+                if (result.error) {
+                    setSearchError(result.error);
+                } else if (result.ownerId && result.ownerName) {
+                    if (result.ownerId === currentUser?.uid) {
+                        setSearchError("لا يمكن إضافة بطاقتك الخاصة.");
                     } else {
-                        setFoundUser({ id: userDoc.id, data: userDoc.data() as UserProfile });
+                        setFoundUser({ ownerId: result.ownerId, ownerName: result.ownerName });
                     }
-                } else {
-                    setFoundUser(null);
                 }
-            } catch (error) {
-                console.error("Error searching for user:", error);
+            } catch (error: any) {
+                console.error("Error calling findCardOwner flow:", error);
+                setSearchError("حدث خطأ أثناء البحث.");
             } finally {
                 setIsSearching(false);
             }
         };
 
         if (debouncedCardNumber) {
-           findUser();
+           searchForCardOwner();
         } else {
             setFoundUser(null);
+            setSearchError(null);
         }
-    }, [debouncedCardNumber, firestore, currentUser?.uid, toast]);
+    }, [debouncedCardNumber, currentUser?.uid]);
+
 
     const handleSendRequest = async () => {
         if (!foundUser || !currentUser || !firestore) return;
@@ -117,9 +124,9 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
             await addDoc(requestsRef, {
                 requesterId: currentUser.uid,
                 requesterName: requesterData.displayName,
-                ownerId: foundUser.id,
-                ownerName: foundUser.data.displayName,
-                cardNumber: foundUser.data.wallet.cardNumber,
+                ownerId: foundUser.ownerId,
+                ownerName: foundUser.ownerName,
+                cardNumber: sanitizedCardNumber,
                 status: 'pending',
                 createdAt: serverTimestamp()
             });
@@ -137,7 +144,7 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
                 <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
                     <CheckCircle2 className="h-16 w-16 text-green-500" />
                     <DialogTitle className="text-2xl">تم إرسال الطلب بنجاح</DialogTitle>
-                    <DialogDescription>تم إرسال طلب إلى {foundUser?.data.displayName}. سيتم إشعارك عند موافقته.</DialogDescription>
+                    <DialogDescription>تم إرسال طلب إلى {foundUser?.ownerName}. سيتم إشعارك عند موافقته.</DialogDescription>
                     <Button className="mt-4" onClick={onClose}>إغلاق</Button>
                 </div>
             </DialogContent>
@@ -162,12 +169,12 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
                     <Card className="bg-muted/50">
                         <CardContent className="p-4">
                              <p className="text-sm font-semibold">صاحب البطاقة</p>
-                             <p>{foundUser.data.displayName}</p>
+                             <p>{foundUser.ownerName}</p>
                         </CardContent>
                     </Card>
                 )}
-                {!foundUser && !isSearching && cardNumber.length > 0 && (
-                    <p className="text-sm text-destructive">لم يتم العثور على مستخدم بهذه البطاقة.</p>
+                {searchError && !isSearching && (
+                    <p className="text-sm text-destructive">{searchError}</p>
                 )}
             </div>
             <DialogFooter>
