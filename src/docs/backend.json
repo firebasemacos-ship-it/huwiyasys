@@ -96,17 +96,13 @@
         },
         "subscriptions": {
             "type": "array",
-            "description": "A list of the user's subscriptions.",
+            "description": "A list of the user's subscriptions, which can be of different categories.",
             "items": {
-                "type": "object",
-                "properties": {
-                    "id": { "type": "string", "description": "Unique identifier for the subscription within the array." },
-                    "planName": { "type": "string" },
-                    "status": { "type": "string", "enum": ["active", "cancelled", "expired"] },
-                    "endDate": { "type": "string", "format": "date-time" },
-                    "createdAt": { "type": "string", "format": "date-time" }
-                },
-                "required": ["id", "planName", "status", "endDate", "createdAt"]
+                "oneOf": [
+                    { "$ref": "#/entities/DomainSubscription" },
+                    { "$ref": "#/entities/DesignSubscription" },
+                    { "$ref": "#/entities/SalesSystemSubscription" }
+                ]
             }
         }
       },
@@ -118,6 +114,67 @@
         "contractNumber",
         "wallet"
       ]
+    },
+    "BaseSubscription": {
+        "title": "Base Subscription",
+        "type": "object",
+        "properties": {
+            "id": { "type": "string", "description": "Unique identifier for the subscription." },
+            "category": { "type": "string", "enum": ["domain", "design", "sales_system"] },
+            "status": { "type": "string", "enum": ["active", "cancelled", "expired"] },
+            "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "category", "status", "createdAt"]
+    },
+    "DomainSubscription": {
+        "title": "Domain Subscription",
+        "allOf": [
+            { "$ref": "#/entities/BaseSubscription" },
+            {
+                "type": "object",
+                "properties": {
+                    "category": { "const": "domain" },
+                    "domainName": { "type": "string" },
+                    "provider": { "type": "string", "description": "The service provider for the domain." },
+                    "planType": { "type": "string", "description": "The subscription plan type." },
+                    "startDate": { "type": "string", "format": "date-time" },
+                    "endDate": { "type": "string", "format": "date-time" }
+                },
+                "required": ["domainName", "provider", "planType", "startDate", "endDate"]
+            }
+        ]
+    },
+    "DesignSubscription": {
+        "title": "Design Subscription",
+        "allOf": [
+            { "$ref": "#/entities/BaseSubscription" },
+            {
+                "type": "object",
+                "properties": {
+                    "category": { "const": "design" },
+                    "projectName": { "type": "string" },
+                    "planType": { "type": "string" },
+                    "endDate": { "type": "string", "format": "date-time" }
+                },
+                "required": ["projectName", "planType", "endDate"]
+            }
+        ]
+    },
+    "SalesSystemSubscription": {
+        "title": "Sales System Subscription",
+        "allOf": [
+            { "$ref": "#/entities/BaseSubscription" },
+            {
+                "type": "object",
+                "properties": {
+                    "category": { "const": "sales_system" },
+                    "systemName": { "type": "string" },
+                    "planType": { "type": "string" },
+                    "endDate": { "type": "string", "format": "date-time" }
+                },
+                "required": ["systemName", "planType", "endDate"]
+            }
+        ]
     },
     "Product": {
       "title": "Product",
