@@ -3,7 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, Gift, PlusCircle, LoaderCircle, CheckCircle2, Wifi, ArrowUpCircle, ArrowDownCircle, BadgeHelp } from 'lucide-react';
+import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, Gift, PlusCircle, LoaderCircle, CheckCircle2, Wifi, ArrowUpCircle, ArrowDownCircle, BadgeHelp, ArrowRightLeft } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/icons';
 import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, updateDoc, arrayUnion, collection, addDoc, serverTimestamp, query, orderBy, getDocs, where } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, collection, addDoc, serverTimestamp, query, orderBy, getDocs, where, writeBatch } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CardLinkRequestHandler } from '@/components/CardLinkRequestHandler';
 import { useDebounce } from 'use-debounce';
@@ -26,6 +26,7 @@ type Wallet = {
 }
 
 type UserProfile = {
+    id?: string;
     displayName: string;
     wallet: Wallet;
     linkedWallets?: Wallet[];
@@ -143,7 +144,7 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
                         </CardContent>
                     </Card>
                 )}
-                {!foundUser && !isSearching && cardNumber.length >= 16 && (
+                {!foundUser && !isSearching && cardNumber.length > 0 && debouncedCardNumber.length === 16 && (
                     <p className="text-sm text-destructive">لم يتم العثور على مستخدم بهذه البطاقة.</p>
                 )}
             </div>
@@ -151,6 +152,160 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
                 <Button onClick={handleSendRequest} disabled={!foundUser || isUserLoading || requestStatus === 'sending'} className="w-full">
                     {requestStatus === 'sending' ? <LoaderCircle className="ml-2 h-4 w-4 animate-spin" /> : <PlusCircle className="ml-2 h-4 w-4" />}
                     {requestStatus === 'sending' ? 'جاري الإرسال...' : 'إرسال طلب ربط'}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    );
+}
+
+function TransferBalanceDialog({ senderProfile, onClose }: { senderProfile: UserProfile, onClose: () => void }) {
+    const firestore = useFirestore();
+    const { user: currentUser } = useUser();
+    const { toast } = useToast();
+
+    const [recipientCardNumber, setRecipientCardNumber] = useState('');
+    const [debouncedCardNumber] = useDebounce(recipientCardNumber, 500);
+    const [amount, setAmount] = useState(0);
+
+    const [recipient, setRecipient] = useState<{ id: string, data: UserProfile } | null>(null);
+    const [isSearching, setIsSearching] = useState(false);
+    const [transferStatus, setTransferStatus] = useState<'idle' | 'processing' | 'success'>('idle');
+
+     useEffect(() => {
+        const findUser = async () => {
+            const sanitizedCardNumber = debouncedCardNumber.replace(/\s/g, '');
+            if (!sanitizedCardNumber || sanitizedCardNumber.length !== 16 || !firestore) {
+                setRecipient(null);
+                return;
+            }
+            if (sanitizedCardNumber === senderProfile.wallet.cardNumber) {
+                toast({ title: "لا يمكن التحويل لنفسك", variant: "destructive" });
+                setRecipient(null);
+                return;
+            }
+            setIsSearching(true);
+            try {
+                const usersRef = collection(firestore, 'users');
+                const q = query(usersRef, where("wallet.cardNumber", "==", sanitizedCardNumber));
+                const querySnapshot = await getDocs(q);
+
+                if (!querySnapshot.empty) {
+                    const userDoc = querySnapshot.docs[0];
+                    setRecipient({ id: userDoc.id, data: userDoc.data() as UserProfile });
+                } else {
+                    setRecipient(null);
+                }
+            } catch (error) {
+                console.error("Error searching for recipient:", error);
+            } finally {
+                setIsSearching(false);
+            }
+        };
+        findUser();
+    }, [debouncedCardNumber, firestore, senderProfile.wallet.cardNumber, toast]);
+
+
+    const handleTransfer = async () => {
+        if (!recipient || !currentUser || !firestore || amount <= 0) {
+            toast({ variant: 'destructive', title: 'بيانات غير صحيحة', description: 'الرجاء التأكد من رقم البطاقة والمبلغ.' });
+            return;
+        }
+
+        if (senderProfile.wallet.balance < amount) {
+            toast({ variant: 'destructive', title: 'رصيد غير كاف', description: 'رصيدك الحالي لا يكفي لإتمام هذه العملية.' });
+            return;
+        }
+
+        setTransferStatus('processing');
+
+        try {
+            const batch = writeBatch(firestore);
+
+            // 1. Sender doc
+            const senderDocRef = doc(firestore, 'users', currentUser.uid);
+            const newSenderBalance = senderProfile.wallet.balance - amount;
+            batch.update(senderDocRef, { 'wallet.balance': newSenderBalance });
+
+            // 2. Recipient doc
+            const recipientDocRef = doc(firestore, 'users', recipient.id);
+            const newRecipientBalance = recipient.data.wallet.balance + amount;
+            batch.update(recipientDocRef, { 'wallet.balance': newRecipientBalance });
+
+            await batch.commit();
+
+            // 3. Sender transaction
+            const senderTransRef = collection(firestore, 'users', currentUser.uid, 'transactions');
+            await addDoc(senderTransRef, {
+                type: 'تحويل رصيد',
+                amount: -amount,
+                date: serverTimestamp(),
+                description: `تحويل إلى ${recipient.data.displayName}`
+            });
+
+            // 4. Recipient transaction
+            const recipientTransRef = collection(firestore, 'users', recipient.id, 'transactions');
+            await addDoc(recipientTransRef, {
+                type: 'استلام رصيد',
+                amount: amount,
+                date: serverTimestamp(),
+                description: `استلام من ${senderProfile.displayName}`
+            });
+
+            setTransferStatus('success');
+
+        } catch (error) {
+            console.error("Transfer error:", error);
+            toast({ variant: 'destructive', title: 'فشل التحويل', description: 'حدث خطأ أثناء عملية التحويل.' });
+            setTransferStatus('idle');
+        }
+    };
+    
+    if (transferStatus === 'success') {
+        return (
+             <DialogContent dir="rtl">
+                <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+                    <CheckCircle2 className="h-16 w-16 text-green-500" />
+                    <DialogTitle className="text-2xl">تم التحويل بنجاح</DialogTitle>
+                    <DialogDescription>تم تحويل مبلغ {amount.toFixed(2)} د.ل إلى {recipient?.data.displayName}.</DialogDescription>
+                    <Button className="mt-4" onClick={onClose}>إغلاق</Button>
+                </div>
+            </DialogContent>
+        )
+    }
+
+
+    return (
+        <DialogContent dir="rtl">
+            <DialogHeader>
+                <DialogTitle>تحويل رصيد</DialogTitle>
+                <DialogDescription>أدخل بيانات المستلم والمبلغ المراد تحويله.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+                 <div className="space-y-2">
+                    <Label htmlFor="recipient-card-number">رقم بطاقة المستلم</Label>
+                    <Input id="recipient-card-number" placeholder="XXXX XXXX XXXX XXXX" value={recipientCardNumber} onChange={e => setRecipientCardNumber(e.target.value)} />
+                </div>
+                {isSearching && <div className="flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="h-4 w-4 animate-spin" /><span>جاري البحث...</span></div>}
+                {recipient && !isSearching && (
+                    <Card className="bg-muted/50">
+                        <CardContent className="p-4">
+                             <p className="text-sm font-semibold">المستلم</p>
+                             <p>{recipient.data.displayName}</p>
+                        </CardContent>
+                    </Card>
+                )}
+                 {!recipient && !isSearching && recipientCardNumber.length > 0 && debouncedCardNumber.length === 16 && (
+                    <p className="text-sm text-destructive">لم يتم العثور على مستخدم بهذه البطاقة.</p>
+                )}
+                 <div className="space-y-2">
+                    <Label htmlFor="amount">المبلغ (د.ل)</Label>
+                    <Input id="amount" type="number" value={amount} onChange={e => setAmount(Number(e.target.value))} />
+                </div>
+            </div>
+             <DialogFooter>
+                <Button onClick={handleTransfer} disabled={!recipient || amount <= 0 || transferStatus === 'processing'} className="w-full">
+                    {transferStatus === 'processing' ? <LoaderCircle className="ml-2 h-4 w-4 animate-spin" /> : <ArrowRightLeft className="ml-2 h-4 w-4" />}
+                    {transferStatus === 'processing' ? 'جاري التحويل...' : 'تأكيد التحويل'}
                 </Button>
             </DialogFooter>
         </DialogContent>
@@ -178,6 +333,8 @@ export default function WalletPage() {
 
   const [isRechargeDialogOpen, setRechargeDialogOpen] = useState(false);
   const [isAddCardDialogOpen, setAddCardDialogOpen] = useState(false);
+  const [isTransferDialogOpen, setTransferDialogOpen] = useState(false);
+
 
   const [rechargeCode, setRechargeCode] = useState('');
   const [rechargeStatus, setRechargeStatus] = useState('idle'); // idle, verifying, charging, success
@@ -305,13 +462,10 @@ export default function WalletPage() {
       if (type.includes('شراء')) {
         return <ShoppingCart className="h-6 w-6 text-primary" />;
       }
-      if (type.includes('شحن')) {
+      if (type.includes('شحن') || type.includes('إيداع') || type.includes('استلام')) {
         return <ArrowUpCircle className="h-6 w-6 text-green-500" />;
       }
-      if (type.includes('إيداع')) {
-        return <ArrowUpCircle className="h-6 w-6 text-green-500" />;
-      }
-       if (type.includes('سحب')) {
+      if (type.includes('سحب') || type.includes('تحويل')) {
         return <ArrowDownCircle className="h-6 w-6 text-red-500" />;
       }
       return <BadgeHelp className="h-6 w-6 text-muted-foreground" />;
@@ -451,12 +605,17 @@ export default function WalletPage() {
                 {isAddCardDialogOpen && <AddCardDialog onClose={() => setAddCardDialogOpen(false)} />}
             </Dialog>
 
-             <Card className="overflow-hidden rounded-xl">
-                <CardContent className="flex flex-col items-center justify-center p-4 text-center">
-                    <Gift className="mb-2 h-8 w-8 text-primary" />
-                    <p className="text-sm font-semibold">إرسال هدية</p>
-                </CardContent>
-             </Card>
+             <Dialog open={isTransferDialogOpen} onOpenChange={setTransferDialogOpen}>
+                <DialogTrigger asChild>
+                    <Card className="overflow-hidden rounded-xl cursor-pointer hover:bg-muted/50 transition-colors">
+                        <CardContent className="flex flex-col items-center justify-center p-4 text-center">
+                            <ArrowRightLeft className="mb-2 h-8 w-8 text-primary" />
+                            <p className="text-sm font-semibold">تحويل رصيد</p>
+                        </CardContent>
+                    </Card>
+                </DialogTrigger>
+                {isTransferDialogOpen && userData && <TransferBalanceDialog senderProfile={userData} onClose={() => setTransferDialogOpen(false)} />}
+             </Dialog>
           </div>
 
           <Card className="overflow-hidden rounded-xl">
