@@ -3,7 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, PlusCircle, LoaderCircle, CheckCircle2, Wifi, BadgeHelp, Star } from 'lucide-react';
+import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, PlusCircle, LoaderCircle, CheckCircle2, Wifi, BadgeHelp, Star, Copy } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -55,7 +55,7 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
     useEffect(() => {
         const findUser = async () => {
             const sanitizedCardNumber = debouncedCardNumber.replace(/\s/g, '');
-            if (!sanitizedCardNumber || !firestore) {
+            if (!sanitizedCardNumber) {
                 setFoundUser(null);
                 return;
             }
@@ -303,6 +303,12 @@ export default function WalletPage() {
         setRechargeStatus('idle');
     }
   }
+  
+  const copyToClipboard = (text: string) => {
+    if(!text) return;
+    navigator.clipboard.writeText(text);
+    toast({ title: 'تم النسخ!', description: 'تم نسخ رقم البطاقة إلى الحافظة.' });
+  };
 
   const { Icon, message } = useMemo(() => {
       switch (rechargeStatus) {
@@ -333,10 +339,10 @@ export default function WalletPage() {
       if (type.includes('شراء')) {
         return <ShoppingCart className="h-6 w-6 text-primary" />;
       }
-      if (type.includes('شحن') || type.includes('إيداع') || type.includes('استلام')) {
+      if (type.includes('شحن') || type.includes('إيداع') || type.includes('استلام') || type.includes('تحويل')) {
         return <PlusCircle className="h-6 w-6 text-green-500" />;
       }
-      if (type.includes('سحب') || type.includes('تحويل')) {
+      if (type.includes('سحب')) {
         return <CreditCard className="h-6 w-6 text-red-500" />;
       }
       return <BadgeHelp className="h-6 w-6 text-muted-foreground" />;
@@ -377,10 +383,21 @@ export default function WalletPage() {
                                         </div>
                                         <Wifi className="h-6 w-6 -rotate-90 opacity-70" />
                                     </div>
-                                    <div className="text-left">
-                                        <p className="font-mono text-xl tracking-widest">
+                                    <div className="text-left flex items-center gap-2">
+                                        <p className="font-mono text-xl tracking-widest flex-1">
                                             {formatCardNumber(userData?.wallet?.cardNumber)}
                                         </p>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-8 w-8 shrink-0"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                copyToClipboard(userData?.wallet?.cardNumber || '');
+                                            }}
+                                        >
+                                            <Copy className="h-5 w-5" />
+                                        </Button>
                                     </div>
                                     <div className="flex items-end justify-between">
                                         <div>
