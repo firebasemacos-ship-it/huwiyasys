@@ -9,6 +9,7 @@ service cloud.firestore {
     }
     
     function isAdmin() {
+      // Check if the user's UID exists in the /managers collection
       return request.auth != null && exists(/databases/$(database)/documents/managers/$(request.auth.uid));
     }
 
@@ -74,7 +75,13 @@ service cloud.firestore {
 
     // Rules for 'subscriptions' collection
     match /subscriptions/{subscriptionId} {
-      allow read: if (request.auth != null && request.auth.uid == resource.data.userId) || isAdmin();
+      // Admins can read/write everything.
+      // Users can only read their own subscriptions.
+      // This is the key fix: separating the admin and user read rules.
+      allow read: if isAdmin();
+      allow read: if request.auth.uid == resource.data.userId;
+
+      // Only admins can create, update, or delete subscriptions.
       allow write: if isAdmin();
     }
   }
