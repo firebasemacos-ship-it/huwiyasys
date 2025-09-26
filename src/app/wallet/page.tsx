@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { Logo } from '@/components/icons';
+import { CardLogo } from '@/components/icons';
 import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, updateDoc, arrayUnion, collection, addDoc, serverTimestamp, query, orderBy, getDocs, where, increment, writeBatch, runTransaction } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -359,7 +359,7 @@ export default function WalletPage() {
 
 
   return (
-    <div className="bg-background text-foreground" dir="rtl">
+    <div className="dark bg-background text-foreground" dir="rtl">
       <CardLinkRequestHandler />
       <AcceptedRequestProcessor />
       <div className="flex min-h-screen flex-col">
@@ -388,7 +388,7 @@ export default function WalletPage() {
                                 <CardContent className="flex h-full flex-col justify-between p-6">
                                     <div className="flex items-start justify-between">
                                         <div className="flex items-center gap-2 pointer-events-none">
-                                            <Logo className="h-8 w-8 text-primary-foreground" />
+                                            <CardLogo className="h-8 w-8" />
                                             <span className="text-lg font-bold">{userData?.displayName || 'المستخدم'}</span>
                                         </div>
                                         <Wifi className="h-6 w-6 -rotate-90 opacity-70" />
@@ -607,4 +607,5 @@ export default function WalletPage() {
     </div>
   );
 }
+
 
