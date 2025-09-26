@@ -2,10 +2,10 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Home, MoreHorizontal, Search, ShoppingCart, Star, Ticket, Wallet as WalletIcon, ArrowLeft, LoaderCircle, XCircle } from 'lucide-react';
+import { Home, Search, ShoppingCart, Ticket, Wallet as WalletIcon, ArrowLeft, XCircle } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, DocumentData } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { collection, query, orderBy, DocumentData } from 'firebase/firestore';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -78,8 +78,8 @@ export default function SubscriptionsPage() {
             ) : error ? (
                  <div className="flex flex-col items-center justify-center gap-4 py-12 text-center h-full">
                     <XCircle className="h-20 w-20 text-destructive" />
-                    <h2 className="text-xl font-semibold">حدث خطأ</h2>
-                    <p className="text-muted-foreground max-w-sm">فشل تحميل الاشتراكات. قد تكون هناك مشكلة في الصلاحيات. الرجاء مراجعة قواعد الأمان.</p>
+                    <h2 className="text-xl font-semibold">حدث خطأ في الصلاحيات</h2>
+                    <p className="text-muted-foreground max-w-sm">لا يمكنك الوصول إلى هذه البيانات. الرجاء مراجعة قواعد الأمان في Firestore.</p>
                 </div>
             ) : subscriptions && subscriptions.length > 0 ? (
                  <div className="space-y-4">
