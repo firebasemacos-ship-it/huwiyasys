@@ -71,11 +71,11 @@ service cloud.firestore {
         allow read, update: if isAdmin();
         allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
     }
-    
+
     // Rules for 'subscriptions' collection
     match /subscriptions/{subscriptionId} {
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow read, update: if isAdmin() || (request.auth != null && request.auth.uid == resource.data.userId);
+        allow read, write: if isAdmin();
+        allow create: if isOwner(request.resource.data.userId);
     }
   }
 }
