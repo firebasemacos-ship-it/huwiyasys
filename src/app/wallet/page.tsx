@@ -53,14 +53,15 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
 
     useEffect(() => {
         const findUser = async () => {
-            if (!debouncedCardNumber || debouncedCardNumber.length < 16 || !firestore) {
+            const sanitizedCardNumber = debouncedCardNumber.replace(/\s/g, '');
+            if (!sanitizedCardNumber || sanitizedCardNumber.length < 16 || !firestore) {
                 setFoundUser(null);
                 return;
             }
             setIsSearching(true);
             try {
                 const usersRef = collection(firestore, 'users');
-                const q = query(usersRef, where("wallet.cardNumber", "==", debouncedCardNumber));
+                const q = query(usersRef, where("wallet.cardNumber", "==", sanitizedCardNumber));
                 const querySnapshot = await getDocs(q);
 
                 if (!querySnapshot.empty) {
