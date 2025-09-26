@@ -320,6 +320,44 @@
         "createdAt"
       ]
     },
+    "PaymentRequest": {
+        "title": "Payment Request",
+        "description": "Represents a request from one user for another user to approve a payment from their wallet.",
+        "type": "object",
+        "properties": {
+            "requesterId": {
+                "type": "string",
+                "description": "The UID of the user making the payment request."
+            },
+            "requesterName": {
+                "type": "string",
+                "description": "The display name of the user making the request."
+            },
+            "ownerId": {
+                "type": "string",
+                "description": "The UID of the user who owns the wallet to be charged."
+            },
+            "amount": {
+                "type": "number",
+                "description": "The total amount of the payment."
+            },
+            "status": {
+                "type": "string",
+                "enum": ["pending", "approved", "rejected", "processed"],
+                "description": "The status of the payment request."
+            },
+            "createdAt": {
+                "type": "string",
+                "format": "date-time",
+                "description": "The timestamp when the request was created."
+            },
+            "orderData": {
+                "type": "object",
+                "description": "A snapshot of the order details at the time of request."
+            }
+        },
+        "required": ["requesterId", "requesterName", "ownerId", "amount", "status", "createdAt", "orderData"]
+    },
     "Banner": {
       "title": "Banner",
       "description": "Represents a promotional banner.",
@@ -459,6 +497,7 @@
     ]
   },
   "firestore": {
+    "rules": "rules_version = '2';\n\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    \n    // Default deny all\n    match /{document=**} {\n      allow read, write: if request.auth != null; // Allow only authenticated users\n    }\n\n    // Allow users to read their own user document\n    match /users/{userId} {\n      allow read, update, delete: if request.auth.uid == userId;\n    }\n\n    // Allow users to manage their own subcollections\n    match /users/{userId}/{document=**} {\n      allow read, write, create, delete: if request.auth.uid == userId;\n    }\n    \n    // Allow reading of products and categories by any authenticated user\n    match /products/{productId} {\n      allow read: if request.auth != null;\n    }\n    match /categories/{categoryId} {\n        allow read: if request.auth != null;\n    }\n\n    // Allow reading of banners by any authenticated user\n    match /banners/{bannerId} {\n        allow read: if request.auth != null;\n    }\n    \n    // Admins (managers) can do anything\n    match /managers/{managerId} {\n        allow read, write: if request.auth.uid == managerId;\n    }\n\n    // A user can create a card link request\n    match /cardLinkRequests/{requestId} {\n        allow create: if request.auth != null && request.resource.data.requesterId == request.auth.uid;\n        allow read, update: if request.auth != null && (request.resource.data.ownerId == request.auth.uid || request.resource.data.requesterId == request.auth.uid);\n    }\n    \n     // Payment requests can be created by authenticated users\n    match /paymentRequests/{requestId} {\n      allow create: if request.auth.uid == request.resource.data.requesterId;\n      // Owner and requester can read/update the request (e.g., owner to approve, requester to see status)\n      allow read, update: if request.auth.uid == request.resource.data.ownerId || request.auth.uid == request.resource.data.requesterId;\n    }\n    \n    // Orders can be created by authenticated users, if the order belongs to them\n    match /orders/{orderId} {\n        allow create: if request.auth.uid == request.resource.data.userId;\n    }\n\n    // Admins can access everything else for management\n    // This is a simplified rule; in production, you'd be more specific\n     match /{path=**} {\n      allow read, write: if get(/databases/$(database)/documents/managers/$(request.auth.uid)).data.isAdmin == true;\n    }\n  }\n}",
     "/users/{userId}": {
       "schema": {
         "$ref": "#/entities/UserProfile"
@@ -494,6 +533,12 @@
         "$ref": "#/entities/CardLinkRequest"
       },
       "description": "Stores requests to link payment cards between users."
+    },
+    "/paymentRequests/{requestId}": {
+        "schema": {
+            "$ref": "#/entities/PaymentRequest"
+        },
+        "description": "Stores requests for payment approval from another user's wallet."
     },
     "/banners/{bannerId}": {
       "schema": {

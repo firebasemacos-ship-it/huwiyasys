@@ -19,6 +19,7 @@ import { CardLinkRequestHandler } from '@/components/CardLinkRequestHandler';
 import { AcceptedRequestProcessor } from '@/components/AcceptedRequestProcessor';
 import { useDebounce } from 'use-debounce';
 import Link from 'next/link';
+import { PaymentRequestHandler } from '@/components/PaymentRequestHandler';
 
 
 type Wallet = {
@@ -546,6 +547,7 @@ export default function WalletPage() {
     <div className="dark bg-background text-foreground" dir="rtl">
       <CardLinkRequestHandler />
       <AcceptedRequestProcessor />
+      <PaymentRequestHandler />
       <div className="flex min-h-screen flex-col">
         <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b bg-background/30 p-4 backdrop-blur-lg">
           <h1 className="text-xl font-bold">المحفظة</h1>

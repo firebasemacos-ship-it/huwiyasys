@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { Home, Ticket, Search, ShoppingCart, Wallet, Plus, Minus, Trash2, ArrowLeft, LoaderCircle, CheckCircle2 } from 'lucide-react';
+import { Home, Ticket, Search, ShoppingCart, Wallet, Plus, Minus, Trash2, ArrowLeft, LoaderCircle, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, DocumentData, runTransaction, collection, query, where, getDocs, serverTimestamp, increment } from 'firebase/firestore';
+import { doc, DocumentData, runTransaction, collection, query, where, getDocs, serverTimestamp, increment, addDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCart } from '@/hooks/use-cart';
@@ -53,11 +53,33 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
     const { data: userData, isLoading: isUserDataLoading } = useDoc<UserProfile>(userDocRef);
 
     const [selectedPaymentCardNumber, setSelectedPaymentCardNumber] = useState<string>('primary');
-    const [paymentStatus, setPaymentStatus] = useState<'idle' | 'processing' | 'success'>('idle');
+    const [paymentStatus, setPaymentStatus] = useState<'idle' | 'processing' | 'success' | 'awaiting_approval' | 'rejected'>('idle');
+    const [paymentRequestId, setPaymentRequestId] = useState<string | null>(null);
 
     const [newCardNumber, setNewCardNumber] = useState('');
     const [newCardExpiry, setNewCardExpiry] = useState('');
     const [newCardCvv, setNewCardCvv] = useState('');
+    
+    // This effect listens for changes on the payment request document
+    useEffect(() => {
+        if (paymentStatus !== 'awaiting_approval' || !paymentRequestId || !firestore) return;
+
+        const requestRef = doc(firestore, 'paymentRequests', paymentRequestId);
+        const unsubscribe = onDoc(requestRef, (snapshot) => {
+            const data = snapshot.data();
+            if (data?.status === 'processed') {
+                setPaymentStatus('success');
+                unsubscribe();
+            } else if (data?.status === 'rejected') {
+                setPaymentStatus('rejected');
+                toast({ variant: 'destructive', title: 'تم رفض الدفع', description: 'رفض صاحب البطاقة عملية الدفع.' });
+                unsubscribe();
+            }
+        });
+
+        return () => unsubscribe();
+    }, [paymentStatus, paymentRequestId, firestore, toast]);
+
 
     const handlePayment = async () => {
         if (!user || !userData || !firestore) {
@@ -80,81 +102,101 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
             finalPaymentCardNumber = selectedPaymentCardNumber;
             cardType = 'linked';
         }
-        
-        try {
-            await runTransaction(firestore, async (transaction) => {
-                const usersRef = collection(firestore, 'users');
-                const cardQuery = query(usersRef, where("wallet.cardNumber", "==", finalPaymentCardNumber));
-                const cardOwnerSnapshot = await getDocs(cardQuery);
 
-                if (cardOwnerSnapshot.empty) {
-                    throw new Error("لم يتم العثور على البطاقة المحددة.");
-                }
+        // Direct payment for primary card or new card
+        if (cardType === 'primary' || cardType === 'new') {
+            try {
+                await runTransaction(firestore, async (transaction) => {
+                    const usersRef = collection(firestore, 'users');
+                    const cardQuery = query(usersRef, where("wallet.cardNumber", "==", finalPaymentCardNumber));
+                    const cardOwnerSnapshot = await getDocs(cardQuery);
 
-                const cardOwnerDoc = cardOwnerSnapshot.docs[0];
-                const cardOwnerId = cardOwnerDoc.id;
-                const cardOwnerData = cardOwnerDoc.data();
-                const cardOwnerRef = doc(firestore, 'users', cardOwnerId);
-
-                if (cardType === 'new') {
-                    if (cardOwnerData.wallet.cvv !== newCardCvv || cardOwnerData.wallet.expiryDate !== newCardExpiry) {
-                        throw new Error("بيانات البطاقة (CVV أو تاريخ الانتهاء) غير صحيحة.");
+                    if (cardOwnerSnapshot.empty) {
+                        throw new Error("لم يتم العثور على البطاقة المحددة.");
                     }
-                }
-                
-                if (cardOwnerData.wallet.status !== 'active') {
-                    throw new Error(`بطاقة ${cardOwnerData.displayName} معلقة حاليًا.`);
-                }
-                if (cardOwnerData.wallet.balance < totalAmount) {
-                    throw new Error(`الرصيد في بطاقة ${cardOwnerData.displayName} غير كافٍ.`);
-                }
 
-                // Debit the card owner's wallet
-                transaction.update(cardOwnerRef, { "wallet.balance": increment(-totalAmount) });
+                    const cardOwnerDoc = cardOwnerSnapshot.docs[0];
+                    const cardOwnerId = cardOwnerDoc.id;
+                    const cardOwnerData = cardOwnerDoc.data();
+                    const cardOwnerRef = doc(firestore, 'users', cardOwnerId);
 
-                // Create transaction log for the card owner
-                const ownerTransactionRef = doc(collection(firestore, `users/${cardOwnerId}/transactions`));
-                transaction.set(ownerTransactionRef, {
-                    type: 'شراء',
-                    amount: -totalAmount,
-                    date: serverTimestamp(),
-                    description: cardOwnerId === user.uid
-                        ? `شراء منتجات من التطبيق`
-                        : `شراء منتجات من قبل المستخدم ${userData.displayName}`
-                });
+                    if (cardType === 'new') {
+                        if (cardOwnerData.wallet.cvv !== newCardCvv || cardOwnerData.wallet.expiryDate !== newCardExpiry) {
+                            throw new Error("بيانات البطاقة (CVV أو تاريخ الانتهاء) غير صحيحة.");
+                        }
+                    }
+                    
+                    if (cardOwnerData.wallet.status !== 'active') {
+                        throw new Error(`بطاقة ${cardOwnerData.displayName} معلقة حاليًا.`);
+                    }
+                    if (cardOwnerData.wallet.balance < totalAmount) {
+                        throw new Error(`الرصيد في بطاقة ${cardOwnerData.displayName} غير كافٍ.`);
+                    }
 
-                // Create transaction log for the buyer (if different from owner)
-                if (cardOwnerId !== user.uid) {
-                    const buyerTransactionRef = doc(collection(firestore, `users/${user.uid}/transactions`));
-                    transaction.set(buyerTransactionRef, {
-                        type: 'شراء',
-                        amount: 0,
-                        date: serverTimestamp(),
-                        description: `تم الدفع باستخدام بطاقة ${cardOwnerData.displayName}`
+                    transaction.update(cardOwnerRef, { "wallet.balance": increment(-totalAmount) });
+                    const ownerTransactionRef = doc(collection(firestore, `users/${cardOwnerId}/transactions`));
+                    transaction.set(ownerTransactionRef, {
+                        type: 'شراء', amount: -totalAmount, date: serverTimestamp(),
+                        description: cardOwnerId === user.uid ? `شراء منتجات من التطبيق` : `شراء منتجات من قبل المستخدم ${userData.displayName}`
                     });
-                }
-
-                // Create the order document
-                const orderRef = doc(collection(firestore, 'orders'));
-                transaction.set(orderRef, {
-                    userId: user.uid,
-                    userName: userData.displayName,
-                    items: cartDataForOrder,
-                    totalAmount: totalAmount,
-                    status: 'pending',
-                    paymentMethod: `**** ${finalPaymentCardNumber.slice(-4)}`,
-                    createdAt: serverTimestamp(),
+                    if (cardOwnerId !== user.uid) {
+                        const buyerTransactionRef = doc(collection(firestore, `users/${user.uid}/transactions`));
+                        transaction.set(buyerTransactionRef, {
+                            type: 'شراء', amount: 0, date: serverTimestamp(), description: `تم الدفع باستخدام بطاقة ${cardOwnerData.displayName}`
+                        });
+                    }
+                    const orderRef = doc(collection(firestore, 'orders'));
+                    transaction.set(orderRef, {
+                        userId: user.uid, userName: userData.displayName, items: cartDataForOrder, totalAmount: totalAmount,
+                        status: 'pending', paymentMethod: `**** ${finalPaymentCardNumber.slice(-4)}`, createdAt: serverTimestamp(),
+                    });
                 });
-            });
+                setPaymentStatus('success');
+            } catch (error: any) {
+                console.error("Payment error:", error);
+                toast({ variant: 'destructive', title: 'فشل الدفع', description: error.message || 'حدث خطأ أثناء معالجة الدفع.' });
+                setPaymentStatus('idle');
+            }
+        } else { // Linked card: create a payment request
+            try {
+                const usersRef = collection(firestore, 'users');
+                const q = query(usersRef, where("wallet.cardNumber", "==", finalPaymentCardNumber));
+                const ownerSnapshot = await getDocs(q);
+                if (ownerSnapshot.empty) {
+                    throw new Error("لم يتم العثور على مالك البطاقة المرتبطة.");
+                }
+                const ownerDoc = ownerSnapshot.docs[0];
 
-            setPaymentStatus('success');
+                const paymentRequest = {
+                    requesterId: user.uid,
+                    requesterName: userData.displayName,
+                    ownerId: ownerDoc.id,
+                    amount: totalAmount,
+                    status: 'pending',
+                    createdAt: serverTimestamp(),
+                    orderData: { // Snapshot of the order
+                        userId: user.uid, userName: userData.displayName, items: cartDataForOrder, totalAmount: totalAmount,
+                        paymentMethod: `**** ${finalPaymentCardNumber.slice(-4)}`
+                    }
+                };
 
-        } catch (error: any) {
-            console.error("Payment error:", error);
-            toast({ variant: 'destructive', title: 'فشل الدفع', description: error.message || 'حدث خطأ أثناء معالجة الدفع.' });
-            setPaymentStatus('idle');
+                const requestDocRef = await addDoc(collection(firestore, 'paymentRequests'), paymentRequest);
+                setPaymentRequestId(requestDocRef.id);
+                setPaymentStatus('awaiting_approval');
+
+            } catch (error: any) {
+                console.error("Payment request error:", error);
+                toast({ variant: 'destructive', title: 'فشل إنشاء طلب الدفع', description: error.message });
+                setPaymentStatus('idle');
+            }
         }
     };
+    
+    const resetAndClose = () => {
+        setPaymentStatus('idle');
+        setPaymentRequestId(null);
+        onPaymentSuccess(); // This closes the dialog and clears the cart
+    }
 
     if (paymentStatus === 'success') {
         return (
@@ -163,7 +205,32 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                     <CheckCircle2 className="h-16 w-16 text-green-500" />
                     <DialogTitle className="text-2xl">تم الدفع بنجاح</DialogTitle>
                     <DialogDescription>شكراً لك! تم استلام طلبك بنجاح.</DialogDescription>
-                    <Button className="mt-4" onClick={onPaymentSuccess}>إغلاق</Button>
+                    <Button className="mt-4" onClick={resetAndClose}>إغلاق</Button>
+                </div>
+            </DialogContent>
+        )
+    }
+
+     if (paymentStatus === 'awaiting_approval') {
+        return (
+             <DialogContent dir="rtl">
+                <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+                    <Clock className="h-16 w-16 animate-pulse text-primary" />
+                    <DialogTitle className="text-2xl">بانتظار الموافقة</DialogTitle>
+                    <DialogDescription>تم إرسال طلب دفع إلى صاحب البطاقة. الرجاء الانتظار...</DialogDescription>
+                </div>
+            </DialogContent>
+        )
+    }
+    
+    if (paymentStatus === 'rejected') {
+        return (
+             <DialogContent dir="rtl">
+                <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+                    <XCircle className="h-16 w-16 text-destructive" />
+                    <DialogTitle className="text-2xl">تم رفض العملية</DialogTitle>
+                    <DialogDescription>رفض صاحب البطاقة طلب الدفع. يمكنك تجربة طريقة دفع أخرى.</DialogDescription>
+                     <Button className="mt-4" onClick={() => setPaymentStatus('idle')}>العودة</Button>
                 </div>
             </DialogContent>
         )
