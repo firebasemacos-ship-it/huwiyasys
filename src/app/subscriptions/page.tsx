@@ -25,7 +25,6 @@ interface UserProfile extends DocumentData {
     subscriptions?: Subscription[];
 }
 
-
 export default function SubscriptionsPage() {
     const { user, isUserLoading } = useUser();
     const firestore = useFirestore();
@@ -64,6 +63,20 @@ export default function SubscriptionsPage() {
         }
     }
 
+    const getSafeDate = (endDate: any) => {
+        if (!endDate) return null;
+        if (typeof endDate.toDate === 'function') {
+          return endDate.toDate();
+        }
+        try {
+          const d = new Date(endDate);
+          return isNaN(d.getTime()) ? null : d;
+        } catch {
+            return null;
+        }
+    }
+
+
   return (
     <div className="dark bg-background text-foreground" dir="rtl">
       <div className="flex min-h-screen flex-col">
@@ -97,14 +110,16 @@ export default function SubscriptionsPage() {
                 </div>
             ) : subscriptions && subscriptions.length > 0 ? (
                  <div className="space-y-4">
-                    {subscriptions.map(sub => (
+                    {subscriptions.map(sub => {
+                       const formattedDate = getSafeDate(sub.endDate);
+                       return (
                         <Card key={sub.id} className="overflow-hidden rounded-xl bg-card/80">
                             <CardContent className="p-4">
                                 <div className="flex justify-between items-start">
                                     <div className="space-y-1">
                                         <h3 className="font-bold text-lg">{sub.planName}</h3>
                                         <p className="text-sm text-muted-foreground">
-                                            ينتهي في: {sub.endDate?.toDate ? sub.endDate.toDate().toLocaleDateString('ar-LY') : 'غير محدد'}
+                                            ينتهي في: {formattedDate ? format(formattedDate, 'PPP') : 'تاريخ غير صالح'}
                                         </p>
                                     </div>
                                     <Badge variant={getStatusVariant(sub.status)} className="text-sm">
@@ -113,7 +128,8 @@ export default function SubscriptionsPage() {
                                 </div>
                             </CardContent>
                         </Card>
-                    ))}
+                       )
+                    })}
                 </div>
             ) : (
                 <div className="flex flex-col items-center justify-center gap-4 py-12 text-center h-full">

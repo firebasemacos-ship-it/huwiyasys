@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import AdminSubPageLayout from '../layout';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, LoaderCircle, Trash2, Edit, CalendarIcon } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, LoaderCircle, Trash2, Edit, Calendar as CalendarIcon } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -88,8 +88,12 @@ function SubscriptionDialog({
             return subscription.endDate;
         }
         // Fallback for string or number representations if necessary
-        const d = new Date(subscription.endDate);
-        return isNaN(d.getTime()) ? undefined : d;
+        try {
+          const d = new Date(subscription.endDate);
+          return isNaN(d.getTime()) ? undefined : d;
+        } catch {
+          return undefined;
+        }
     }, [subscription?.endDate]);
 
     const [endDate, setEndDate] = useState<Date | undefined>(initialDate);
@@ -278,8 +282,12 @@ export default function SubscriptionsPage() {
         if (typeof endDate.toDate === 'function') {
           return endDate.toDate();
         }
-        const d = new Date(endDate);
-        return isNaN(d.getTime()) ? null : d;
+        try {
+          const d = new Date(endDate);
+          return isNaN(d.getTime()) ? null : d;
+        } catch {
+            return null;
+        }
     }
 
 
