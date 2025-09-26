@@ -414,10 +414,9 @@ export default function WalletPage() {
                                 <CardContent className="flex h-full flex-col justify-between p-6">
                                     <div className="flex items-start justify-between">
                                         <div className="flex items-center gap-2 pointer-events-none">
-                                            <CardLogo className="h-8 w-8" />
                                             <span className="text-lg font-bold">{userData?.displayName || 'المستخدم'}</span>
                                         </div>
-                                        <Wifi className="h-6 w-6 -rotate-90 opacity-70" />
+                                        <CardLogo className="h-10 w-10 opacity-80" />
                                     </div>
                                     <div className="text-left flex items-center gap-2">
                                         <p className="font-mono text-xl tracking-widest flex-1">
