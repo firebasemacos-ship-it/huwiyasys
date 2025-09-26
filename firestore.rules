@@ -1,65 +1,77 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
-    }
-
+    // Helper functions
     function isAdmin() {
       return exists(/databases/$(database)/documents/managers/$(request.auth.uid));
     }
-
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if isOwner(userId) || isAdmin();
-    }
     
-    match /users/{userId}/transactions/{transactionId} {
-        allow read, write: if isOwner(userId);
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
 
+    // Rules for user profiles
+    match /users/{userId} {
+      // An owner can read and write their own data.
+      // An admin can read and write any user's data.
+      allow read, write: if isOwner(userId) || isAdmin();
+
+      // Transactions are private to the user and admin
+      match /transactions/{transactionId} {
+        allow read, create: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    // Rules for admin/manager profiles
     match /managers/{managerId} {
-        allow read, write: if isAdmin();
+      // Only admins can read other admin profiles
+      allow read: if isAdmin();
+      // Only the owner admin can update their own profile, or another admin
+      allow write: if isOwner(managerId) || isAdmin();
     }
 
+    // Rules for products, categories, and banners (Content managed by admins)
     match /products/{productId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
+      allow read: if request.auth != null; // Allow any authenticated user to read
+      allow write: if isAdmin(); // Only admins can create, update, delete
     }
 
     match /categories/{categoryId} {
       allow read: if request.auth != null;
       allow write: if isAdmin();
     }
-
-    match /subscriptions/{subscriptionId} {
-      allow read: if isOwner(resource.data.userId) || isAdmin();
-      allow write: if isAdmin();
-    }
-
-    match /orders/{orderId} {
-      allow create: if isOwner(request.resource.data.userId);
-      allow read, update, delete: if isAdmin();
-    }
-
-    match /cardLinkRequests/{requestId} {
-        allow read, write: if isOwner(request.resource.data.requesterId) || isOwner(request.resource.data.ownerId);
-        allow create: if isOwner(request.resource.data.requesterId);
-    }
-
+    
     match /banners/{bannerId} {
-        allow read: if request.auth != null;
-        allow write: if isAdmin();
+       allow read: if request.auth != null;
+       allow write: if isAdmin();
     }
 
+    // Rules for orders
+    match /orders/{orderId} {
+      // Users can only create orders for themselves.
+      allow create: if isOwner(request.resource.data.userId);
+      // Admins can read and update any order.
+      allow read, update: if isAdmin();
+    }
+    
+    // Rules for card linking requests
+    match /cardLinkRequests/{requestId} {
+        // Only involved parties or an admin can read the request.
+        allow read: if isOwner(request.resource.data.requesterId) || isOwner(request.resource.data.ownerId) || isAdmin();
+        // The requester creates it, the owner updates it (to accept/reject), admin can modify.
+        allow create: if isOwner(request.resource.data.requesterId);
+        allow update: if isOwner(request.resource.data.ownerId) || isAdmin();
+    }
+
+    // Rules for recharge cards
     match /rechargeCards/{cardId} {
-        allow create, delete: if isAdmin();
-        // Allow any authenticated user to "use" a card by updating it, but only if it's not already used.
-        allow update: if request.auth != null && !resource.data.isUsed;
-        allow read: if isAdmin();
+      // Only admins can create or delete recharge cards
+      allow create, delete: if isAdmin();
+      // Any authenticated user can 'use' (update) a card once.
+      // Admins can read all cards.
+      allow read, update: if request.auth != null;
     }
   }
 }

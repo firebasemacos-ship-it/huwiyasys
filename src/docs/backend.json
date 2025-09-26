@@ -93,6 +93,21 @@
               "ownerName"
             ]
           }
+        },
+        "subscriptions": {
+            "type": "array",
+            "description": "A list of the user's subscriptions.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": { "type": "string", "description": "Unique identifier for the subscription within the array." },
+                    "planName": { "type": "string" },
+                    "status": { "type": "string", "enum": ["active", "cancelled", "expired"] },
+                    "endDate": { "type": "string", "format": "date-time" },
+                    "createdAt": { "type": "string", "format": "date-time" }
+                },
+                "required": ["id", "planName", "status", "endDate", "createdAt"]
+            }
         }
       },
       "required": [
@@ -379,48 +394,6 @@
         "status",
         "createdAt"
       ]
-    },
-    "Subscription": {
-      "title": "Subscription",
-      "description": "Represents a user's subscription to a service.",
-      "type": "object",
-      "properties": {
-        "userId": {
-          "type": "string",
-          "description": "The UID of the user who owns the subscription."
-        },
-        "userName": {
-          "type": "string",
-          "description": "The display name of the user."
-        },
-        "planName": {
-          "type": "string",
-          "description": "The name of the subscription plan."
-        },
-        "status": {
-          "type": "string",
-          "enum": ["active", "cancelled", "expired"],
-          "description": "The status of the subscription."
-        },
-        "endDate": {
-          "type": "string",
-          "format": "date-time",
-          "description": "The date when the subscription expires."
-        },
-        "createdAt": {
-          "type": "string",
-          "format": "date-time",
-          "description": "The timestamp when the subscription was created."
-        }
-      },
-      "required": [
-        "userId",
-        "userName",
-        "planName",
-        "status",
-        "endDate",
-        "createdAt"
-      ]
     }
   },
   "auth": {
@@ -433,7 +406,7 @@
       "schema": {
         "$ref": "#/entities/UserProfile"
       },
-      "description": "Stores public profile information for each user."
+      "description": "Stores public profile information for each user, including their subscriptions array."
     },
     "/users/{userId}/transactions/{transactionId}": {
       "schema": {
@@ -482,12 +455,6 @@
             "$ref": "#/entities/Order"
         },
         "description": "Stores customer orders."
-    },
-    "/subscriptions/{subscriptionId}": {
-        "schema": {
-            "$ref": "#/entities/Subscription"
-        },
-        "description": "Stores user subscriptions."
     }
   }
 }

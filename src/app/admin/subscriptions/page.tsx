@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import AdminSubPageLayout from '../layout';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, CheckCircle, XCircle, PlusCircle, LoaderCircle, Trash2, Edit, CalendarIcon } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, LoaderCircle, Trash2, Edit, Calendar as CalendarIcon } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -38,76 +38,82 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, DocumentData, query, orderBy, writeBatch } from 'firebase/firestore';
+import { collection, doc, updateDoc, DocumentData, query, orderBy, getDoc, setDoc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
 
-interface Subscription extends DocumentData {
-  id: string;
-  userId: string;
-  userName: string;
+
+interface Subscription {
+  id: string; // Using UUID for local identification in array
   planName: string;
   status: 'active' | 'cancelled' | 'expired';
-  endDate: any;
-  createdAt: any;
+  endDate: Date;
+  createdAt: Date;
 }
 
-interface UserData {
-    id: string;
+interface UserData extends DocumentData {
+    id: string; // Firestore document ID
     displayName?: string;
+    subscriptions?: Subscription[];
 }
 
-function SubscriptionDialog({ subscription, users, onSave, onClose }: { subscription?: Subscription | null, users: UserData[], onSave: () => void, onClose: () => void }) {
+
+function SubscriptionDialog({ 
+    user, 
+    subscription, 
+    onSave, 
+    onClose 
+}: { 
+    user: UserData, 
+    subscription?: Subscription | null, 
+    onSave: () => void, 
+    onClose: () => void 
+}) {
     const firestore = useFirestore();
     const { toast } = useToast();
 
-    const [userId, setUserId] = useState(subscription?.userId || '');
     const [planName, setPlanName] = useState(subscription?.planName || '');
     const [status, setStatus] = useState<'active' | 'cancelled' | 'expired'>(subscription?.status || 'active');
-    const [endDate, setEndDate] = useState<Date | undefined>(subscription?.endDate?.toDate());
+    const [endDate, setEndDate] = useState<Date | undefined>(subscription?.endDate);
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSubmit = async () => {
-        const selectedUser = users.find(u => u.id === userId);
-        if (!userId || !planName || !endDate || !firestore || !selectedUser) {
+        if (!planName || !endDate || !firestore) {
             toast({ variant: 'destructive', title: "بيانات ناقصة", description: "الرجاء ملء جميع الحقول." });
             return;
         }
         setIsLoading(true);
 
-        const subscriptionData = {
-            userId,
-            userName: selectedUser.displayName,
-            planName,
-            status,
-            endDate,
-        };
+        const userDocRef = doc(firestore, 'users', user.id);
 
         try {
-            const batch = writeBatch(firestore);
+            // We get the latest user data to avoid race conditions
+            const userDoc = await getDoc(userDocRef);
+            const currentData = userDoc.data() as UserData;
+            const currentSubscriptions = currentData.subscriptions || [];
+            let updatedSubscriptions: Subscription[];
 
-            if (subscription) {
-                 const mainSubscriptionRef = doc(firestore, 'subscriptions', subscription.id);
-                 batch.update(mainSubscriptionRef, { ...subscriptionData, updatedAt: serverTimestamp() });
-                 
-                 const userSubscriptionRef = doc(firestore, 'users', userId, 'userSubscriptions', subscription.id);
-                 batch.update(userSubscriptionRef, { ...subscriptionData, updatedAt: serverTimestamp() });
-
-                 toast({ title: "تم تحديث الاشتراك بنجاح" });
-
-            } else {
-                const mainSubscriptionsCol = collection(firestore, 'subscriptions');
-                const newSubDocRef = doc(mainSubscriptionsCol); // Create a new doc ref to get the ID
-
-                batch.set(newSubDocRef, { ...subscriptionData, createdAt: serverTimestamp() });
-                
-                const userSubscriptionRef = doc(firestore, 'users', userId, 'userSubscriptions', newSubDocRef.id);
-                batch.set(userSubscriptionRef, { ...subscriptionData, createdAt: serverTimestamp() });
-
-                toast({ title: "تمت إضافة الاشتراك بنجاح" });
+            if (subscription) { // Editing existing subscription
+                updatedSubscriptions = currentSubscriptions.map(sub => 
+                    sub.id === subscription.id 
+                    ? { ...sub, planName, status, endDate } 
+                    : sub
+                );
+            } else { // Adding new subscription
+                const newSubscription: Subscription = {
+                    id: uuidv4(),
+                    planName,
+                    status,
+                    endDate,
+                    createdAt: new Date(),
+                };
+                updatedSubscriptions = [...currentSubscriptions, newSubscription];
             }
             
-            await batch.commit();
+            await updateDoc(userDocRef, { subscriptions: updatedSubscriptions });
+            
+            toast({ title: subscription ? "تم تحديث الاشتراك بنجاح" : "تمت إضافة الاشتراك بنجاح" });
             onSave();
             onClose();
 
@@ -122,22 +128,9 @@ function SubscriptionDialog({ subscription, users, onSave, onClose }: { subscrip
     return (
          <DialogContent dir="rtl" className="sm:max-w-[425px]">
             <DialogHeader>
-                <DialogTitle>{subscription ? 'تعديل الاشتراك' : 'إضافة اشتراك جديد'}</DialogTitle>
+                <DialogTitle>{subscription ? `تعديل اشتراك لـ ${user.displayName}` : `إضافة اشتراك لـ ${user.displayName}`}</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-                <div className="space-y-2">
-                    <Label htmlFor="user">المستخدم</Label>
-                    <Select value={userId} onValueChange={setUserId} disabled={!!subscription}>
-                        <SelectTrigger id="user">
-                            <SelectValue placeholder="اختر مستخدم" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {users.map(user => (
-                                <SelectItem key={user.id} value={user.id}>{user.displayName}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
                  <div className="space-y-2">
                     <Label htmlFor="plan-name">اسم الخطة</Label>
                     <Input id="plan-name" value={planName} onChange={(e) => setPlanName(e.target.value)} />
@@ -195,77 +188,52 @@ export default function SubscriptionsPage() {
     const firestore = useFirestore();
     const { toast } = useToast();
 
-    // Dialog states
     const [isSubDialogOpen, setSubDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
-
-    // Data states
+    const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
     const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
-    const [subscriptionToDelete, setSubscriptionToDelete] = useState<Subscription | null>(null);
-
-    // Firestore data hooks
-    const subscriptionsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'subscriptions'), orderBy('createdAt', 'desc')) : null, [firestore]);
-    const { data: subscriptions, isLoading, error } = useCollection<Subscription>(subscriptionsQuery);
+    const [itemToDelete, setItemToDelete] = useState<{ user: UserData, subscription: Subscription } | null>(null);
 
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users'), orderBy('displayName')) : null, [firestore]);
-    const { data: users, isLoading: isLoadingUsers } = useCollection<UserData>(usersQuery);
+    const { data: users, isLoading, error, manualRefresh } = useCollection<UserData>(usersQuery);
 
     useEffect(() => {
         if (error) {
-            toast({ variant: 'destructive', title: 'فشل تحميل الاشتراكات', description: 'يرجى مراجعة قواعد الأمان في Firestore.' });
+            toast({ variant: 'destructive', title: 'فشل تحميل المستخدمين', description: error.message });
         }
     }, [error, toast]);
 
-    const updateSubscriptionStatus = async (subscription: Subscription, status: Subscription['status']) => {
-        if (!firestore) return;
-
-        try {
-             const batch = writeBatch(firestore);
-
-             const mainSubscriptionRef = doc(firestore, 'subscriptions', subscription.id);
-             batch.update(mainSubscriptionRef, { status });
-
-             const userSubscriptionRef = doc(firestore, 'users', subscription.userId, 'userSubscriptions', subscription.id);
-             batch.update(userSubscriptionRef, { status });
-             
-             await batch.commit();
-             toast({ title: 'تم تحديث حالة الاشتراك بنجاح' });
-        } catch (err) {
-            console.error("Error updating subscription status:", err);
-            toast({ variant: 'destructive', title: 'فشل تحديث الحالة', description: (err as Error).message });
-        }
-    };
-    
-    // Handlers
-    const handleAddSubscription = () => {
+    const handleAddSubscription = (user: UserData) => {
+        setSelectedUser(user);
         setSelectedSubscription(null);
         setSubDialogOpen(true);
     };
-    const handleEditSubscription = (subscription: Subscription) => {
+
+    const handleEditSubscription = (user: UserData, subscription: Subscription) => {
+        setSelectedUser(user);
         setSelectedSubscription(subscription);
         setSubDialogOpen(true);
     };
-    const confirmDelete = (subscription: Subscription) => {
-        setSubscriptionToDelete(subscription);
+
+    const confirmDelete = (user: UserData, subscription: Subscription) => {
+        setItemToDelete({ user, subscription });
         setDeleteDialogOpen(true);
     };
-     const handleDelete = async () => {
-        if (!subscriptionToDelete || !firestore) return;
+
+    const handleDelete = async () => {
+        if (!itemToDelete || !firestore) return;
         
+        const { user, subscription } = itemToDelete;
+        const userDocRef = doc(firestore, 'users', user.id);
+
         try {
-            const batch = writeBatch(firestore);
-
-            const mainSubscriptionRef = doc(firestore, 'subscriptions', subscriptionToDelete.id);
-            batch.delete(mainSubscriptionRef);
-
-            const userSubscriptionRef = doc(firestore, 'users', subscriptionToDelete.userId, 'userSubscriptions', subscriptionToDelete.id);
-            batch.delete(userSubscriptionRef);
-
-            await batch.commit();
+            const updatedSubscriptions = user.subscriptions?.filter(sub => sub.id !== subscription.id) || [];
+            await updateDoc(userDocRef, { subscriptions: updatedSubscriptions });
 
             toast({ title: `تم حذف الاشتراك بنجاح` });
             setDeleteDialogOpen(false);
-            setSubscriptionToDelete(null);
+            setItemToDelete(null);
+            manualRefresh(); // Manually trigger a re-fetch of the collection
         } catch (error: any) {
             toast({ variant: 'destructive', title: "فشل الحذف", description: error.message });
         }
@@ -278,7 +246,7 @@ export default function SubscriptionsPage() {
             case 'cancelled': return 'destructive';
             default: return 'outline';
         }
-    }
+    };
     const getStatusText = (status: Subscription['status']) => {
         switch (status) {
             case 'active': return 'نشط';
@@ -286,102 +254,110 @@ export default function SubscriptionsPage() {
             case 'cancelled': return 'ملغي';
             default: return status;
         }
-    }
+    };
 
 
   return (
     <AdminSubPageLayout title="إدارة الاشتراكات">
         <Card>
-            <CardHeader className="flex-row items-center justify-between">
-                 <div>
-                    <CardTitle>قائمة الاشتراكات</CardTitle>
-                    <CardDescription>عرض وإدارة اشتراكات المستخدمين.</CardDescription>
-                </div>
-                <Button size="sm" className="h-8 gap-1" onClick={handleAddSubscription} disabled={isLoadingUsers}>
-                    <PlusCircle className="h-3.5 w-3.5" />
-                    <span>إضافة اشتراك</span>
-                </Button>
+            <CardHeader>
+                <CardTitle>قائمة اشتراكات المستخدمين</CardTitle>
+                <CardDescription>عرض وإدارة اشتراكات المستخدمين.</CardDescription>
             </CardHeader>
             <CardContent>
                 <Table>
                     <TableHeader>
                         <TableRow>
                             <TableHead>المشترك</TableHead>
-                            <TableHead>الخطة</TableHead>
-                            <TableHead>الحالة</TableHead>
-                            <TableHead>تاريخ الانتهاء</TableHead>
+                            <TableHead>الاشتراكات</TableHead>
                             <TableHead><span className="sr-only">الإجراءات</span></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {isLoading ? (
-                            <TableRow><TableCell colSpan={5} className="h-24 text-center">جاري تحميل الاشتراكات...</TableCell></TableRow>
-                        ) : subscriptions?.length ? (
-                            subscriptions.map((sub) => (
-                                <TableRow key={sub.id}>
-                                    <TableCell className="font-medium">{sub.userName}</TableCell>
-                                    <TableCell>{sub.planName}</TableCell>
-                                    <TableCell>
-                                        <Badge variant={getStatusVariant(sub.status)}>
-                                            {getStatusText(sub.status)}
-                                        </Badge>
+                            <TableRow><TableCell colSpan={3} className="h-24 text-center">جاري تحميل المستخدمين...</TableCell></TableRow>
+                        ) : users?.length ? (
+                            users.map((user) => (
+                                <TableRow key={user.id}>
+                                    <TableCell className="font-medium align-top py-4">{user.displayName}</TableCell>
+                                    <TableCell className="align-top py-4">
+                                        {user.subscriptions && user.subscriptions.length > 0 ? (
+                                            <div className="flex flex-col gap-2">
+                                                {user.subscriptions.map(sub => (
+                                                    <div key={sub.id} className="flex items-center justify-between gap-4 p-2 rounded-md bg-muted/50">
+                                                        <div>
+                                                            <p className="font-semibold">{sub.planName}</p>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                ينتهي في: {format(sub.endDate, 'PPP')}
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <Badge variant={getStatusVariant(sub.status)}>
+                                                                {getStatusText(sub.status)}
+                                                            </Badge>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditSubscription(user, sub)}>
+                                                                <Edit className="h-4 w-4" />
+                                                            </Button>
+                                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => confirmDelete(user, sub)}>
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-muted-foreground py-2">لا توجد اشتراكات.</p>
+                                        )}
                                     </TableCell>
-                                    <TableCell>{sub.endDate?.toDate().toLocaleDateString('ar-LY')}</TableCell>
-                                    <TableCell className="text-left">
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button aria-haspopup="true" size="icon" variant="ghost">
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                    <span className="sr-only">Toggle menu</span>
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" dir="rtl">
-                                                <DropdownMenuLabel>الإجراءات</DropdownMenuLabel>
-                                                <DropdownMenuItem onSelect={() => handleEditSubscription(sub)} disabled={isLoadingUsers}>تعديل</DropdownMenuItem>
-                                                <DropdownMenuItem onSelect={() => confirmDelete(sub)} className="text-destructive">حذف</DropdownMenuItem>
-                                                <DropdownMenuLabel>تغيير الحالة السريع</DropdownMenuLabel>
-                                                <DropdownMenuItem onSelect={() => updateSubscriptionStatus(sub, 'active')}>
-                                                    <CheckCircle className="ml-2 h-4 w-4" />
-                                                    <span>تنشيط</span>
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem onSelect={() => updateSubscriptionStatus(sub, 'cancelled')} className="text-destructive">
-                                                    <XCircle className="ml-2 h-4 w-4" />
-                                                    <span>إلغاء</span>
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
+                                     <TableCell className="align-top py-4">
+                                        <Button size="sm" onClick={() => handleAddSubscription(user)}>
+                                            <PlusCircle className="h-4 w-4 ml-2" />
+                                            إضافة
+                                        </Button>
                                     </TableCell>
                                 </TableRow>
                             ))
                         ) : (
-                            <TableRow><TableCell colSpan={5} className="h-24 text-center">لا توجد اشتراكات لعرضها.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={3} className="h-24 text-center">لا يوجد مستخدمون لعرضهم.</TableCell></TableRow>
                         )}
                     </TableBody>
                 </Table>
             </CardContent>
         </Card>
 
-        <Dialog open={isSubDialogOpen} onOpenChange={setSubDialogOpen}>
-           {isSubDialogOpen && <SubscriptionDialog subscription={selectedSubscription} users={users || []} onSave={() => {}} onClose={() => setSubDialogOpen(false)} />}
-        </Dialog>
+        {isSubDialogOpen && selectedUser && (
+            <Dialog open={isSubDialogOpen} onOpenChange={setSubDialogOpen}>
+                <SubscriptionDialog 
+                    user={selectedUser} 
+                    subscription={selectedSubscription} 
+                    onSave={manualRefresh} 
+                    onClose={() => setSubDialogOpen(false)} 
+                />
+            </Dialog>
+        )}
 
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-            <AlertDialogContent dir="rtl">
-                <AlertDialogHeader>
-                    <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        هذا الإجراء لا يمكن التراجع عنه. سيؤدي هذا إلى حذف الاشتراك نهائيًا.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel onClick={() => setSubscriptionToDelete(null)}>إلغاء</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-                        نعم، قم بالحذف
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
-
+        {itemToDelete && (
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <AlertDialogContent dir="rtl">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            هذا الإجراء لا يمكن التراجع عنه. سيؤدي هذا إلى حذف اشتراك
+                             <span className="font-bold"> {itemToDelete.subscription.planName} </span> 
+                             الخاص بالمستخدم
+                             <span className="font-bold"> {itemToDelete.user.displayName} </span>
+                             نهائيًا.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setItemToDelete(null)}>إلغاء</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                            نعم، قم بالحذف
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        )}
     </AdminSubPageLayout>
   );
 }

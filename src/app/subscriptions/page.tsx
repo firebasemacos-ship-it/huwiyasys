@@ -1,20 +1,27 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
 import { Home, Search, ShoppingCart, Ticket, Wallet as WalletIcon, ArrowLeft, XCircle } from 'lucide-react';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, DocumentData } from 'firebase/firestore';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { doc, DocumentData } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { format } from 'date-fns';
 
-interface Subscription extends DocumentData {
+
+interface Subscription {
   id: string;
   planName: string;
   status: 'active' | 'cancelled' | 'expired';
-  endDate: any;
+  endDate: any; // Can be a Date object or Firestore Timestamp
   createdAt: any;
+}
+
+interface UserProfile extends DocumentData {
+    id: string;
+    displayName?: string;
+    subscriptions?: Subscription[];
 }
 
 
@@ -22,17 +29,19 @@ export default function SubscriptionsPage() {
     const { user, isUserLoading } = useUser();
     const firestore = useFirestore();
 
-    const subscriptionsQuery = useMemoFirebase(() => {
+    const userDocRef = useMemoFirebase(() => {
         if (!firestore || !user) return null;
-        // Correctly query the subcollection for the current user
-        return query(
-            collection(firestore, 'users', user.uid, 'userSubscriptions'), 
-            orderBy('createdAt', 'desc')
-        );
+        return doc(firestore, 'users', user.uid);
     }, [firestore, user]);
 
-    const { data: subscriptions, isLoading, error } = useCollection<Subscription>(subscriptionsQuery);
+    const { data: userData, isLoading, error } = useDoc<UserProfile>(userDocRef);
     
+    // Sort subscriptions by end date, descending.
+    const subscriptions = useMemo(() => {
+        if (!userData?.subscriptions) return [];
+        return [...userData.subscriptions].sort((a, b) => b.endDate.toDate() - a.endDate.toDate());
+    }, [userData?.subscriptions]);
+
     const getStatusVariant = (status: Subscription['status']) => {
         switch (status) {
             case 'active': return 'default';
@@ -90,7 +99,7 @@ export default function SubscriptionsPage() {
                                     <div className="space-y-1">
                                         <h3 className="font-bold text-lg">{sub.planName}</h3>
                                         <p className="text-sm text-muted-foreground">
-                                            ينتهي في: {sub.endDate?.toDate().toLocaleDateString('ar-LY') || 'غير محدد'}
+                                            ينتهي في: {sub.endDate?.toDate ? sub.endDate.toDate().toLocaleDateString('ar-LY') : 'غير محدد'}
                                         </p>
                                     </div>
                                     <Badge variant={getStatusVariant(sub.status)} className="text-sm">
