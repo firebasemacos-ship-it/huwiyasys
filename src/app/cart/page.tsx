@@ -13,10 +13,11 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, DocumentData, getDocs, collection, query, where, updateDoc, addDoc, serverTimestamp, writeBatch, increment } from 'firebase/firestore';
+import { doc, DocumentData } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCart } from '@/hooks/use-cart';
+import { processPayment } from '@/ai/flows/process-payment-flow';
 
 const getImage = (id: string | undefined) => {
     if (!id) return 'https://picsum.photos/seed/placeholder/200/200';
@@ -52,7 +53,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
 
     const { data: userData, isLoading: isUserDataLoading } = useDoc<UserProfile>(userDocRef);
 
-    const [selectedPayment, setSelectedPayment] = useState<string>('primary');
+    const [selectedPaymentCardNumber, setSelectedPaymentCardNumber] = useState<string>('primary');
     const [paymentStatus, setPaymentStatus] = useState<'idle' | 'processing' | 'success'>('idle');
 
     const [newCardNumber, setNewCardNumber] = useState('');
@@ -60,143 +61,73 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
     const [newCardCvv, setNewCardCvv] = useState('');
 
     const handlePayment = async () => {
-        if (!firestore || !user || !userData) return;
+        if (!user || !userData) {
+            toast({ variant: 'destructive', title: 'خطأ', description: 'يجب تسجيل الدخول لإتمام العملية.' });
+            return;
+        }
         setPaymentStatus('processing');
 
-        let paymentCardOwnerId: string | null = null;
-        let paymentCardOwnerData: UserProfile | null = null;
-        let cardVerified = false;
-        let paymentCardDetails;
+        let paymentCard: any;
 
-        try {
-            const batch = writeBatch(firestore);
-
-            if (selectedPayment === 'primary') {
-                if (userData.wallet && userData.wallet.balance >= totalAmount) {
-                    paymentCardOwnerId = user.uid;
-                    paymentCardOwnerData = userData;
-                    cardVerified = true;
-                    paymentCardDetails = `**** ${userData.wallet.cardNumber.slice(-4)}`;
-                } else {
-                     toast({ variant: 'destructive', title: 'خطأ في الدفع', description: 'الرصيد في بطاقتك الأساسية غير كافٍ.' });
-                     setPaymentStatus('idle');
-                     return;
-                }
-            } else {
-                 let cardToVerify: { cardNumber: string; expiryDate?: string; cvv?: string; isNew: boolean };
-
-                if (selectedPayment === 'new') {
-                    const sanitizedCardNumber = newCardNumber.replace(/\s/g, '');
-                    if (!sanitizedCardNumber || !newCardExpiry || !newCardCvv) {
-                        toast({ variant: 'destructive', title: 'بيانات ناقصة', description: 'الرجاء إدخال جميع بيانات البطاقة الجديدة.' });
-                        setPaymentStatus('idle');
-                        return;
-                    }
-                    if (sanitizedCardNumber.length !== 16) {
-                        toast({ variant: 'destructive', title: 'خطأ في البطاقة', description: 'يجب أن يتكون رقم البطاقة من 16 رقمًا.' });
-                        setPaymentStatus('idle');
-                        return;
-                    }
-                    cardToVerify = { cardNumber: sanitizedCardNumber, expiryDate: newCardExpiry, cvv: newCardCvv, isNew: true };
-                } else {
-                    const linkedWallet = userData.linkedWallets?.find(w => w.cardNumber === selectedPayment);
-                    if (!linkedWallet) {
-                        toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على البطاقة المرتبطة.' });
-                        setPaymentStatus('idle');
-                        return;
-                    }
-                    cardToVerify = { cardNumber: linkedWallet.cardNumber, isNew: false };
-                }
-
-                const usersRef = collection(firestore, 'users');
-                const q = query(usersRef, where("wallet.cardNumber", "==", cardToVerify.cardNumber));
-                const querySnapshot = await getDocs(q);
-
-                if (!querySnapshot.empty) {
-                    const docSnap = querySnapshot.docs[0];
-                    const foundUser = docSnap.data() as UserProfile;
-                    
-                    const isMatch = cardToVerify.isNew
-                        ? foundUser.wallet.expiryDate === cardToVerify.expiryDate && foundUser.wallet.cvv === cardToVerify.cvv
-                        : true; // For linked cards, we trust them as they were pre-authorized
-
-                    if (isMatch) {
-                        if (foundUser.wallet.balance >= totalAmount) {
-                            paymentCardOwnerId = docSnap.id;
-                            paymentCardOwnerData = foundUser;
-                            cardVerified = true;
-                            paymentCardDetails = `**** ${foundUser.wallet.cardNumber.slice(-4)}`;
-                        } else {
-                            toast({ variant: 'destructive', title: 'خطأ في الدفع', description: 'رصيد البطاقة المحددة غير كافٍ.' });
-                            setPaymentStatus('idle');
-                            return;
-                        }
-                    } else {
-                        toast({ variant: 'destructive', title: 'خطأ في الدفع', description: 'بيانات البطاقة غير صحيحة.' });
-                        setPaymentStatus('idle');
-                        return;
-                    }
-                } else {
-                    toast({ variant: 'destructive', title: 'خطأ في الدفع', description: 'لم يتم العثور على البطاقة المحددة.' });
-                    setPaymentStatus('idle');
-                    return;
-                }
-            }
-
-            if (!cardVerified || !paymentCardOwnerId || !paymentCardOwnerData) {
-                toast({ variant: 'destructive', title: 'خطأ في الدفع', description: 'البطاقة غير صالحة أو الرصيد غير كافٍ.' });
+        if (selectedPaymentCardNumber === 'primary') {
+            if (!userData.wallet) {
+                toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على بطاقة أساسية.' });
                 setPaymentStatus('idle');
                 return;
             }
-
-            // --- Process Payment & Order ---
-            const ownerDocRef = doc(firestore, 'users', paymentCardOwnerId);
-
-            // 1. Update card owner's balance
-            batch.update(ownerDocRef, { 'wallet.balance': increment(-totalAmount) });
-
-            // 2. Create transaction for card owner
-            const ownerTransactionsColRef = collection(firestore, 'users', paymentCardOwnerId, 'transactions');
-            const ownerTransactionRef = doc(ownerTransactionsColRef);
-            batch.set(ownerTransactionRef, {
-                type: 'شراء',
-                amount: -totalAmount,
-                date: serverTimestamp(),
-                description: paymentCardOwnerId === user.uid 
-                    ? `شراء منتجات من التطبيق` 
-                    : `شراء منتجات من قبل المستخدم ${userData.displayName}`
+            paymentCard = {
+                type: 'primary',
+                cardNumber: userData.wallet.cardNumber,
+            };
+        } else if (selectedPaymentCardNumber === 'new') {
+             const sanitizedCardNumber = newCardNumber.replace(/\s/g, '');
+             if (!sanitizedCardNumber || !newCardExpiry || !newCardCvv) {
+                toast({ variant: 'destructive', title: 'بيانات ناقصة', description: 'الرجاء إدخال جميع بيانات البطاقة الجديدة.' });
+                setPaymentStatus('idle');
+                return;
+            }
+            if (sanitizedCardNumber.length !== 16) {
+                toast({ variant: 'destructive', title: 'خطأ في البطاقة', description: 'يجب أن يتكون رقم البطاقة من 16 رقمًا.' });
+                setPaymentStatus('idle');
+                return;
+            }
+            paymentCard = {
+                type: 'new',
+                cardNumber: sanitizedCardNumber,
+                expiryDate: newCardExpiry,
+                cvv: newCardCvv,
+            };
+        } else {
+             const linkedWallet = userData.linkedWallets?.find(w => w.cardNumber === selectedPaymentCardNumber);
+            if (!linkedWallet) {
+                toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على البطاقة المرتبطة.' });
+                setPaymentStatus('idle');
+                return;
+            }
+            paymentCard = {
+                type: 'linked',
+                cardNumber: linkedWallet.cardNumber,
+            };
+        }
+        
+        try {
+            const result = await processPayment({
+                buyerId: user.uid,
+                buyerName: userData.displayName,
+                cartItems: cartItems.map(item => ({ id: item.id, name: item.name, price: item.price, quantity: item.quantity })),
+                totalAmount,
+                paymentCard,
             });
-            
-            // 3. Create transaction for the buyer
-            const buyerTransactionsColRef = collection(firestore, 'users', user.uid, 'transactions');
-            const buyerTransactionRef = doc(buyerTransactionsColRef);
-            batch.set(buyerTransactionRef, {
-                type: 'شراء',
-                amount: -totalAmount,
-                date: serverTimestamp(),
-                description: paymentCardOwnerId === user.uid 
-                    ? `شراء منتجات من التطبيق` 
-                    : `تم الدفع باستخدام بطاقة ${paymentCardOwnerData.displayName}`
-            });
 
-            // 4. Create Order document
-            const orderRef = doc(collection(firestore, 'orders'));
-            batch.set(orderRef, {
-                userId: user.uid,
-                userName: userData.displayName,
-                items: cartItems.map(item => ({ id: item.id, name: item.name, price: item.price, quantity: item.quantity })),
-                totalAmount: totalAmount,
-                status: 'pending',
-                paymentMethod: paymentCardDetails,
-                createdAt: serverTimestamp(),
-            });
+            if (result.success) {
+                setPaymentStatus('success');
+            } else {
+                throw new Error(result.message);
+            }
 
-            await batch.commit();
-            setPaymentStatus('success');
-
-        } catch (error) {
+        } catch (error: any) {
             console.error("Payment error:", error);
-            toast({ variant: 'destructive', title: 'خطأ', description: 'حدث خطأ أثناء معالجة الدفع.' });
+            toast({ variant: 'destructive', title: 'فشل الدفع', description: error.message || 'حدث خطأ أثناء معالجة الدفع.' });
             setPaymentStatus('idle');
         }
     };
@@ -234,7 +165,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
             </DialogHeader>
             
             <div className="py-4">
-                <RadioGroup value={selectedPayment} onValueChange={setSelectedPayment} defaultValue="primary">
+                <RadioGroup value={selectedPaymentCardNumber} onValueChange={setSelectedPaymentCardNumber} defaultValue="primary">
                     <div className="space-y-4">
                         {isUserDataLoading ? (
                              <div className="space-y-2">
@@ -270,7 +201,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                             <span>استخدام بطاقة جديدة</span>
                         </Label>
 
-                        {selectedPayment === 'new' && (
+                        {selectedPaymentCardNumber === 'new' && (
                             <div className="grid gap-4 pl-10 pt-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="new-card-number">رقم البطاقة</Label>
@@ -451,5 +382,3 @@ export default function CartPage() {
     </div>
   );
 }
-
-    
