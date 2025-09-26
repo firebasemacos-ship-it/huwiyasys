@@ -87,8 +87,8 @@ export default function ProductDetailPage() {
             </Button>
             </header>
 
-             <main className="flex-1 overflow-y-auto bg-muted/20 p-4">
-                <div className="w-full aspect-square relative mb-4 rounded-xl overflow-hidden">
+             <main className="flex-1 overflow-y-auto bg-muted/20 pb-32">
+                <div className="w-full aspect-square relative mb-4">
                     <Image
                         src={product.imageUrl || getImage(product.imageHint)}
                         alt={product.name}
@@ -99,13 +99,16 @@ export default function ProductDetailPage() {
                     />
                 </div>
                 
-                <div className="bg-background p-4 rounded-t-2xl -mt-6 relative z-10">
-                     <h2 className="text-3xl font-bold mb-2">{product.name}</h2>
-                     <p className="text-2xl font-bold text-primary mb-4">{product.price.toFixed(2)} د.ل</p>
+                <div className="bg-background p-4 rounded-t-2xl -mt-6 relative z-10 space-y-4">
+                     <h2 className="text-3xl font-bold">{product.name}</h2>
+                     <p className="text-2xl font-bold text-primary">{product.price.toFixed(2)} د.ل</p>
 
                      {product.description && (
-                        <div className="prose prose-sm text-muted-foreground max-w-none">
-                            <p>{product.description}</p>
+                        <div className="prose prose-sm dark:prose-invert text-muted-foreground max-w-none">
+                            <h3 className="font-semibold text-foreground">الوصف</h3>
+                            <p style={{ whiteSpace: 'pre-wrap' }}>
+                                {product.description}
+                            </p>
                         </div>
                      )}
                 </div>
