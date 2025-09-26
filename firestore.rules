@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -71,6 +72,11 @@ service cloud.firestore {
         allow read, update: if isAdmin();
         allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
     }
+    
+    // Rules for 'subscriptions' collection
+    match /subscriptions/{subscriptionId} {
+      allow read, create: if request.auth != null && (isOwner(request.resource.data.userId) || isOwner(resource.data.userId));
+      allow write: if isAdmin();
+    }
   }
 }
-    
