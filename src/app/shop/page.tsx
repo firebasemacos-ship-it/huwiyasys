@@ -23,6 +23,8 @@ import { collection, query, where, getDocs, orderBy, DocumentData } from 'fireba
 import { useFirestore } from '@/firebase';
 import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import Autoplay from "embla-carousel-autoplay";
+
 
 const getImage = (id: string) => {
     const image = PlaceHolderImages.find((img) => img.id === id);
@@ -45,6 +47,13 @@ interface Category extends DocumentData {
   imageHint?: string;
 }
 
+interface Banner extends DocumentData {
+    id: string;
+    title: string;
+    imageUrl: string;
+    link?: string;
+}
+
 interface CategoryWithProducts extends Category {
     products: Product[];
 }
@@ -59,8 +68,14 @@ export default function ShopPage() {
       if (!firestore) return null;
       return query(collection(firestore, 'categories'), orderBy('name'));
   }, [firestore]);
+
+  const bannersQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'banners'), where('status', '==', 'active'));
+  }, [firestore]);
   
   const { data: categories, isLoading: isLoadingCategories } = useCollection<Category>(categoriesQuery);
+  const { data: banners, isLoading: isLoadingBanners } = useCollection<Banner>(bannersQuery);
 
   useEffect(() => {
     const fetchProductsForCategories = async () => {
@@ -100,57 +115,90 @@ export default function ShopPage() {
         </header>
 
         <main className="flex-1 overflow-y-auto pb-24">
-           <div className="space-y-8 px-4 py-6">
-                {isLoading ? (
-                    Array.from({length: 3}).map((_, i) => (
-                        <div key={i} className="space-y-4">
-                            <Skeleton className="h-8 w-1/3" />
+           <div className="container mx-auto py-6">
+                <section className="mb-8">
+                     {isLoadingBanners ? (
+                        <Skeleton className="aspect-[2/1] w-full rounded-xl" />
+                    ) : (
+                        <Carousel
+                            plugins={[Autoplay({ delay: 5000 })]}
+                            opts={{ loop: true }}
+                            className="w-full"
+                        >
+                            <CarouselContent>
+                                {banners?.map((banner) => (
+                                <CarouselItem key={banner.id}>
+                                    <Link href={banner.link || '#'}>
+                                        <Card className="overflow-hidden">
+                                            <CardContent className="p-0">
+                                            <Image
+                                                src={banner.imageUrl}
+                                                alt={banner.title}
+                                                width={1200}
+                                                height={600}
+                                                className="w-full object-cover aspect-[2/1]"
+                                            />
+                                            </CardContent>
+                                        </Card>
+                                    </Link>
+                                </CarouselItem>
+                                ))}
+                            </CarouselContent>
+                        </Carousel>
+                    )}
+                </section>
+                
+                <div className="space-y-8">
+                    {isLoading ? (
+                        Array.from({length: 3}).map((_, i) => (
+                            <div key={i} className="space-y-4">
+                                <Skeleton className="h-8 w-1/3" />
+                                <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                                    {Array.from({length: 4}).map((_, j) => (
+                                        <Card key={j}>
+                                            <CardContent className="p-0">
+                                                <Skeleton className="w-full h-32" />
+                                                <div className="p-4 space-y-2">
+                                                    <Skeleton className="h-4 w-4/5" />
+                                                    <Skeleton className="h-4 w-1/2" />
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </div>
+                            </div>
+                        ))
+                    ) : categoriesWithProducts.filter(cat => cat.products.length > 0).map(category => (
+                        <section key={category.id}>
+                            <h2 className="mb-4 text-2xl font-bold">{category.name}</h2>
                             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                                {Array.from({length: 4}).map((_, j) => (
-                                     <Card key={j}>
-                                        <CardContent className="p-0">
-                                            <Skeleton className="w-full h-32" />
-                                            <div className="p-4 space-y-2">
-                                                <Skeleton className="h-4 w-4/5" />
-                                                <Skeleton className="h-4 w-1/2" />
-                                            </div>
-                                        </CardContent>
-                                     </Card>
+                                {category.products.map(product => (
+                                    <Link href={`/product/${product.id}`} key={product.id}>
+                                        <Card className="overflow-hidden h-full">
+                                            <CardContent className="p-0 flex flex-col h-full">
+                                                <div className='relative w-full aspect-square'>
+                                                <Image 
+                                                    src={product.imageUrl || getImage('category-sweets')} 
+                                                    alt={product.name}
+                                                    fill
+                                                    className="object-cover"
+                                                    sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                                                    data-ai-hint={product.imageHint || product.name}
+                                                />
+                                                </div>
+                                                <div className="p-4 flex flex-col flex-grow">
+                                                    <h3 className="font-semibold truncate flex-grow">{product.name}</h3>
+                                                    <p className="text-primary font-bold mt-2">{product.price.toFixed(2)} د.ل</p>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </Link>
                                 ))}
                             </div>
-                        </div>
-                    ))
-                ) : categoriesWithProducts.filter(cat => cat.products.length > 0).map(category => (
-                    <section key={category.id}>
-                        <h2 className="mb-4 text-2xl font-bold">{category.name}</h2>
-                        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                            {category.products.map(product => (
-                                <Link href={`/product/${product.id}`} key={product.id}>
-                                    <Card className="overflow-hidden h-full">
-                                        <CardContent className="p-0 flex flex-col h-full">
-                                            <div className='relative w-full aspect-square'>
-                                            <Image 
-                                                src={product.imageUrl || getImage('category-sweets')} 
-                                                alt={product.name}
-                                                fill
-                                                className="object-cover"
-                                                sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-                                                data-ai-hint={product.imageHint || product.name}
-                                            />
-                                            </div>
-                                            <div className="p-4 flex flex-col flex-grow">
-                                                <h3 className="font-semibold truncate flex-grow">{product.name}</h3>
-                                                <p className="text-primary font-bold mt-2">{product.price.toFixed(2)} د.ل</p>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </Link>
-                            ))}
-                        </div>
-                    </section>
-                ))}
+                        </section>
+                    ))}
+                </div>
             </div>
-
         </main>
 
         <footer className="fixed bottom-0 z-40 w-full border-t bg-background">
