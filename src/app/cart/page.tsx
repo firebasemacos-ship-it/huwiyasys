@@ -86,7 +86,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                         setPaymentStatus('idle');
                         return;
                     }
-                    cardToVerify = { cardNumber: newCardNumber, expiryDate: newCardExpiry, cvv: newCardCvv };
+                    cardToVerify = { cardNumber: newCardNumber.replace(/\s/g, ''), expiryDate: newCardExpiry, cvv: newCardCvv };
                 } else {
                     const linkedWallet = userData.linkedWallets?.find(w => w.cardNumber === selectedPayment);
                     if (!linkedWallet) {
