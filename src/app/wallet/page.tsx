@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -13,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/icons';
 import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, updateDoc, arrayUnion, collection, addDoc, serverTimestamp, query, orderBy, getDocs, where, increment } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, collection, addDoc, serverTimestamp, query, orderBy, getDocs, where, increment, writeBatch, runTransaction } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CardLinkRequestHandler } from '@/components/CardLinkRequestHandler';
 import { AcceptedRequestProcessor } from '@/components/AcceptedRequestProcessor';
@@ -57,7 +56,7 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
     useEffect(() => {
         const findUser = async () => {
             const sanitizedCardNumber = debouncedCardNumber.replace(/\s/g, '');
-            if (!sanitizedCardNumber) {
+            if (!firestore || !sanitizedCardNumber) {
                 setFoundUser(null);
                 return;
             }
@@ -157,7 +156,7 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
                         </CardContent>
                     </Card>
                 )}
-                {!foundUser && !isSearching && debouncedCardNumber.replace(/\s/g, '').length > 0 && (
+                {!foundUser && !isSearching && cardNumber.length > 0 && (
                     <p className="text-sm text-destructive">لم يتم العثور على مستخدم بهذه البطاقة.</p>
                 )}
             </div>
@@ -261,7 +260,8 @@ export default function WalletPage() {
 
 
   const handleRecharge = async () => {
-    if (!rechargeCode.trim()) {
+    const sanitizedCode = rechargeCode.trim();
+    if (!sanitizedCode) {
         toast({ variant: "destructive", title: "خطأ", description: "الرجاء إدخال رمز كرت التعبئة." });
         return;
     }
@@ -269,25 +269,46 @@ export default function WalletPage() {
     
     setRechargeStatus('verifying');
 
-    // Simulate network delay and verification
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setRechargeStatus('charging');
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const rechargeAmount = 100.00; // Assume code is for 100 LYD for now
-    const newBalance = (userData.wallet?.balance ?? 0) + rechargeAmount;
-
     try {
-        // Update balance
-        await updateDoc(userDocRef, { 'wallet.balance': newBalance });
-        
-        // Create transaction record
-        const transactionsColRef = collection(firestore, 'users', user.uid, 'transactions');
-        await addDoc(transactionsColRef, {
-            type: 'شحن رصيد',
-            amount: rechargeAmount,
-            date: serverTimestamp(),
-            description: `شحن باستخدام كرت ${rechargeCode.slice(0,4)}...`
+        await runTransaction(firestore, async (transaction) => {
+            const cardsRef = collection(firestore, 'rechargeCards');
+            const q = query(cardsRef, where("code", "==", sanitizedCode));
+            const cardSnapshot = await getDocs(q);
+
+            if (cardSnapshot.empty) {
+                throw new Error("رمز الكرت غير صالح.");
+            }
+
+            const cardDoc = cardSnapshot.docs[0];
+            const cardData = cardDoc.data();
+
+            if (cardData.isUsed) {
+                throw new Error("هذا الكرت تم استخدامه بالفعل.");
+            }
+            
+            setRechargeStatus('charging');
+
+            // 1. Mark card as used
+            transaction.update(cardDoc.ref, { 
+                isUsed: true,
+                usedBy: user.uid,
+                usedAt: serverTimestamp()
+            });
+
+            // 2. Update user's balance
+            transaction.update(userDocRef, { "wallet.balance": increment(cardData.amount) });
+            
+            // 3. Create transaction record for user
+            const userTransactionsColRef = collection(firestore, 'users', user.uid, 'transactions');
+            const newTransactionRef = doc(userTransactionsColRef);
+            transaction.set(newTransactionRef, {
+                type: 'شحن رصيد',
+                amount: cardData.amount,
+                date: serverTimestamp(),
+                description: `شحن باستخدام كرت ${cardData.code.slice(0,4)}...`
+            });
+
+            return cardData.amount;
         });
 
         setRechargeStatus('success');
@@ -296,18 +317,17 @@ export default function WalletPage() {
         setRechargeDialogOpen(false);
         toast({
             title: "تم الشحن بنجاح",
-            description: `تمت إضافة ${rechargeAmount.toFixed(2)} دينار ليبي إلى محفظتك.`,
+            description: `تمت إضافة الرصيد إلى محفظتك.`,
         });
         
-        setTimeout(() => {
+    } catch (error: any) {
+        console.error("Failed to recharge:", error);
+        toast({ variant: "destructive", title: "فشل الشحن", description: error.message });
+    } finally {
+         setTimeout(() => {
             setRechargeStatus('idle');
             setRechargeCode('');
         }, 500);
-
-    } catch (error) {
-        console.error("Failed to update balance or create transaction:", error);
-        toast({ variant: "destructive", title: "فشل الشحن", description: "حدث خطأ أثناء تحديث الرصيد." });
-        setRechargeStatus('idle');
     }
   }
   

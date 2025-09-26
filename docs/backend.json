@@ -283,6 +283,46 @@
         "imageUrl",
         "status"
       ]
+    },
+     "RechargeCard": {
+      "title": "Recharge Card",
+      "description": "Represents a prepaid recharge card.",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "The unique recharge code."
+        },
+        "amount": {
+          "type": "number",
+          "description": "The value of the card."
+        },
+        "isUsed": {
+          "type": "boolean",
+          "default": false,
+          "description": "Flag to indicate if the card has been used."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the card was created."
+        },
+        "usedBy": {
+          "type": "string",
+          "description": "The UID of the user who redeemed the card."
+        },
+        "usedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the card was redeemed."
+        }
+      },
+      "required": [
+        "code",
+        "amount",
+        "isUsed",
+        "createdAt"
+      ]
     }
   },
   "auth": {
@@ -332,8 +372,12 @@
         "$ref": "#/entities/Banner"
       },
       "description": "Stores promotional banners for the app."
+    },
+     "/rechargeCards/{cardId}": {
+      "schema": {
+        "$ref": "#/entities/RechargeCard"
+      },
+      "description": "Stores generated recharge cards."
     }
   }
 }
-
-    
