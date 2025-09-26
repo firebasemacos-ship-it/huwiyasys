@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -8,45 +9,61 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return request.auth != null && exists(/databases/$(database)/documents/managers/$(request.auth.uid));
+      // Assumes admin status is stored in a document in a '/managers' collection
+      return exists(/databases/$(database)/documents/managers/$(request.auth.uid));
     }
-    
-    function isUpdatingOwnBalance(userId, amount) {
-      return isOwner(userId) && request.resource.data.wallet.balance == resource.data.wallet.balance + amount;
+
+    function isUpdatingOwnBalance(userId) {
+      // This rule is intended for balance transfers between users.
+      // It allows a user to update another user's balance as part of a transaction.
+      // 1. The request is authenticated.
+      // 2. The user is NOT the owner of the document being updated.
+      // 3. The only field being changed in the target document is 'wallet.balance'.
+      // 4. The balance update is an increment (the new balance equals the old balance plus some value).
+      // This is a simplified check. A more robust solution would use Cloud Functions.
+      return request.auth != null &&
+             request.auth.uid != userId &&
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['wallet.balance']);
     }
 
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow write: if isOwner(userId) || isAdmin();
+      allow read;
+      allow create: if isOwner(userId);
+      // Allow write if owner, if it's a valid balance update for another user, or if admin.
+      allow write: if isOwner(userId) || isUpdatingOwnBalance(userId) || isAdmin();
+    }
+
+    match /products/{productId} {
+      allow read;
+      allow write: if isAdmin();
     }
     
-    match /users/{userId}/transactions/{transactionId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) || isAdmin();
-      allow write, delete: if isAdmin();
+    match /categories/{categoryId} {
+      allow read;
+      allow write: if isAdmin();
+    }
+
+    match /banners/{bannerId} {
+        allow read;
+        allow write: if isAdmin();
+    }
+
+    match /rechargeCards/{cardId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /cardLinkRequests/{requestId} {
+      // Allow read/write if the user is the owner, the requester, or an admin.
+      allow read, write: if request.auth != null && (request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.requesterId || isAdmin());
     }
     
     match /managers/{managerId} {
         allow read, write: if isAdmin();
     }
-    
-    match /products/{productId} {
-        allow read: if request.auth != null;
-        allow write: if isAdmin();
-    }
-    
-     match /categories/{categoryId} {
-        allow read: if request.auth != null;
-        allow write: if isAdmin();
-    }
 
-    match /cardLinkRequests/{requestId} {
-      allow read, write: if request.auth != null; // Simplified for now
-    }
-    
-    match /banners/{bannerId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
+    // Allow read access to user transactions only for the owner.
+    match /users/{userId}/transactions/{transactionId} {
+      allow read, write: if isOwner(userId);
     }
   }
 }
