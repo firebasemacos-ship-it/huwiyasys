@@ -54,9 +54,9 @@ export default function AdminSubPageLayout({ children, title }: { children: Reac
 
   return (
     <div className="dark grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr] bg-background text-foreground" dir="rtl">
-      <div className="hidden border-l bg-muted/40 md:block">
+      <div className="hidden border-l border-white/10 bg-black/20 backdrop-blur-lg md:block">
         <div className="flex h-full max-h-screen flex-col gap-2">
-          <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
+          <div className="flex h-14 items-center border-b border-white/10 px-4 lg:h-[60px] lg:px-6">
             <Link href="/admin" className="flex items-center gap-3 font-semibold text-primary">
               <Logo className="h-8 w-8" />
               <span className="text-lg">لوحة التحكم</span>
@@ -85,15 +85,15 @@ export default function AdminSubPageLayout({ children, title }: { children: Reac
         </div>
       </div>
       <div className="flex flex-col">
-        <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
+        <header className="flex h-14 items-center gap-4 border-b border-white/10 bg-black/20 backdrop-blur-lg px-4 lg:h-[60px] lg:px-6">
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="shrink-0 md:hidden">
+              <Button variant="outline" size="icon" className="shrink-0 md:hidden bg-transparent border-white/20">
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">Toggle navigation menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="flex flex-col bg-background">
+            <SheetContent side="right" className="flex flex-col bg-black/50 backdrop-blur-xl border-l-white/10">
               <nav className="grid gap-2 text-lg font-medium">
                 <Link href="/admin" className="flex items-center gap-3 text-lg font-semibold mb-4 text-primary">
                   <Logo className="h-8 w-8" />
