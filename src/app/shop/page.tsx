@@ -24,11 +24,6 @@ import { useFirestore } from '@/firebase';
 import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const promoImages = [
-  { id: 'promo-1', imageHint: 'cleaning supplies', title: 'عروض الصيف', description: 'خصومات تصل إلى 50% على منتجات التنظيف' },
-  { id: 'promo-2', imageHint: 'water bottles', title: 'ابق منتعشاً', description: 'عروض خاصة على عبوات المياه' },
-];
-
 const getImage = (id: string) => {
     const image = PlaceHolderImages.find((img) => img.id === id);
     return image ? image.imageUrl : 'https://picsum.photos/seed/placeholder/600/400';
@@ -105,39 +100,6 @@ export default function ShopPage() {
         </header>
 
         <main className="flex-1 overflow-y-auto pb-24">
-          <div className="container mx-auto px-4 py-4">
-            <Carousel
-              opts={{
-                align: 'start',
-                loop: true,
-              }}
-              className="w-full"
-            >
-              <CarouselContent>
-                {promoImages.map((promo) => (
-                    <CarouselItem key={promo.id} className="basis-5/6 pl-2">
-                        <Card className="overflow-hidden rounded-xl relative border-none shadow-none">
-                        <CardContent className="p-0">
-                            <Image
-                            src={getImage(promo.id)}
-                            alt={promo.imageHint}
-                            width={600}
-                            height={300}
-                            className="aspect-[2/1] w-full object-cover rounded-xl"
-                            data-ai-hint={promo.imageHint}
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-4 md:p-6">
-                              <h3 className="text-white text-xl md:text-2xl font-bold">{promo.title}</h3>
-                              <p className="text-white/90 text-sm md:text-base">{promo.description}</p>
-                            </div>
-                        </CardContent>
-                        </Card>
-                    </CarouselItem>
-                ))}
-              </CarouselContent>
-            </Carousel>
-          </div>
-          
            <div className="space-y-8 px-4 py-6">
                 {isLoading ? (
                     Array.from({length: 3}).map((_, i) => (
