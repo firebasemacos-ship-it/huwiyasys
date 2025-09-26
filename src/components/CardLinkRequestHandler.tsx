@@ -24,7 +24,7 @@ interface CardLinkRequest {
   ownerId: string;
   cardNumber: string;
   ownerName: string;
-  status: 'pending' | 'accepted' | 'rejected';
+  status: 'pending' | 'accepted' | 'rejected' | 'completed';
 }
 
 export function CardLinkRequestHandler() {
@@ -47,19 +47,13 @@ export function CardLinkRequestHandler() {
     if (!firestore || !user) return;
     
     const requestDocRef = doc(firestore, 'cardLinkRequests', request.id);
-    const requesterDocRef = doc(firestore, 'users', request.requesterId);
 
     try {
+      // Only update the status of the request document.
+      // The requester's client will handle adding the card to their profile.
       await updateDoc(requestDocRef, { status: newStatus });
 
       if (newStatus === 'accepted') {
-        const linkedWalletData = {
-          cardNumber: request.cardNumber,
-          ownerName: request.ownerName
-        };
-        await updateDoc(requesterDocRef, {
-            linkedWallets: arrayUnion(linkedWalletData)
-        });
         toast({ title: "تمت الموافقة", description: `لقد وافقت على طلب ${request.requesterName}.` });
       } else {
         toast({ title: "تم الرفض", description: `لقد رفضت طلب ${request.requesterName}.`, variant: 'destructive' });

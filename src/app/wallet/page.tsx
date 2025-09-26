@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -7,14 +8,15 @@ import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, Arrow
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/icons';
 import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, updateDoc, arrayUnion, collection, addDoc, serverTimestamp, query, orderBy, getDocs, where, writeBatch, increment } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, collection, addDoc, serverTimestamp, query, orderBy, getDocs, where, increment } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CardLinkRequestHandler } from '@/components/CardLinkRequestHandler';
+import { AcceptedRequestProcessor } from '@/components/AcceptedRequestProcessor';
 import { useDebounce } from 'use-debounce';
 
 type Wallet = {
@@ -59,6 +61,7 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
                 setFoundUser(null);
                 return;
             }
+            
             setIsSearching(true);
             try {
                 const usersRef = collection(firestore, 'users');
@@ -83,7 +86,11 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
             }
         };
 
-        findUser();
+        if (debouncedCardNumber) {
+           findUser();
+        } else {
+            setFoundUser(null);
+        }
     }, [debouncedCardNumber, firestore, currentUser?.uid, toast]);
 
     const handleSendRequest = async () => {
@@ -352,6 +359,7 @@ export default function WalletPage() {
   return (
     <div className="bg-background text-foreground" dir="rtl">
       <CardLinkRequestHandler />
+      <AcceptedRequestProcessor />
       <div className="flex min-h-screen flex-col">
         <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b bg-background/95 p-4 backdrop-blur">
           <h1 className="text-xl font-bold">المحفظة</h1>
