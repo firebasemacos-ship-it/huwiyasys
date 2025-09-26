@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/icons';
 import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, updateDoc, arrayUnion, collection, addDoc, serverTimestamp, query, orderBy, getDocs, where, writeBatch } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, collection, addDoc, serverTimestamp, query, orderBy, getDocs, where, writeBatch, increment } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CardLinkRequestHandler } from '@/components/CardLinkRequestHandler';
 import { useDebounce } from 'use-debounce';
@@ -54,7 +54,7 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
 
     useEffect(() => {
         const findUser = async () => {
-            const sanitizedCardNumber = debouncedCardNumber.replace(/\s/g, '');
+            const sanitizedCardNumber = cardNumber.replace(/\s/g, '');
             if (!sanitizedCardNumber || sanitizedCardNumber.length !== 16 || !firestore) {
                 setFoundUser(null);
                 return;
@@ -84,7 +84,7 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
         };
 
         findUser();
-    }, [debouncedCardNumber, firestore, currentUser?.uid, toast]);
+    }, [debouncedCardNumber, firestore, currentUser?.uid, toast, cardNumber]);
 
     const handleSendRequest = async () => {
         if (!foundUser || !currentUser || !firestore) return;
@@ -144,7 +144,7 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
                         </CardContent>
                     </Card>
                 )}
-                {!foundUser && !isSearching && cardNumber.length > 0 && debouncedCardNumber.length === 16 && (
+                {!foundUser && !isSearching && cardNumber.length > 0 && cardNumber.replace(/\s/g, '').length === 16 && (
                     <p className="text-sm text-destructive">لم يتم العثور على مستخدم بهذه البطاقة.</p>
                 )}
             </div>
@@ -173,7 +173,7 @@ function TransferBalanceDialog({ senderProfile, onClose }: { senderProfile: User
 
      useEffect(() => {
         const findUser = async () => {
-            const sanitizedCardNumber = debouncedCardNumber.replace(/\s/g, '');
+            const sanitizedCardNumber = recipientCardNumber.replace(/\s/g, '');
             if (!sanitizedCardNumber || sanitizedCardNumber.length !== 16 || !firestore) {
                 setRecipient(null);
                 return;
@@ -202,7 +202,7 @@ function TransferBalanceDialog({ senderProfile, onClose }: { senderProfile: User
             }
         };
         findUser();
-    }, [debouncedCardNumber, firestore, senderProfile.wallet.cardNumber, toast]);
+    }, [debouncedCardNumber, firestore, senderProfile.wallet.cardNumber, toast, recipientCardNumber]);
 
 
     const handleTransfer = async () => {
@@ -221,15 +221,13 @@ function TransferBalanceDialog({ senderProfile, onClose }: { senderProfile: User
         try {
             const batch = writeBatch(firestore);
 
-            // 1. Sender doc
+            // 1. Sender doc: Decrement balance
             const senderDocRef = doc(firestore, 'users', currentUser.uid);
-            const newSenderBalance = senderProfile.wallet.balance - amount;
-            batch.update(senderDocRef, { 'wallet.balance': newSenderBalance });
+            batch.update(senderDocRef, { 'wallet.balance': increment(-amount) });
 
-            // 2. Recipient doc
+            // 2. Recipient doc: Increment balance
             const recipientDocRef = doc(firestore, 'users', recipient.id);
-            const newRecipientBalance = recipient.data.wallet.balance + amount;
-            batch.update(recipientDocRef, { 'wallet.balance': newRecipientBalance });
+            batch.update(recipientDocRef, { 'wallet.balance': increment(amount) });
 
             await batch.commit();
 
@@ -294,7 +292,7 @@ function TransferBalanceDialog({ senderProfile, onClose }: { senderProfile: User
                         </CardContent>
                     </Card>
                 )}
-                 {!recipient && !isSearching && recipientCardNumber.length > 0 && debouncedCardNumber.length === 16 && (
+                 {!recipient && !isSearching && recipientCardNumber.length > 0 && recipientCardNumber.replace(/\s/g, '').length === 16 && (
                     <p className="text-sm text-destructive">لم يتم العثور على مستخدم بهذه البطاقة.</p>
                 )}
                  <div className="space-y-2">
