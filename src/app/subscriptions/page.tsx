@@ -75,6 +75,12 @@ export default function SubscriptionsPage() {
                         </Card>
                     ))}
                 </div>
+            ) : error ? (
+                 <div className="flex flex-col items-center justify-center gap-4 py-12 text-center h-full">
+                    <XCircle className="h-20 w-20 text-destructive" />
+                    <h2 className="text-xl font-semibold">حدث خطأ</h2>
+                    <p className="text-muted-foreground max-w-sm">فشل تحميل الاشتراكات. قد تكون هناك مشكلة في الصلاحيات. الرجاء مراجعة قواعد الأمان.</p>
+                </div>
             ) : subscriptions && subscriptions.length > 0 ? (
                  <div className="space-y-4">
                     {subscriptions.map(sub => (

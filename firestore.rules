@@ -9,27 +9,24 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      // Check if the user's UID exists in the 'managers' collection.
       return request.auth != null && exists(/databases/$(database)/documents/managers/$(request.auth.uid));
     }
 
     // Rules for 'users' collection
     match /users/{userId} {
       allow read: if request.auth != null;
-      allow create: if isOwner(userId);
+      allow create: if request.auth != null && request.auth.uid == userId;
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
 
       // Rules for 'transactions' subcollection
       match /transactions/{transactionId} {
         allow read, create: if isOwner(userId) || isAdmin();
-        // Disallow update/delete for users to maintain transaction integrity.
-        allow update, delete: if isAdmin();
+        allow write: if isAdmin();
       }
     }
 
     // Rules for 'managers' collection
-    // Only admins can read or write to the list of managers.
     match /managers/{managerId} {
       allow read, write: if isAdmin();
     }
@@ -37,59 +34,47 @@ service cloud.firestore {
     // Rules for 'products' collection
     match /products/{productId} {
       allow read: if request.auth != null;
-      allow write: if isAdmin(); // Create, update, delete
+      allow write: if isAdmin();
     }
     
     // Rules for 'categories' collection
     match /categories/{categoryId} {
       allow read: if request.auth != null;
-      allow write: if isAdmin(); // Create, update, delete
+      allow write: if isAdmin();
     }
     
     // Rules for 'banners' collection
     match /banners/{bannerId} {
         allow read: if request.auth != null;
-        allow write: if isAdmin(); // Create, update, delete
+        allow write: if isAdmin();
     }
     
     // Rules for 'cardLinkRequests' collection
     match /cardLinkRequests/{requestId} {
-      // Only the requester or the owner of the card can read the request.
-      allow read: if request.auth != null && (isOwner(resource.data.requesterId) || isOwner(resource.data.ownerId));
-      // Only the user initiating the request can create it.
-      allow create: if request.auth != null && isOwner(request.resource.data.requesterId);
-      // Only the owner of the card can accept/reject the request.
-      allow update: if request.auth != null && (isOwner(resource.data.ownerId) || isOwner(resource.data.requesterId));
+      allow read: if request.auth != null && (request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.requesterId);
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.requesterId;
+      allow update: if request.auth != null && (request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.requesterId);
     }
     
     // Rules for 'rechargeCards' collection
     match /rechargeCards/{cardId} {
-      allow create, delete, read: if isAdmin();
-      // Allow a user to update a card only to mark it as used.
-      // This prevents re-using a card or changing its value.
-      allow update: if request.auth != null &&
-                      resource.data.isUsed == false &&
-                      request.resource.data.isUsed == true &&
-                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isUsed', 'usedBy', 'usedAt']);
+      allow read, create, delete: if isAdmin();
+      allow update: if isAdmin() || 
+                      (request.auth != null && 
+                       request.resource.data.isUsed == true && 
+                       resource.data.isUsed == false &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isUsed', 'usedBy', 'usedAt']));
     }
     
      // Rules for 'orders' collection
     match /orders/{orderId} {
-        // Only the user who placed the order or an admin can read it.
-        allow get: if isOwner(resource.data.userId) || isAdmin();
-        // Only admins can list all orders.
-        allow list, update: if isAdmin();
-        // A user can only create an order for themselves.
-        allow create: if isOwner(request.resource.data.userId);
+        allow read, update: if isAdmin();
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
     }
-    
+
     // Rules for 'subscriptions' collection
     match /subscriptions/{subscriptionId} {
-      // User can read their own subscriptions. Admins can read all.
-      allow get: if isOwner(resource.data.userId) || isAdmin();
-      // Admins can list all subscriptions. Users can list their own via queries.
-      allow list: if isAdmin() || (request.query.limit <= 10 && request.query.offset == null && request.query.orderBy.size() == 1 && request.query.orderBy[0].field == 'createdAt' && request.query.where.size() == 1 && request.query.where[0].field == 'userId' && request.query.where[0].op == '==' && request.query.where[0].value == request.auth.uid);
-      // Only admins can create, update, or delete subscriptions.
+      allow read: if (request.auth != null && request.auth.uid == resource.data.userId) || isAdmin();
       allow write: if isAdmin();
     }
   }

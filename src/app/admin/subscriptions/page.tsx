@@ -196,6 +196,12 @@ export default function SubscriptionsPage() {
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users'), orderBy('displayName')) : null, [firestore]);
     const { data: users, isLoading: isLoadingUsers } = useCollection<UserData>(usersQuery);
 
+    useEffect(() => {
+        if (error) {
+            toast({ variant: 'destructive', title: 'فشل تحميل الاشتراكات', description: 'يرجى مراجعة قواعد الأمان في Firestore.' });
+        }
+    }, [error, toast]);
+
     const updateSubscriptionStatus = async (subscriptionId: string, status: Subscription['status']) => {
         if (!firestore) return;
         const subscriptionRef = doc(firestore, 'subscriptions', subscriptionId);
@@ -260,7 +266,7 @@ export default function SubscriptionsPage() {
                     <CardTitle>قائمة الاشتراكات</CardTitle>
                     <CardDescription>عرض وإدارة اشتراكات المستخدمين.</CardDescription>
                 </div>
-                <Button size="sm" className="h-8 gap-1" onClick={handleAddSubscription}>
+                <Button size="sm" className="h-8 gap-1" onClick={handleAddSubscription} disabled={isLoadingUsers}>
                     <PlusCircle className="h-3.5 w-3.5" />
                     <span>إضافة اشتراك</span>
                 </Button>
@@ -300,7 +306,7 @@ export default function SubscriptionsPage() {
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end" dir="rtl">
                                                 <DropdownMenuLabel>الإجراءات</DropdownMenuLabel>
-                                                <DropdownMenuItem onSelect={() => handleEditSubscription(sub)}>تعديل</DropdownMenuItem>
+                                                <DropdownMenuItem onSelect={() => handleEditSubscription(sub)} disabled={isLoadingUsers}>تعديل</DropdownMenuItem>
                                                 <DropdownMenuItem onSelect={() => confirmDelete(sub)} className="text-destructive">حذف</DropdownMenuItem>
                                                 <DropdownMenuLabel>تغيير الحالة السريع</DropdownMenuLabel>
                                                 <DropdownMenuItem onSelect={() => updateSubscriptionStatus(sub.id, 'active')}>
