@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Home, Search, ShoppingCart, Ticket, Wallet as WalletIcon, ArrowLeft, XCircle } from 'lucide-react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -39,7 +40,11 @@ export default function SubscriptionsPage() {
     // Sort subscriptions by end date, descending.
     const subscriptions = useMemo(() => {
         if (!userData?.subscriptions) return [];
-        return [...userData.subscriptions].sort((a, b) => b.endDate.toDate() - a.endDate.toDate());
+        return [...userData.subscriptions].sort((a, b) => {
+            const dateA = a.endDate?.toDate ? a.endDate.toDate() : new Date(0);
+            const dateB = b.endDate?.toDate ? b.endDate.toDate() : new Date(0);
+            return dateB.getTime() - dateA.getTime();
+        });
     }, [userData?.subscriptions]);
 
     const getStatusVariant = (status: Subscription['status']) => {
