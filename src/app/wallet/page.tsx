@@ -413,10 +413,8 @@ export default function WalletPage() {
                             <Card className="relative h-full w-full overflow-hidden rounded-xl bg-primary text-primary-foreground shadow-lg">
                                 <CardContent className="flex h-full flex-col justify-between p-6">
                                     <div className="flex items-start justify-between">
-                                        <div className="flex items-center gap-2 pointer-events-none">
-                                            <span className="text-lg font-bold">{userData?.displayName || 'المستخدم'}</span>
-                                        </div>
-                                        <CardLogo className="h-10 w-10 opacity-80" />
+                                        <div className="flex items-center gap-2 pointer-events-none" />
+                                        <CardLogo className="h-20 w-20 opacity-80" />
                                     </div>
                                     <div className="text-left flex items-center gap-2">
                                         <p className="font-mono text-xl tracking-widest flex-1">
@@ -632,3 +630,5 @@ export default function WalletPage() {
     </div>
   );
 }
+
+    
