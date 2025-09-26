@@ -1,29 +1,27 @@
 
 'use client';
 
-import { Input } from '@/components/ui/input';
-import { Search as SearchIcon, Home, ShoppingCart, Wallet, Ticket } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Home, MoreHorizontal, Search, ShoppingCart, Star, Ticket, Wallet as WalletIcon, ArrowLeft } from 'lucide-react';
 
-export default function SearchPage() {
+
+export default function SubscriptionsPage() {
   return (
     <div className="bg-background text-foreground" dir="rtl">
       <div className="flex min-h-screen flex-col">
-        <header className="sticky top-0 z-40 w-full border-b bg-background/95 p-4 backdrop-blur">
-          <div className="relative">
-            <Input
-              type="search"
-              placeholder="ابحث عن منتجات"
-              className="w-full rounded-full bg-muted pr-10"
-            />
-            <SearchIcon className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-          </div>
+        <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b bg-background/95 p-4 backdrop-blur">
+          <h1 className="text-xl font-bold">اشتراكاتي</h1>
+          <Button variant="ghost" size="icon" onClick={() => window.history.back()}>
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 pb-24">
-          <div className="text-center">
-            <h2 className="text-lg font-semibold">ابحث عن منتجاتك المفضلة</h2>
-            <p className="text-muted-foreground">ابدأ بكتابة اسم المنتج الذي تبحث عنه.</p>
-          </div>
+            <div className="flex flex-col items-center justify-center gap-4 py-12 text-center h-full">
+                 <Ticket className="h-20 w-20 text-muted-foreground" />
+                 <h2 className="text-xl font-semibold">لا توجد لديك اشتراكات</h2>
+                 <p className="text-muted-foreground">اكتشف العروض والخدمات للاشتراك بها.</p>
+            </div>
         </main>
 
         <footer className="fixed bottom-0 z-40 w-full border-t bg-background">
@@ -37,9 +35,9 @@ export default function SearchPage() {
             </a>
             <a
               href="/search"
-              className="flex flex-col items-center text-xs font-medium text-primary"
+              className="flex flex-col items-center text-xs text-muted-foreground"
             >
-              <SearchIcon className="mb-1 h-6 w-6" />
+              <Search className="mb-1 h-6 w-6" />
               البحث
             </a>
             <a
@@ -53,12 +51,12 @@ export default function SearchPage() {
               href="/wallet"
               className="flex flex-col items-center text-xs text-muted-foreground"
             >
-              <Wallet className="mb-1 h-6 w-6" />
+              <WalletIcon className="mb-1 h-6 w-6" />
               باي
             </a>
             <a
               href="/subscriptions"
-              className="flex flex-col items-center text-xs text-muted-foreground"
+              className="flex flex-col items-center text-xs font-medium text-primary"
             >
               <Ticket className="mb-1 h-6 w-6" />
               الاشتراكات
@@ -69,4 +67,3 @@ export default function SearchPage() {
     </div>
   );
 }
-

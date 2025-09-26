@@ -1,10 +1,11 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { Home, MoreHorizontal, Search, ShoppingCart, Wallet, Plus, Minus, Trash2, ArrowLeft, LoaderCircle, CheckCircle2 } from 'lucide-react';
+import { Home, Ticket, Search, ShoppingCart, Wallet, Plus, Minus, Trash2, ArrowLeft, LoaderCircle, CheckCircle2 } from 'lucide-react';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -441,11 +442,11 @@ export default function CartPage() {
               باي
             </a>
             <a
-              href="#"
+              href="/subscriptions"
               className="flex flex-col items-center text-xs text-muted-foreground"
             >
-              <MoreHorizontal className="mb-1 h-6 w-6" />
-              المزيد
+              <Ticket className="mb-1 h-6 w-6" />
+              الاشتراكات
             </a>
           </nav>
         </footer>

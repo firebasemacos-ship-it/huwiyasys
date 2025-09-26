@@ -1,9 +1,10 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, PlusCircle, LoaderCircle, CheckCircle2, Wifi, BadgeHelp, Star, Copy } from 'lucide-react';
+import { Home, Ticket, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, PlusCircle, LoaderCircle, CheckCircle2, Wifi, BadgeHelp, Copy } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { CardLinkRequestHandler } from '@/components/CardLinkRequestHandler';
 import { AcceptedRequestProcessor } from '@/components/AcceptedRequestProcessor';
 import { useDebounce } from 'use-debounce';
+import Link from 'next/link';
 
 type Wallet = {
     balance: number;
@@ -170,25 +172,6 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
     );
 }
 
-function SubscriptionsDialog({ onClose }: { onClose: () => void }) {
-    return (
-        <DialogContent dir="rtl">
-            <DialogHeader>
-                <DialogTitle>اشتراكاتي</DialogTitle>
-                <DialogDescription>عرض وإدارة اشتراكاتك النشطة.</DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
-                 <Star className="h-16 w-16 text-muted-foreground" />
-                 <p className="text-muted-foreground">لا توجد لديك اشتراكات نشطة حاليًا.</p>
-            </div>
-            <DialogFooter>
-                <Button onClick={onClose} variant="outline">إغلاق</Button>
-            </DialogFooter>
-        </DialogContent>
-    );
-}
-
-
 export default function WalletPage() {
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
@@ -210,7 +193,6 @@ export default function WalletPage() {
 
   const [isRechargeDialogOpen, setRechargeDialogOpen] = useState(false);
   const [isAddCardDialogOpen, setAddCardDialogOpen] = useState(false);
-  const [isSubscriptionsDialogOpen, setSubscriptionsDialogOpen] = useState(false);
 
 
   const [rechargeCode, setRechargeCode] = useState('');
@@ -273,7 +255,7 @@ export default function WalletPage() {
         await runTransaction(firestore, async (transaction) => {
             const cardsRef = collection(firestore, 'rechargeCards');
             const q = query(cardsRef, where("code", "==", sanitizedCode));
-            const cardSnapshot = await getDocs(q);
+            const cardSnapshot = await transaction.get(q);
 
             if (cardSnapshot.empty) {
                 throw new Error("رمز الكرت غير صالح.");
@@ -521,17 +503,14 @@ export default function WalletPage() {
                 {isAddCardDialogOpen && <AddCardDialog onClose={() => setAddCardDialogOpen(false)} />}
             </Dialog>
 
-             <Dialog open={isSubscriptionsDialogOpen} onOpenChange={setSubscriptionsDialogOpen}>
-                <DialogTrigger asChild>
-                    <Card className="overflow-hidden rounded-xl cursor-pointer hover:bg-muted/50 transition-colors">
-                        <CardContent className="flex flex-col items-center justify-center p-4 text-center">
-                            <Star className="mb-2 h-8 w-8 text-primary" />
-                            <p className="text-sm font-semibold">اشتراكاتي</p>
-                        </CardContent>
-                    </Card>
-                </DialogTrigger>
-                {isSubscriptionsDialogOpen && <SubscriptionsDialog onClose={() => setSubscriptionsDialogOpen(false)} />}
-             </Dialog>
+            <Link href="/subscriptions">
+                <Card className="overflow-hidden rounded-xl cursor-pointer hover:bg-muted/50 transition-colors h-full">
+                    <CardContent className="flex flex-col items-center justify-center p-4 text-center">
+                        <Ticket className="mb-2 h-8 w-8 text-primary" />
+                        <p className="text-sm font-semibold">اشتراكاتي</p>
+                    </CardContent>
+                </Card>
+            </Link>
           </div>
 
           <Card className="overflow-hidden rounded-xl">
@@ -616,11 +595,11 @@ export default function WalletPage() {
               باي
             </a>
             <a
-              href="#"
+              href="/subscriptions"
               className="flex flex-col items-center text-xs text-muted-foreground"
             >
-              <MoreHorizontal className="mb-1 h-6 w-6" />
-              المزيد
+              <Ticket className="mb-1 h-6 w-6" />
+              الاشتراكات
             </a>
           </nav>
         </footer>
@@ -628,3 +607,4 @@ export default function WalletPage() {
     </div>
   );
 }
+

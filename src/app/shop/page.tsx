@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   Home,
   MessageSquare,
-  MoreHorizontal,
+  Ticket,
   Search,
   ShoppingCart,
   Wallet,
@@ -232,11 +232,11 @@ export default function ShopPage() {
               باي
             </a>
             <a
-              href="#"
+              href="/subscriptions"
               className="flex flex-col items-center text-xs text-muted-foreground"
             >
-              <MoreHorizontal className="mb-1 h-6 w-6" />
-              المزيد
+              <Ticket className="mb-1 h-6 w-6" />
+              الاشتراكات
             </a>
           </nav>
         </footer>
@@ -244,3 +244,4 @@ export default function ShopPage() {
     </div>
   );
 }
+
