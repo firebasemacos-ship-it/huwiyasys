@@ -3,66 +3,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
-    function isAdmin() {
-      return exists(/databases/$(database)/documents/managers/$(request.auth.uid));
-    }
-    
-    function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
-    }
-
-    // Admins have full access to everything for management purposes
+    // -------------------------------------------------------------------------
+    // تحذير أمني خطير
+    // -------------------------------------------------------------------------
+    // هذه القاعدة تسمح لأي مستخدم مسجل الدخول بقراءة وكتابة أي بيانات
+    // في قاعدة البيانات بأكملها. هذا يجعل بياناتك عرضة للتلاعب والسرقة
+    // من قبل أي مستخدم. تم تطبيق هذه القاعدة بناءً على طلب المستخدم
+    // الصريح لتجاوز مشاكل الصلاحيات. يوصى بشدة بالعودة إلى قواعد
+    // أمان أكثر تقييدًا في أقرب وقت ممكن.
+    // -------------------------------------------------------------------------
     match /{document=**} {
-      allow read, write: if isAdmin();
+      allow read, write: if request.auth != null;
     }
 
-    // Users collection
-    match /users/{userId} {
-      allow read, update: if isOwner(userId);
-      // Deny create/delete for users on their own docs to be handled by backend/admin
-      allow create, delete: if isAdmin();
-
-      // Transactions subcollection
-      match /transactions/{transactionId} {
-        allow read, create: if isOwner(userId);
-        // Only allow admin to update/delete for correction
-        allow update, delete: if isAdmin();
-      }
-
-       // Subscriptions are now an array in the user document,
-       // so they are covered by the parent rule.
-       // No subcollection rule needed.
-    }
-    
-    // Public collections
-    match /products/{productId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    match /categories/{categoryId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    
-    match /banners/{bannerId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    
-    // Write-only or special access collections
-    match /rechargeCards/{cardId} {
-      // Users can't read/list cards, only backend/admin can
-      allow read, write: if isAdmin();
-    }
-    
-    match /orders/{orderId} {
-      allow read, write: if isOwner(resource.data.userId) || isAdmin();
-    }
-
-    match /cardLinkRequests/{requestId} {
-      allow read, write: if request.auth != null && (request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.requesterId || isAdmin());
-    }
   }
 }

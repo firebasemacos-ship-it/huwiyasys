@@ -19,7 +19,6 @@ import { CardLinkRequestHandler } from '@/components/CardLinkRequestHandler';
 import { AcceptedRequestProcessor } from '@/components/AcceptedRequestProcessor';
 import { useDebounce } from 'use-debounce';
 import Link from 'next/link';
-import { findCardOwner } from '@/ai/flows/find-card-owner-flow';
 
 
 type Wallet = {
@@ -62,7 +61,7 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
     useEffect(() => {
         const searchForCardOwner = async () => {
             const sanitizedCardNumber = debouncedCardNumber.replace(/\s/g, '');
-            if (!sanitizedCardNumber || sanitizedCardNumber.length < 16) {
+            if (!firestore || !sanitizedCardNumber || sanitizedCardNumber.length < 16) {
                 setFoundUser(null);
                 setSearchError(null);
                 return;
@@ -73,19 +72,23 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
             setSearchError(null);
 
             try {
-                const result = await findCardOwner({ cardNumber: sanitizedCardNumber });
-
-                if (result.error) {
-                    setSearchError(result.error);
-                } else if (result.ownerId && result.ownerName) {
-                    if (result.ownerId === currentUser?.uid) {
+                const usersRef = collection(firestore, 'users');
+                const cardQuery = query(usersRef, where("wallet.cardNumber", "==", sanitizedCardNumber));
+                const cardOwnerSnapshot = await getDocs(cardQuery);
+        
+                if (cardOwnerSnapshot.empty) {
+                    setSearchError("لم يتم العثور على مستخدم بهذه البطاقة.");
+                } else {
+                    const cardOwnerDoc = cardOwnerSnapshot.docs[0];
+                    const ownerData = cardOwnerDoc.data();
+                    if (cardOwnerDoc.id === currentUser?.uid) {
                         setSearchError("لا يمكن إضافة بطاقتك الخاصة.");
                     } else {
-                        setFoundUser({ ownerId: result.ownerId, ownerName: result.ownerName });
+                        setFoundUser({ ownerId: cardOwnerDoc.id, ownerName: ownerData.displayName });
                     }
                 }
             } catch (error: any) {
-                console.error("Error calling findCardOwner flow:", error);
+                console.error("Error searching for card owner:", error);
                 setSearchError("حدث خطأ أثناء البحث.");
             } finally {
                 setIsSearching(false);
@@ -98,7 +101,7 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
             setFoundUser(null);
             setSearchError(null);
         }
-    }, [debouncedCardNumber, currentUser?.uid]);
+    }, [debouncedCardNumber, currentUser?.uid, firestore]);
 
 
     const handleSendRequest = async () => {
@@ -112,7 +115,6 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
 
         setRequestStatus('sending');
         try {
-            // Fetch the current user's profile to get their display name reliably
             const requesterDoc = await getDoc(doc(firestore, 'users', currentUser.uid));
             const requesterData = requesterDoc.data();
 
@@ -270,7 +272,7 @@ export default function WalletPage() {
         await runTransaction(firestore, async (transaction) => {
             const cardsRef = collection(firestore, 'rechargeCards');
             const q = query(cardsRef, where("code", "==", sanitizedCode));
-            const cardSnapshot = await transaction.get(q);
+            const cardSnapshot = await getDocs(q);
 
             if (cardSnapshot.empty) {
                 throw new Error("رمز الكرت غير صالح.");

@@ -13,11 +13,10 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, DocumentData } from 'firebase/firestore';
+import { doc, DocumentData, runTransaction, collection, query, where, getDocs, serverTimestamp, increment } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCart } from '@/hooks/use-cart';
-import { processPayment } from '@/ai/flows/process-payment-flow';
 
 const getImage = (id: string | undefined) => {
     if (!id) return 'https://picsum.photos/seed/placeholder/200/200';
@@ -61,69 +60,94 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
     const [newCardCvv, setNewCardCvv] = useState('');
 
     const handlePayment = async () => {
-        if (!user || !userData) {
+        if (!user || !userData || !firestore) {
             toast({ variant: 'destructive', title: 'خطأ', description: 'يجب تسجيل الدخول لإتمام العملية.' });
             return;
         }
         setPaymentStatus('processing');
-
-        let paymentCard: any;
+        
+        const cartDataForOrder = cartItems.map(item => ({ id: item.id, name: item.name, price: item.price, quantity: item.quantity }));
+        let finalPaymentCardNumber: string;
+        let cardType: 'primary' | 'linked' | 'new';
 
         if (selectedPaymentCardNumber === 'primary') {
-            if (!userData.wallet) {
-                toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على بطاقة أساسية.' });
-                setPaymentStatus('idle');
-                return;
-            }
-            paymentCard = {
-                type: 'primary',
-                cardNumber: userData.wallet.cardNumber,
-            };
+            finalPaymentCardNumber = userData.wallet.cardNumber;
+            cardType = 'primary';
         } else if (selectedPaymentCardNumber === 'new') {
-             const sanitizedCardNumber = newCardNumber.replace(/\s/g, '');
-             if (!sanitizedCardNumber || !newCardExpiry || !newCardCvv) {
-                toast({ variant: 'destructive', title: 'بيانات ناقصة', description: 'الرجاء إدخال جميع بيانات البطاقة الجديدة.' });
-                setPaymentStatus('idle');
-                return;
-            }
-            if (sanitizedCardNumber.length !== 16) {
-                toast({ variant: 'destructive', title: 'خطأ في البطاقة', description: 'يجب أن يتكون رقم البطاقة من 16 رقمًا.' });
-                setPaymentStatus('idle');
-                return;
-            }
-            paymentCard = {
-                type: 'new',
-                cardNumber: sanitizedCardNumber,
-                expiryDate: newCardExpiry,
-                cvv: newCardCvv,
-            };
+            finalPaymentCardNumber = newCardNumber.replace(/\s/g, '');
+            cardType = 'new';
         } else {
-             const linkedWallet = userData.linkedWallets?.find(w => w.cardNumber === selectedPaymentCardNumber);
-            if (!linkedWallet) {
-                toast({ variant: 'destructive', title: 'خطأ', description: 'لم يتم العثور على البطاقة المرتبطة.' });
-                setPaymentStatus('idle');
-                return;
-            }
-            paymentCard = {
-                type: 'linked',
-                cardNumber: linkedWallet.cardNumber,
-            };
+            finalPaymentCardNumber = selectedPaymentCardNumber;
+            cardType = 'linked';
         }
         
         try {
-            const result = await processPayment({
-                buyerId: user.uid,
-                buyerName: userData.displayName,
-                cartItems: cartItems.map(item => ({ id: item.id, name: item.name, price: item.price, quantity: item.quantity })),
-                totalAmount,
-                paymentCard,
+            await runTransaction(firestore, async (transaction) => {
+                const usersRef = collection(firestore, 'users');
+                const cardQuery = query(usersRef, where("wallet.cardNumber", "==", finalPaymentCardNumber));
+                const cardOwnerSnapshot = await getDocs(cardQuery);
+
+                if (cardOwnerSnapshot.empty) {
+                    throw new Error("لم يتم العثور على البطاقة المحددة.");
+                }
+
+                const cardOwnerDoc = cardOwnerSnapshot.docs[0];
+                const cardOwnerId = cardOwnerDoc.id;
+                const cardOwnerData = cardOwnerDoc.data();
+                const cardOwnerRef = doc(firestore, 'users', cardOwnerId);
+
+                if (cardType === 'new') {
+                    if (cardOwnerData.wallet.cvv !== newCardCvv || cardOwnerData.wallet.expiryDate !== newCardExpiry) {
+                        throw new Error("بيانات البطاقة (CVV أو تاريخ الانتهاء) غير صحيحة.");
+                    }
+                }
+                
+                if (cardOwnerData.wallet.status !== 'active') {
+                    throw new Error(`بطاقة ${cardOwnerData.displayName} معلقة حاليًا.`);
+                }
+                if (cardOwnerData.wallet.balance < totalAmount) {
+                    throw new Error(`الرصيد في بطاقة ${cardOwnerData.displayName} غير كافٍ.`);
+                }
+
+                // Debit the card owner's wallet
+                transaction.update(cardOwnerRef, { "wallet.balance": increment(-totalAmount) });
+
+                // Create transaction log for the card owner
+                const ownerTransactionRef = doc(collection(firestore, `users/${cardOwnerId}/transactions`));
+                transaction.set(ownerTransactionRef, {
+                    type: 'شراء',
+                    amount: -totalAmount,
+                    date: serverTimestamp(),
+                    description: cardOwnerId === user.uid
+                        ? `شراء منتجات من التطبيق`
+                        : `شراء منتجات من قبل المستخدم ${userData.displayName}`
+                });
+
+                // Create transaction log for the buyer (if different from owner)
+                if (cardOwnerId !== user.uid) {
+                    const buyerTransactionRef = doc(collection(firestore, `users/${user.uid}/transactions`));
+                    transaction.set(buyerTransactionRef, {
+                        type: 'شراء',
+                        amount: 0,
+                        date: serverTimestamp(),
+                        description: `تم الدفع باستخدام بطاقة ${cardOwnerData.displayName}`
+                    });
+                }
+
+                // Create the order document
+                const orderRef = doc(collection(firestore, 'orders'));
+                transaction.set(orderRef, {
+                    userId: user.uid,
+                    userName: userData.displayName,
+                    items: cartDataForOrder,
+                    totalAmount: totalAmount,
+                    status: 'pending',
+                    paymentMethod: `**** ${finalPaymentCardNumber.slice(-4)}`,
+                    createdAt: serverTimestamp(),
+                });
             });
 
-            if (result.success) {
-                setPaymentStatus('success');
-            } else {
-                throw new Error(result.message);
-            }
+            setPaymentStatus('success');
 
         } catch (error: any) {
             console.error("Payment error:", error);
@@ -196,7 +220,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                             </Label>
                         ))}
                         
-                        <Label htmlFor="new" className="flex items-center gap-4 rounded-md border p-4 hover-bg-accent has-[[data-state=checked]]:border-primary">
+                        <Label htmlFor="new" className="flex items-center gap-4 rounded-md border p-4 hover:bg-accent has-[[data-state=checked]]:border-primary">
                             <RadioGroupItem value="new" id="new" />
                             <span>استخدام بطاقة جديدة</span>
                         </Label>
