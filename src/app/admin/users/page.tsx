@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import AdminSubPageLayout from '../layout';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Copy, MoreHorizontal, LoaderCircle, Trash2 } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, LoaderCircle, Trash2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import {
@@ -202,11 +202,6 @@ export default function UsersPage() {
         }
     };
 
-
-    const copyToClipboard = (text: string) => {
-        navigator.clipboard.writeText(text);
-        toast({ title: 'تم النسخ!', description: 'تم نسخ كلمة المرور إلى الحافظة.' });
-    };
     
   return (
     <AdminSubPageLayout title="المستخدمون">
@@ -291,9 +286,6 @@ export default function UsersPage() {
                                 <TableCell>
                                     <div className="flex items-center gap-2">
                                         <span className="font-mono">{user.tempPassword}</span>
-                                        {user.tempPassword && <Button variant="ghost" size="icon" onClick={() => copyToClipboard(user.tempPassword!)}>
-                                            <Copy className="h-4 w-4" />
-                                        </Button>}
                                     </div>
                                 </TableCell>
                                 <TableCell>
