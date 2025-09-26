@@ -173,25 +173,34 @@ export default function ShopPage() {
                             <h2 className="mb-4 text-2xl font-bold">{category.name}</h2>
                             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                                 {category.products.map(product => (
-                                    <Link href={`/product/${product.id}`} key={product.id}>
-                                        <Card className="overflow-hidden h-full">
-                                            <CardContent className="p-0 flex flex-col h-full">
-                                                <div className='relative w-full aspect-square'>
-                                                <Image 
-                                                    src={product.imageUrl || getImage('category-sweets')} 
+                                    <Link href={`/product/${product.id}`} key={product.id} className="h-full">
+                                        <div className="relative flex flex-col h-full overflow-hidden rounded-lg bg-card text-card-foreground shadow-sm hover:shadow-md transition-shadow duration-200">
+                                            <div className="relative w-full aspect-[4/3] bg-muted">
+                                                <Image
+                                                    src={product.imageUrl || getImage('category-sweets')}
                                                     alt={product.name}
                                                     fill
                                                     className="object-cover"
                                                     sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                                                     data-ai-hint={product.imageHint || product.name}
                                                 />
+                                            </div>
+                                            <div className="relative p-4 flex flex-col flex-grow bg-card">
+                                                <div className="absolute top-0 left-0 right-0 h-px bg-transparent -translate-y-1/2">
+                                                    <div className="absolute top-0 left-0 right-0 h-full bg-card" style={{
+                                                        maskImage: 'radial-gradient(circle at 0 0, transparent 0.5rem, black 0.5rem), radial-gradient(circle at 100% 0, transparent 0.5rem, black 0.5rem)',
+                                                        maskComposite: 'intersect',
+                                                    }}>
+                                                        <div className="border-t border-dashed border-border h-full"></div>
+                                                    </div>
                                                 </div>
-                                                <div className="p-4 flex flex-col flex-grow">
-                                                    <h3 className="font-semibold truncate flex-grow">{product.name}</h3>
-                                                    <p className="text-primary font-bold mt-2">{product.price.toFixed(2)} د.ل</p>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
+                                                <div className="absolute -top-3 -left-3 w-6 h-6 bg-background rounded-full"></div>
+                                                <div className="absolute -top-3 -right-3 w-6 h-6 bg-background rounded-full"></div>
+
+                                                <h3 className="font-semibold truncate flex-grow">{product.name}</h3>
+                                                <p className="text-primary font-bold mt-2">{product.price.toFixed(2)} د.ل</p>
+                                            </div>
+                                        </div>
                                     </Link>
                                 ))}
                             </div>
@@ -244,4 +253,3 @@ export default function ShopPage() {
     </div>
   );
 }
-
