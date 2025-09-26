@@ -9,6 +9,7 @@ import {
   Search,
   ShoppingCart,
   Wallet,
+  Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +17,8 @@ import {
   Carousel,
   CarouselContent,
   CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
 } from '@/components/ui/carousel';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useCollection, useMemoFirebase } from '@/firebase';
@@ -25,6 +28,8 @@ import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import Autoplay from "embla-carousel-autoplay";
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
+import { useCart } from '@/hooks/use-cart';
+import { useToast } from '@/hooks/use-toast';
 
 
 const getImage = (id: string) => {
@@ -64,6 +69,8 @@ export default function ShopPage() {
   const firestore = useFirestore();
   const [categoriesWithProducts, setCategoriesWithProducts] = useState<CategoryWithProducts[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { addItem } = useCart();
+  const { toast } = useToast();
   
   const categoriesQuery = useMemoFirebase(() => {
       if (!firestore) return null;
@@ -103,6 +110,15 @@ export default function ShopPage() {
 
   }, [categories, firestore, isLoadingCategories]);
 
+  const handleAddToCart = (e: React.MouseEvent, product: Product) => {
+    e.preventDefault();
+    e.stopPropagation();
+    addItem({ ...product, quantity: 1 });
+    toast({
+      title: "تمت الإضافة إلى السلة",
+      description: `1x ${product.name}`,
+    });
+  };
 
   return (
     <div dir="rtl">
@@ -124,7 +140,7 @@ export default function ShopPage() {
                     ) : (
                         <Carousel
                             plugins={[Autoplay({ delay: 5000 })]}
-                            opts={{ loop: true }}
+                            opts={{ loop: true, direction: 'rtl' }}
                             className="w-full"
                         >
                             <CarouselContent>
@@ -150,7 +166,7 @@ export default function ShopPage() {
                     )}
                 </section>
                 
-                <div className="space-y-8">
+                <div className="space-y-12">
                     {isLoading ? (
                         Array.from({length: 3}).map((_, i) => (
                             <div key={i} className="space-y-4">
@@ -159,7 +175,7 @@ export default function ShopPage() {
                                     {Array.from({length: 4}).map((_, j) => (
                                         <Card key={j}>
                                             <CardContent className="p-0">
-                                                <Skeleton className="w-full h-32" />
+                                                <Skeleton className="w-full h-40" />
                                                 <div className="p-4 space-y-2">
                                                     <Skeleton className="h-4 w-4/5" />
                                                     <Skeleton className="h-4 w-1/2" />
@@ -173,39 +189,48 @@ export default function ShopPage() {
                     ) : categoriesWithProducts.filter(cat => cat.products.length > 0).map(category => (
                         <section key={category.id}>
                             <h2 className="mb-4 text-2xl font-bold">{category.name}</h2>
-                            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                            <Carousel
+                              opts={{
+                                align: "start",
+                                dragFree: true,
+                                direction: 'rtl'
+                              }}
+                              className="w-full"
+                            >
+                              <CarouselContent className="-mr-4">
                                 {category.products.map(product => (
-                                    <Link href={`/product/${product.id}`} key={product.id} className="h-full">
-                                        <div className="relative flex flex-col h-full overflow-hidden rounded-lg bg-card text-card-foreground shadow-sm hover:shadow-md transition-shadow duration-200">
-                                            <div className="relative w-full aspect-[4/3] bg-muted">
-                                                <Image
-                                                    src={product.imageUrl || getImage('category-sweets')}
-                                                    alt={product.name}
-                                                    fill
-                                                    className="object-cover"
-                                                    sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-                                                    data-ai-hint={product.imageHint || product.name}
-                                                />
+                                  <CarouselItem key={product.id} className="basis-1/2 md:basis-1/3 lg:basis-1/4 pr-4">
+                                    <Link href={`/product/${product.id}`} className="block group">
+                                      <Card className="overflow-hidden h-full flex flex-col">
+                                        <CardContent className="p-0 flex flex-col flex-grow">
+                                          <div className="relative w-full aspect-[4/3] bg-muted">
+                                            <Image
+                                                src={product.imageUrl || getImage('category-sweets')}
+                                                alt={product.name}
+                                                fill
+                                                className="object-cover transition-transform duration-300 group-hover:scale-105"
+                                                sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                                                data-ai-hint={product.imageHint || product.name}
+                                            />
+                                          </div>
+                                          <div className="p-4 bg-muted/50 flex flex-col flex-grow">
+                                            <h3 className="font-semibold truncate flex-grow mb-2">{product.name}</h3>
+                                            <div className="flex items-end justify-between">
+                                                <p className="text-primary font-bold">{product.price.toFixed(2)} د.ل</p>
+                                                <Button size="icon" className="h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => handleAddToCart(e, product)}>
+                                                  <Plus className="h-4 w-4" />
+                                                </Button>
                                             </div>
-                                            <div className="relative p-4 flex flex-col flex-grow bg-card">
-                                                <div className="absolute top-0 left-0 right-0 h-px bg-transparent -translate-y-1/2">
-                                                    <div className="absolute top-0 left-0 right-0 h-full bg-card" style={{
-                                                        maskImage: 'radial-gradient(circle at 0 0, transparent 0.5rem, black 0.5rem), radial-gradient(circle at 100% 0, transparent 0.5rem, black 0.5rem)',
-                                                        maskComposite: 'intersect',
-                                                    }}>
-                                                        <div className="border-t border-dashed border-border h-full"></div>
-                                                    </div>
-                                                </div>
-                                                <div className="absolute -top-3 -left-3 w-6 h-6 bg-background rounded-full"></div>
-                                                <div className="absolute -top-3 -right-3 w-6 h-6 bg-background rounded-full"></div>
-
-                                                <h3 className="font-semibold truncate flex-grow">{product.name}</h3>
-                                                <p className="text-primary font-bold mt-2">{product.price.toFixed(2)} د.ل</p>
-                                            </div>
-                                        </div>
+                                          </div>
+                                        </CardContent>
+                                      </Card>
                                     </Link>
+                                  </CarouselItem>
                                 ))}
-                            </div>
+                              </CarouselContent>
+                              <CarouselPrevious className="absolute top-1/2 -translate-y-1/2 left-0 disabled:opacity-0" />
+                              <CarouselNext className="absolute top-1/2 -translate-y-1/2 right-0 disabled:opacity-0" />
+                            </Carousel>
                         </section>
                     ))}
                 </div>
