@@ -3,7 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, Gift, PlusCircle, LoaderCircle, CheckCircle2, Wifi, BadgeHelp, Star } from 'lucide-react';
+import { Home, MoreHorizontal, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, PlusCircle, LoaderCircle, CheckCircle2, Wifi, BadgeHelp, Star } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -54,8 +54,8 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
 
     useEffect(() => {
         const findUser = async () => {
-            const sanitizedCardNumber = cardNumber.replace(/\s/g, '');
-            if (!sanitizedCardNumber || sanitizedCardNumber.length !== 16 || !firestore) {
+            const sanitizedCardNumber = debouncedCardNumber.replace(/\s/g, '');
+            if (!sanitizedCardNumber || !firestore) {
                 setFoundUser(null);
                 return;
             }
@@ -84,11 +84,17 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
         };
 
         findUser();
-    }, [debouncedCardNumber, firestore, currentUser?.uid, toast, cardNumber]);
+    }, [debouncedCardNumber, firestore, currentUser?.uid, toast]);
 
     const handleSendRequest = async () => {
         if (!foundUser || !currentUser || !firestore) return;
         
+        const sanitizedCardNumber = cardNumber.replace(/\s/g, '');
+        if (sanitizedCardNumber.length !== 16) {
+            toast({ variant: 'destructive', title: 'رقم بطاقة غير صالح', description: 'يجب أن يتكون رقم البطاقة من 16 رقمًا.' });
+            return;
+        }
+
         setRequestStatus('sending');
         try {
             const requestsRef = collection(firestore, 'cardLinkRequests');
@@ -144,7 +150,7 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
                         </CardContent>
                     </Card>
                 )}
-                {!foundUser && !isSearching && cardNumber.length > 0 && cardNumber.replace(/\s/g, '').length === 16 && (
+                {!foundUser && !isSearching && debouncedCardNumber.replace(/\s/g, '').length > 0 && (
                     <p className="text-sm text-destructive">لم يتم العثور على مستخدم بهذه البطاقة.</p>
                 )}
             </div>
@@ -307,7 +313,7 @@ export default function WalletPage() {
           case 'success':
               return { Icon: () => <CheckCircle2 className="h-16 w-16 text-green-500" />, message: 'تمت إضافة الرصيد بنجاح!' };
           default:
-              return { Icon: () => <Gift className="h-16 w-16 text-muted-foreground" />, message: 'أدخل رمز كرت التعبئة لشحن محفظتك.' };
+              return { Icon: () => <CreditCard className="h-16 w-16 text-muted-foreground" />, message: 'أدخل رمز كرت التعبئة لشحن محفظتك.' };
       }
   }, [rechargeStatus]);
   
