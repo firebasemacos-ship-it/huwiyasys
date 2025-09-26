@@ -6,9 +6,9 @@ import { Search as SearchIcon, Home, ShoppingCart, Wallet, Ticket } from 'lucide
 
 export default function SearchPage() {
   return (
-    <div className="bg-background text-foreground" dir="rtl">
+    <div className="dark bg-background text-foreground" dir="rtl">
       <div className="flex min-h-screen flex-col">
-        <header className="sticky top-0 z-40 w-full border-b bg-background/95 p-4 backdrop-blur">
+        <header className="sticky top-0 z-40 w-full border-b bg-background/30 p-4 backdrop-blur-lg">
           <div className="relative">
             <Input
               type="search"
@@ -26,7 +26,7 @@ export default function SearchPage() {
           </div>
         </main>
 
-        <footer className="fixed bottom-0 z-40 w-full border-t bg-background">
+        <footer className="fixed bottom-0 z-40 w-full border-t border-white/10 bg-background/30 backdrop-blur-lg">
           <nav className="flex items-center justify-around p-2">
             <a
               href="/shop"

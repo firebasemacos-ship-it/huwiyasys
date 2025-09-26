@@ -78,9 +78,9 @@ export default function ProductDetailPage() {
   }
 
   return (
-    <div dir="rtl">
-        <div className="flex min-h-screen flex-col">
-            <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b bg-background/95 p-4 backdrop-blur">
+    <div dir="rtl" className="dark">
+        <div className="flex min-h-screen flex-col bg-background text-foreground">
+            <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b bg-background/30 p-4 backdrop-blur-lg">
             <h1 className="text-xl font-bold truncate">{product.name}</h1>
             <Button variant="ghost" size="icon" onClick={() => window.history.back()}>
                 <ArrowLeft className="h-6 w-6" />
@@ -99,7 +99,7 @@ export default function ProductDetailPage() {
                     />
                 </div>
                 
-                <div className="bg-background p-4 rounded-t-2xl -mt-6 relative z-10 space-y-4">
+                <div className="bg-background/30 backdrop-blur-lg p-4 rounded-t-2xl -mt-6 relative z-10 space-y-4 border-t border-white/10">
                      <h2 className="text-3xl font-bold">{product.name}</h2>
                      <p className="text-2xl font-bold text-primary">{product.price.toFixed(2)} د.ل</p>
 
@@ -114,7 +114,7 @@ export default function ProductDetailPage() {
                 </div>
              </main>
              
-             <div className="fixed bottom-0 z-40 w-full bg-background p-4 shadow-t-strong">
+             <div className="fixed bottom-0 z-40 w-full border-t border-white/10 bg-background/30 p-4 shadow-t-strong backdrop-blur-lg">
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2 rounded-full border p-1">
                         <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full" onClick={() => setQuantity(q => q + 1)}>

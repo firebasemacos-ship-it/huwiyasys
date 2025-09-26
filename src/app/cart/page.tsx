@@ -329,9 +329,9 @@ export default function CartPage() {
 
 
   return (
-    <div>
-      <div className="flex min-h-screen flex-col">
-        <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b bg-background/95 p-4 backdrop-blur">
+    <div className="dark">
+      <div className="flex min-h-screen flex-col bg-background text-foreground">
+        <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b bg-background/30 p-4 backdrop-blur-lg">
           <h1 className="text-xl font-bold">السلة</h1>
           <Button variant="ghost" size="icon" onClick={() => window.history.back()}>
             <ArrowLeft className="h-6 w-6" />
@@ -385,7 +385,7 @@ export default function CartPage() {
         </main>
         
         {cartItems.length > 0 && (
-            <div className="fixed bottom-24 z-30 w-full bg-background p-4 shadow-t-strong">
+            <div className="fixed bottom-24 z-30 w-full border-t border-white/10 bg-background/30 p-4 shadow-t-strong backdrop-blur-lg">
                 <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                         <span>المجموع الفرعي</span>
@@ -411,7 +411,7 @@ export default function CartPage() {
             </div>
         )}
 
-        <footer className="fixed bottom-0 z-40 w-full border-t bg-background">
+        <footer className="fixed bottom-0 z-40 w-full border-t border-white/10 bg-background/30 backdrop-blur-lg">
           <nav className="flex items-center justify-around p-2">
             <a
               href="/shop"

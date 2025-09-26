@@ -125,7 +125,7 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
 
     if (requestStatus === 'sent') {
         return (
-            <DialogContent dir="rtl">
+            <DialogContent dir="rtl" className="dialog-content">
                 <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
                     <CheckCircle2 className="h-16 w-16 text-green-500" />
                     <DialogTitle className="text-2xl">تم إرسال الطلب بنجاح</DialogTitle>
@@ -137,7 +137,7 @@ function AddCardDialog({ onClose }: { onClose: () => void }) {
     }
 
     return (
-        <DialogContent dir="rtl">
+        <DialogContent dir="rtl" className="dialog-content">
             <DialogHeader>
                 <DialogTitle>إضافة بطاقة جديدة</DialogTitle>
                 <DialogDescription>أدخل رقم بطاقة مستخدم آخر لطلب ربطها بحسابك.</DialogDescription>
@@ -363,7 +363,7 @@ export default function WalletPage() {
       <CardLinkRequestHandler />
       <AcceptedRequestProcessor />
       <div className="flex min-h-screen flex-col">
-        <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b bg-background/95 p-4 backdrop-blur">
+        <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b bg-background/30 p-4 backdrop-blur-lg">
           <h1 className="text-xl font-bold">المحفظة</h1>
           <Button variant="ghost" size="icon" onClick={() => window.history.back()}>
             <ArrowLeft className="h-6 w-6" />
@@ -455,7 +455,7 @@ export default function WalletPage() {
                     شحن الرصيد
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md" dir="rtl">
+            <DialogContent className="sm:max-w-md dialog-content" dir="rtl">
                 <DialogHeader className="text-center">
                     <DialogTitle className="text-2xl">شحن الرصيد</DialogTitle>
                 </DialogHeader>
@@ -564,7 +564,7 @@ export default function WalletPage() {
           </Card>
         </main>
 
-        <footer className="fixed bottom-0 z-40 w-full border-t bg-background">
+        <footer className="fixed bottom-0 z-40 w-full border-t border-white/10 bg-background/30 backdrop-blur-lg">
           <nav className="flex items-center justify-around p-2">
             <a
               href="/shop"
@@ -607,5 +607,3 @@ export default function WalletPage() {
     </div>
   );
 }
-
-

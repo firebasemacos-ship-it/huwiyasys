@@ -69,4 +69,7 @@
   .dark .card, .dark [class*="card"] {
     @apply bg-black/30 border-white/10 backdrop-blur-lg;
   }
+  .dark .dialog-content {
+     @apply bg-black/30 border-white/10 backdrop-blur-lg;
+  }
 }

@@ -121,9 +121,9 @@ export default function ShopPage() {
   };
 
   return (
-    <div dir="rtl">
-      <div className="flex min-h-screen flex-col">
-        <header className="sticky top-0 z-40 w-full border-b bg-background/95 p-4 backdrop-blur">
+    <div dir="rtl" className="dark">
+      <div className="flex min-h-screen flex-col bg-background text-foreground">
+        <header className="sticky top-0 z-40 w-full border-b bg-background/30 p-4 backdrop-blur-lg">
           <div className="flex items-center justify-between">
             <ThemeToggleButton />
             <Button variant="ghost" size="icon">
@@ -199,11 +199,10 @@ export default function ShopPage() {
                             >
                               <CarouselContent className="-mr-4">
                                 {category.products.map(product => (
-                                  <CarouselItem key={product.id} className="basis-1/2 md:basis-1/3 lg:basis-1/4 pr-4">
-                                    <Link href={`/product/${product.id}`} className="block group">
-                                      <Card className="overflow-hidden h-full flex flex-col">
-                                        <CardContent className="p-0 flex flex-col flex-grow">
-                                          <div className="relative w-full aspect-[4/3] bg-muted">
+                                  <CarouselItem key={product.id} className="basis-1/2 md:basis-1/3 lg:basis-1/4 pr-4 group">
+                                    <Link href={`/product/${product.id}`} className="block h-full">
+                                      <Card className="overflow-hidden h-full flex flex-col transition-all duration-300 group-hover:shadow-primary/20 group-hover:shadow-lg">
+                                        <div className="relative w-full aspect-[4/3] bg-muted overflow-hidden">
                                             <Image
                                                 src={product.imageUrl || getImage('category-sweets')}
                                                 alt={product.name}
@@ -212,24 +211,21 @@ export default function ShopPage() {
                                                 sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                                                 data-ai-hint={product.imageHint || product.name}
                                             />
-                                          </div>
-                                          <div className="p-4 bg-muted/50 flex flex-col flex-grow">
-                                            <h3 className="font-semibold truncate flex-grow mb-2">{product.name}</h3>
+                                        </div>
+                                        <div className="p-3 bg-background/80 flex flex-col flex-grow relative">
+                                            <h3 className="font-semibold truncate flex-grow mb-2 text-sm">{product.name}</h3>
                                             <div className="flex items-end justify-between">
                                                 <p className="text-primary font-bold">{product.price.toFixed(2)} د.ل</p>
-                                                <Button size="icon" className="h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => handleAddToCart(e, product)}>
+                                                <Button size="icon" className="h-8 w-8 shrink-0" onClick={(e) => handleAddToCart(e, product)}>
                                                   <Plus className="h-4 w-4" />
                                                 </Button>
                                             </div>
-                                          </div>
-                                        </CardContent>
+                                        </div>
                                       </Card>
                                     </Link>
                                   </CarouselItem>
                                 ))}
                               </CarouselContent>
-                              <CarouselPrevious className="absolute top-1/2 -translate-y-1/2 left-0 disabled:opacity-0" />
-                              <CarouselNext className="absolute top-1/2 -translate-y-1/2 right-0 disabled:opacity-0" />
                             </Carousel>
                         </section>
                     ))}
@@ -237,7 +233,7 @@ export default function ShopPage() {
             </div>
         </main>
 
-        <footer className="fixed bottom-0 z-40 w-full border-t bg-background">
+        <footer className="fixed bottom-0 z-40 w-full border-t border-white/10 bg-background/30 backdrop-blur-lg">
           <nav className="flex items-center justify-around p-2">
             <a
               href="/shop"
