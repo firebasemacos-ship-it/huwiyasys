@@ -13,10 +13,12 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, DocumentData, runTransaction, collection, query, where, getDocs, serverTimestamp, increment, addDoc, getDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { doc, DocumentData, runTransaction, collection, query, where, getDocs, serverTimestamp, increment, addDoc, getDoc, updateDoc, onSnapshot, arrayUnion } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCart } from '@/hooks/use-cart';
+import { v4 as uuidv4 } from 'uuid';
+
 
 const getImage = (id: string | undefined) => {
     if (!id) return 'https://picsum.photos/seed/placeholder/200/200';
@@ -132,6 +134,8 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                     if (cardOwnerData.wallet.balance < totalAmount) {
                         throw new Error(`الرصيد في بطاقة ${cardOwnerData.displayName} غير كافٍ.`);
                     }
+                    
+                    const buyerRef = doc(firestore, 'users', user.uid);
 
                     transaction.update(cardOwnerRef, { "wallet.balance": increment(-totalAmount) });
                     const ownerTransactionRef = doc(collection(firestore, `users/${cardOwnerId}/transactions`));
@@ -145,11 +149,25 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                             type: 'شراء', amount: 0, date: serverTimestamp(), description: `تم الدفع باستخدام بطاقة ${cardOwnerData.displayName}`
                         });
                     }
+                    
                     const orderRef = doc(collection(firestore, 'orders'));
                     transaction.set(orderRef, {
                         userId: user.uid, userName: userData.displayName, items: cartDataForOrder, totalAmount: totalAmount,
                         status: 'pending', paymentMethod: `**** ${finalPaymentCardNumber.slice(-4)}`, createdAt: serverTimestamp(),
                     });
+
+                    // Add order subscription to user
+                    const orderSubscription = {
+                        id: uuidv4(),
+                        category: 'order',
+                        status: 'reviewing',
+                        orderName: `طلب منتجات متنوعة`,
+                        orderId: orderRef.id,
+                        totalAmount: totalAmount,
+                        itemCount: cartItems.reduce((acc, item) => acc + item.quantity, 0),
+                        createdAt: serverTimestamp(),
+                    };
+                    transaction.update(buyerRef, { subscriptions: arrayUnion(orderSubscription) });
                 });
                 setPaymentStatus('success');
             } catch (error: any) {
@@ -204,7 +222,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                 <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
                     <CheckCircle2 className="h-16 w-16 text-green-500" />
                     <DialogTitle className="text-2xl">تم الدفع بنجاح</DialogTitle>
-                    <DialogDescription>شكراً لك! تم استلام طلبك بنجاح.</DialogDescription>
+                    <DialogDescription>شكراً لك! تم استلام طلبك وهو الآن قيد المراجعة.</DialogDescription>
                     <Button className="mt-4" onClick={resetAndClose}>إغلاق</Button>
                 </div>
             </DialogContent>

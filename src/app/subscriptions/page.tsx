@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Home, Search, ShoppingCart, Ticket, Wallet as WalletIcon, ArrowLeft, XCircle, Globe, Palette, Package, CalendarDays, Server, Star } from 'lucide-react';
+import { Home, Search, ShoppingCart, Ticket, Wallet as WalletIcon, ArrowLeft, XCircle, Globe, Palette, Package, CalendarDays, Server, Star, Hourglass, ShoppingBag } from 'lucide-react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, DocumentData } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -11,13 +12,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { format, isValid } from 'date-fns';
 
 // Consistent Subscription Types from admin page
-type SubscriptionCategory = 'domain' | 'design' | 'sales_system';
+type SubscriptionCategory = 'domain' | 'design' | 'sales_system' | 'order';
 
 interface BaseSubscription {
   id: string;
   category: SubscriptionCategory;
-  status: 'active' | 'cancelled' | 'expired';
-  endDate: any;
+  status: 'active' | 'cancelled' | 'expired' | 'reviewing';
   createdAt: any;
 }
 
@@ -27,21 +27,33 @@ interface DomainSubscription extends BaseSubscription {
   provider: string;
   planType: string;
   startDate: any;
+  endDate: any;
 }
 
 interface DesignSubscription extends BaseSubscription {
   category: 'design';
   projectName: string;
   planType: string;
+  endDate: any;
 }
 
 interface SalesSystemSubscription extends BaseSubscription {
   category: 'sales_system';
   systemName: string;
   planType: string;
+  endDate: any;
 }
 
-type Subscription = DomainSubscription | DesignSubscription | SalesSystemSubscription;
+interface OrderSubscription extends BaseSubscription {
+    category: 'order';
+    orderName: string;
+    orderId: string;
+    totalAmount: number;
+    itemCount: number;
+}
+
+
+type Subscription = DomainSubscription | DesignSubscription | SalesSystemSubscription | OrderSubscription;
 
 
 interface UserProfile extends DocumentData {
@@ -67,7 +79,7 @@ const safeToDate = (date: any): Date | undefined => {
     }
 };
 
-const SubscriptionDetail = ({ label, value, icon }: { label: string, value: string | undefined, icon: React.ReactNode }) => {
+const SubscriptionDetail = ({ label, value, icon }: { label: string, value: string | number | undefined, icon: React.ReactNode }) => {
     if (!value) return null;
     return (
         <div className="flex items-center gap-3 text-sm">
@@ -93,8 +105,8 @@ export default function SubscriptionsPage() {
     const subscriptions = useMemo(() => {
         if (!userData?.subscriptions) return [];
         return [...userData.subscriptions].sort((a, b) => {
-            const dateA = safeToDate(a.endDate) || new Date(0);
-            const dateB = safeToDate(b.endDate) || new Date(0);
+            const dateA = safeToDate((a as any).endDate || a.createdAt) || new Date(0);
+            const dateB = safeToDate((b as any).endDate || b.createdAt) || new Date(0);
             return dateB.getTime() - dateA.getTime();
         });
     }, [userData?.subscriptions]);
@@ -102,6 +114,7 @@ export default function SubscriptionsPage() {
     const getStatusVariant = (status: Subscription['status']) => {
         switch (status) {
             case 'active': return 'default';
+            case 'reviewing': return 'secondary';
             case 'expired': return 'secondary';
             case 'cancelled': return 'destructive';
             default: return 'outline';
@@ -110,6 +123,7 @@ export default function SubscriptionsPage() {
     const getStatusText = (status: Subscription['status']) => {
         switch (status) {
             case 'active': return 'نشط';
+            case 'reviewing': return 'قيد المراجعة';
             case 'expired': return 'منتهي';
             case 'cancelled': return 'ملغي';
             default: return status;
@@ -117,15 +131,28 @@ export default function SubscriptionsPage() {
     }
 
     const getCategoryDetails = (sub: Subscription) => {
-        const endDate = safeToDate(sub.endDate);
-        const formattedEndDate = endDate ? format(endDate, 'PPP') : 'تاريخ غير صالح';
+        const endDate = safeToDate((sub as any).endDate);
+        const formattedEndDate = endDate ? format(endDate, 'PPP') : undefined;
 
         switch(sub.category) {
+            case 'order':
+                 return {
+                    title: sub.orderName,
+                    icon: <ShoppingBag className="h-6 w-6 text-green-400" />,
+                    cardClassName: "bg-green-500/10 border-green-500/30",
+                    details: (
+                        <>
+                            <SubscriptionDetail label="عدد المنتجات" value={sub.itemCount} icon={<Package className="w-4 h-4"/>} />
+                            <SubscriptionDetail label="المبلغ الإجمالي" value={`${sub.totalAmount.toFixed(2)} د.ل`} icon={<WalletIcon className="w-4 h-4"/>} />
+                        </>
+                    )
+                }
             case 'domain':
                 const startDate = safeToDate(sub.startDate);
                 return {
                     title: sub.domainName,
                     icon: <Globe className="h-6 w-6 text-primary" />,
+                    cardClassName: "border-primary/20",
                     details: (
                         <>
                             <SubscriptionDetail label="الشركة" value={sub.provider} icon={<Server className="w-4 h-4"/>} />
@@ -139,6 +166,7 @@ export default function SubscriptionsPage() {
                 return {
                     title: sub.projectName,
                     icon: <Palette className="h-6 w-6 text-primary" />,
+                     cardClassName: "border-primary/20",
                     details: (
                         <>
                             <SubscriptionDetail label="الباقة" value={sub.planType} icon={<Star className="w-4 h-4"/>} />
@@ -150,6 +178,7 @@ export default function SubscriptionsPage() {
                 return {
                     title: sub.systemName,
                     icon: <Package className="h-6 w-6 text-primary" />,
+                     cardClassName: "border-primary/20",
                     details: (
                          <>
                             <SubscriptionDetail label="الباقة" value={sub.planType} icon={<Star className="w-4 h-4"/>} />
@@ -158,10 +187,11 @@ export default function SubscriptionsPage() {
                     )
                 }
             default:
-                const unhandledSub = sub as Subscription;
+                const unhandledSub = sub as any;
                 return {
-                    title: (unhandledSub as any).planName || 'اشتراك غير معروف',
+                    title: unhandledSub.planName || 'اشتراك غير معروف',
                     icon: <Ticket className="h-6 w-6 text-primary" />,
+                     cardClassName: "border-primary/20",
                     details: <SubscriptionDetail label="تاريخ الانتهاء" value={formattedEndDate} icon={<CalendarDays className="w-4 h-4"/>} />
                 }
         }
@@ -200,9 +230,9 @@ export default function SubscriptionsPage() {
             ) : subscriptions && subscriptions.length > 0 ? (
                  <div className="space-y-4">
                     {subscriptions.map(sub => {
-                       const { title, icon, details } = getCategoryDetails(sub);
+                       const { title, icon, details, cardClassName } = getCategoryDetails(sub);
                        return (
-                        <Card key={sub.id} className="overflow-hidden rounded-xl border-primary/20 bg-gradient-to-br from-card/80 to-card/60 transition-all hover:shadow-primary/10 hover:shadow-lg">
+                        <Card key={sub.id} className={`overflow-hidden rounded-xl bg-gradient-to-br from-card/80 to-card/60 transition-all hover:shadow-primary/10 hover:shadow-lg ${cardClassName}`}>
                             <CardHeader>
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-center gap-3">
@@ -215,6 +245,9 @@ export default function SubscriptionsPage() {
                                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                                 <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
                                             </span>
+                                        )}
+                                        {sub.status === 'reviewing' && (
+                                            <Hourglass className="h-4 w-4 animate-spin text-yellow-400" />
                                         )}
                                         <Badge variant={getStatusVariant(sub.status)} className="text-sm shrink-0">
                                             {getStatusText(sub.status)}

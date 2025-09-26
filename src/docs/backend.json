@@ -101,7 +101,8 @@
                 "oneOf": [
                     { "$ref": "#/entities/DomainSubscription" },
                     { "$ref": "#/entities/DesignSubscription" },
-                    { "$ref": "#/entities/SalesSystemSubscription" }
+                    { "$ref": "#/entities/SalesSystemSubscription" },
+                    { "$ref": "#/entities/OrderSubscription" }
                 ]
             }
         }
@@ -120,8 +121,8 @@
         "type": "object",
         "properties": {
             "id": { "type": "string", "description": "Unique identifier for the subscription." },
-            "category": { "type": "string", "enum": ["domain", "design", "sales_system"] },
-            "status": { "type": "string", "enum": ["active", "cancelled", "expired"] },
+            "category": { "type": "string", "enum": ["domain", "design", "sales_system", "order"] },
+            "status": { "type": "string", "enum": ["active", "cancelled", "expired", "reviewing"] },
             "createdAt": { "type": "string", "format": "date-time" }
         },
         "required": ["id", "category", "status", "createdAt"]
@@ -173,6 +174,23 @@
                     "endDate": { "type": "string", "format": "date-time" }
                 },
                 "required": ["systemName", "planType", "endDate"]
+            }
+        ]
+    },
+    "OrderSubscription": {
+        "title": "Order Subscription",
+        "allOf": [
+            { "$ref": "#/entities/BaseSubscription" },
+            {
+                "type": "object",
+                "properties": {
+                    "category": { "const": "order" },
+                    "orderName": { "type": "string", "description": "A descriptive name for the order, e.g., 'طلب منتجات متنوعة'." },
+                    "orderId": { "type": "string", "description": "The ID of the corresponding document in the /orders collection." },
+                    "totalAmount": { "type": "number" },
+                    "itemCount": { "type": "number" }
+                },
+                "required": ["orderName", "orderId", "totalAmount", "itemCount"]
             }
         ]
     },

@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, updateDoc, writeBatch, serverTimestamp, increment, addDoc, runTransaction } from 'firebase/firestore';
+import { collection, query, where, doc, updateDoc, writeBatch, serverTimestamp, increment, addDoc, runTransaction, arrayUnion } from 'firebase/firestore';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,10 +16,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { Button } from './ui/button';
+import { v4 as uuidv4 } from 'uuid';
+
 
 interface PaymentRequest {
   id: string;
   requesterName: string;
+  requesterId: string;
   ownerId: string;
   amount: number;
   status: 'pending' | 'approved' | 'rejected' | 'processed';
@@ -59,6 +62,8 @@ export function PaymentRequestHandler() {
         // Use a transaction to ensure atomicity
         await runTransaction(firestore, async (transaction) => {
             const ownerDocRef = doc(firestore, 'users', user.uid);
+            const requesterDocRef = doc(firestore, 'users', activeRequest.requesterId);
+
             const ownerDoc = await transaction.get(ownerDocRef);
 
             if (!ownerDoc.exists()) {
@@ -87,6 +92,20 @@ export function PaymentRequestHandler() {
             
             // 4. Mark the request as processed
             transaction.update(requestDocRef, { status: 'processed' });
+
+            // 5. Add order subscription to requester
+            const orderSubscription = {
+                id: uuidv4(),
+                category: 'order',
+                status: 'reviewing',
+                orderName: `طلب منتجات متنوعة`,
+                orderId: orderRef.id,
+                totalAmount: activeRequest.amount,
+                itemCount: activeRequest.orderData.items.reduce((acc: number, item: any) => acc + item.quantity, 0),
+                createdAt: serverTimestamp(),
+            };
+            transaction.update(requesterDocRef, { subscriptions: arrayUnion(orderSubscription) });
+
         });
 
         toast({ title: "تمت الموافقة", description: `تم خصم المبلغ وإنشاء الطلب.` });
