@@ -57,41 +57,41 @@ const processPaymentFlow = ai.defineFlow(
   async (input) => {
     // IMPORTANT: Initialize Firebase on the server for admin-like privileges
     const { firestore } = initializeFirebase();
+    const { buyerId, buyerName, cartItems, totalAmount, paymentCard } = input;
 
     try {
+      // --- 1. Find and Verify Card Owner (READ operation, outside transaction) ---
+      const usersRef = collection(firestore, 'users');
+      const cardQuery = query(usersRef, where("wallet.cardNumber", "==", paymentCard.cardNumber));
+      const cardOwnerSnapshot = await getDocs(cardQuery);
+
+      if (cardOwnerSnapshot.empty) {
+        throw new Error("لم يتم العثور على البطاقة المحددة.");
+      }
+
+      const cardOwnerDoc = cardOwnerSnapshot.docs[0];
+      const cardOwnerId = cardOwnerDoc.id;
+      const cardOwnerData = cardOwnerDoc.data();
+
+      // --- 2. Validate Card Details and Balance (READ operation, outside transaction) ---
+      // For new cards, validate CVV and expiry
+      if (paymentCard.type === 'new') {
+        if (cardOwnerData.wallet.cvv !== paymentCard.cvv || cardOwnerData.wallet.expiryDate !== paymentCard.expiryDate) {
+          throw new Error("بيانات البطاقة (CVV أو تاريخ الانتهاء) غير صحيحة.");
+        }
+      }
+      
+      // For all cards, check status and balance
+      if (cardOwnerData.wallet.status !== 'active') {
+           throw new Error(`بطاقة ${cardOwnerData.displayName} معلقة حاليًا.`);
+      }
+      if (cardOwnerData.wallet.balance < totalAmount) {
+        throw new Error(`الرصيد في بطاقة ${cardOwnerData.displayName} غير كافٍ.`);
+      }
+
+      // --- 3. Perform Firestore Writes within a Transaction ---
       const orderId = await runTransaction(firestore, async (transaction) => {
-        const { buyerId, buyerName, cartItems, totalAmount, paymentCard } = input;
         
-        // --- 1. Find and Verify Card Owner ---
-        const usersRef = collection(firestore, 'users');
-        const cardQuery = query(usersRef, where("wallet.cardNumber", "==", paymentCard.cardNumber));
-        const cardOwnerSnapshot = await getDocs(cardQuery); // Use getDocs within transaction context if possible, or perform read before transaction
-
-        if (cardOwnerSnapshot.empty) {
-          throw new Error("لم يتم العثور على البطاقة المحددة.");
-        }
-
-        const cardOwnerDoc = cardOwnerSnapshot.docs[0];
-        const cardOwnerId = cardOwnerDoc.id;
-        const cardOwnerData = cardOwnerDoc.data();
-
-        // --- 2. Validate Card Details and Balance ---
-        // For new cards, validate CVV and expiry
-        if (paymentCard.type === 'new') {
-          if (cardOwnerData.wallet.cvv !== paymentCard.cvv || cardOwnerData.wallet.expiryDate !== paymentCard.expiryDate) {
-            throw new Error("بيانات البطاقة (CVV أو تاريخ الانتهاء) غير صحيحة.");
-          }
-        }
-        
-        // For all cards, check status and balance
-        if (cardOwnerData.wallet.status !== 'active') {
-             throw new Error(`بطاقة ${cardOwnerData.displayName} معلقة حاليًا.`);
-        }
-        if (cardOwnerData.wallet.balance < totalAmount) {
-          throw new Error(`الرصيد في بطاقة ${cardOwnerData.displayName} غير كافٍ.`);
-        }
-
-        // --- 3. Perform Firestore Writes ---
         const cardOwnerRef = doc(firestore, 'users', cardOwnerId);
         
         // a. Debit the card owner's wallet
