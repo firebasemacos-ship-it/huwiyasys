@@ -2,27 +2,80 @@
 
 import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Home, Search, ShoppingCart, Ticket, Wallet as WalletIcon, ArrowLeft, XCircle } from 'lucide-react';
+import { Home, Search, ShoppingCart, Ticket, Wallet as WalletIcon, ArrowLeft, XCircle, Globe, Palette, Package, CalendarDays, Server, Star } from 'lucide-react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, DocumentData } from 'firebase/firestore';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 
+// Consistent Subscription Types from admin page
+type SubscriptionCategory = 'domain' | 'design' | 'sales_system';
 
-interface Subscription {
+interface BaseSubscription {
   id: string;
-  planName: string;
+  category: SubscriptionCategory;
   status: 'active' | 'cancelled' | 'expired';
-  endDate: any; // Can be a Date object or Firestore Timestamp
+  endDate: any;
   createdAt: any;
 }
+
+interface DomainSubscription extends BaseSubscription {
+  category: 'domain';
+  domainName: string;
+  provider: string;
+  planType: string;
+  startDate: any;
+}
+
+interface DesignSubscription extends BaseSubscription {
+  category: 'design';
+  projectName: string;
+  planType: string;
+}
+
+interface SalesSystemSubscription extends BaseSubscription {
+  category: 'sales_system';
+  systemName: string;
+  planType: string;
+}
+
+type Subscription = DomainSubscription | DesignSubscription | SalesSystemSubscription;
+
 
 interface UserProfile extends DocumentData {
     id: string;
     displayName?: string;
     subscriptions?: Subscription[];
+}
+
+// Helper to safely convert Firestore Timestamps or other date formats to a Date object.
+const safeToDate = (date: any): Date | undefined => {
+    if (!date) return undefined;
+    if (typeof date.toDate === 'function') { // Firestore Timestamp
+        return date.toDate();
+    }
+    if (date instanceof Date) { // Already a Date object
+        return date;
+    }
+    try { // String or number
+        const d = new Date(date);
+        return isValid(d) ? d : undefined;
+    } catch {
+        return undefined;
+    }
+};
+
+const SubscriptionDetail = ({ label, value, icon }: { label: string, value: string | undefined, icon: React.ReactNode }) => {
+    if (!value) return null;
+    return (
+        <div className="flex items-center gap-3 text-sm">
+            <div className="text-muted-foreground">{icon}</div>
+            <div className="text-muted-foreground">{label}:</div>
+            <div className="font-medium text-foreground">{value}</div>
+        </div>
+    )
 }
 
 export default function SubscriptionsPage() {
@@ -40,8 +93,8 @@ export default function SubscriptionsPage() {
     const subscriptions = useMemo(() => {
         if (!userData?.subscriptions) return [];
         return [...userData.subscriptions].sort((a, b) => {
-            const dateA = a.endDate?.toDate ? a.endDate.toDate() : new Date(0);
-            const dateB = b.endDate?.toDate ? b.endDate.toDate() : new Date(0);
+            const dateA = safeToDate(a.endDate) || new Date(0);
+            const dateB = safeToDate(b.endDate) || new Date(0);
             return dateB.getTime() - dateA.getTime();
         });
     }, [userData?.subscriptions]);
@@ -63,16 +116,54 @@ export default function SubscriptionsPage() {
         }
     }
 
-    const getSafeDate = (endDate: any) => {
-        if (!endDate) return null;
-        if (typeof endDate.toDate === 'function') {
-          return endDate.toDate();
-        }
-        try {
-          const d = new Date(endDate);
-          return isNaN(d.getTime()) ? null : d;
-        } catch {
-            return null;
+    const getCategoryDetails = (sub: Subscription) => {
+        const endDate = safeToDate(sub.endDate);
+        const formattedEndDate = endDate ? format(endDate, 'PPP') : 'تاريخ غير صالح';
+
+        switch(sub.category) {
+            case 'domain':
+                const startDate = safeToDate(sub.startDate);
+                return {
+                    title: sub.domainName,
+                    icon: <Globe className="h-6 w-6 text-primary" />,
+                    details: (
+                        <>
+                            <SubscriptionDetail label="الشركة" value={sub.provider} icon={<Server className="w-4 h-4"/>} />
+                            <SubscriptionDetail label="الباقة" value={sub.planType} icon={<Star className="w-4 h-4"/>} />
+                            <SubscriptionDetail label="تاريخ البدء" value={startDate ? format(startDate, 'PPP') : undefined} icon={<CalendarDays className="w-4 h-4"/>} />
+                            <SubscriptionDetail label="تاريخ الانتهاء" value={formattedEndDate} icon={<CalendarDays className="w-4 h-4"/>} />
+                        </>
+                    )
+                }
+            case 'design':
+                return {
+                    title: sub.projectName,
+                    icon: <Palette className="h-6 w-6 text-primary" />,
+                    details: (
+                        <>
+                            <SubscriptionDetail label="الباقة" value={sub.planType} icon={<Star className="w-4 h-4"/>} />
+                             <SubscriptionDetail label="تاريخ الانتهاء" value={formattedEndDate} icon={<CalendarDays className="w-4 h-4"/>} />
+                        </>
+                    )
+                }
+            case 'sales_system':
+                return {
+                    title: sub.systemName,
+                    icon: <Package className="h-6 w-6 text-primary" />,
+                    details: (
+                         <>
+                            <SubscriptionDetail label="الباقة" value={sub.planType} icon={<Star className="w-4 h-4"/>} />
+                            <SubscriptionDetail label="تاريخ الانتهاء" value={formattedEndDate} icon={<CalendarDays className="w-4 h-4"/>} />
+                        </>
+                    )
+                }
+            default:
+                const unhandledSub = sub as Subscription;
+                return {
+                    title: (unhandledSub as any).planName || 'اشتراك غير معروف',
+                    icon: <Ticket className="h-6 w-6 text-primary" />,
+                    details: <SubscriptionDetail label="تاريخ الانتهاء" value={formattedEndDate} icon={<CalendarDays className="w-4 h-4"/>} />
+                }
         }
     }
 
@@ -92,12 +183,10 @@ export default function SubscriptionsPage() {
                 <div className="space-y-4">
                     {Array.from({ length: 3 }).map((_, i) => (
                         <Card key={i} className="overflow-hidden rounded-xl">
+                            <CardHeader><Skeleton className="h-6 w-1/2" /></CardHeader>
                             <CardContent className="p-4 space-y-3">
-                                <div className="flex justify-between items-center">
-                                    <Skeleton className="h-6 w-1/2" />
-                                    <Skeleton className="h-6 w-1/4" />
-                                </div>
-                                <Skeleton className="h-4 w-1/3" />
+                                <Skeleton className="h-4 w-3/4" />
+                                <Skeleton className="h-4 w-1/2" />
                             </CardContent>
                         </Card>
                     ))}
@@ -111,21 +200,22 @@ export default function SubscriptionsPage() {
             ) : subscriptions && subscriptions.length > 0 ? (
                  <div className="space-y-4">
                     {subscriptions.map(sub => {
-                       const formattedDate = getSafeDate(sub.endDate);
+                       const { title, icon, details } = getCategoryDetails(sub);
                        return (
                         <Card key={sub.id} className="overflow-hidden rounded-xl bg-card/80">
-                            <CardContent className="p-4">
+                            <CardHeader>
                                 <div className="flex justify-between items-start">
-                                    <div className="space-y-1">
-                                        <h3 className="font-bold text-lg">{sub.planName}</h3>
-                                        <p className="text-sm text-muted-foreground">
-                                            ينتهي في: {formattedDate ? format(formattedDate, 'PPP') : 'تاريخ غير صالح'}
-                                        </p>
+                                    <div className="flex items-center gap-3">
+                                        {icon}
+                                        <CardTitle className="text-lg font-bold">{title}</CardTitle>
                                     </div>
-                                    <Badge variant={getStatusVariant(sub.status)} className="text-sm">
+                                     <Badge variant={getStatusVariant(sub.status)} className="text-sm shrink-0">
                                         {getStatusText(sub.status)}
                                     </Badge>
                                 </div>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                               {details}
                             </CardContent>
                         </Card>
                        )
