@@ -2,7 +2,6 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -11,8 +10,8 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     allowedDevOrigins: [
-        "https://6000-firebase-studio-1758748428003.cluster-64pjnskmlbaxowh5lzq6i7v4ra.cloudworkstations.dev",
-    ]
+      "https://6000-firebase-studio-1758748428003.cluster-64pjnskmlbaxowh5lzq6i7v4ra.cloudworkstations.dev",
+    ],
   },
   images: {
     remotePatterns: [
@@ -41,7 +40,7 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
       {
-        protocol: 'https',
+        protocol: 'https' ,
         hostname: 'i.ibb.co',
         port: '',
         pathname: '/**',
@@ -57,5 +56,3 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
-
-    
