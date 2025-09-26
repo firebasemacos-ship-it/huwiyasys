@@ -202,19 +202,27 @@ export default function SubscriptionsPage() {
                     {subscriptions.map(sub => {
                        const { title, icon, details } = getCategoryDetails(sub);
                        return (
-                        <Card key={sub.id} className="overflow-hidden rounded-xl bg-card/80">
+                        <Card key={sub.id} className="overflow-hidden rounded-xl border-primary/20 bg-gradient-to-br from-card/80 to-card/60 transition-all hover:shadow-primary/10 hover:shadow-lg">
                             <CardHeader>
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-center gap-3">
                                         {icon}
                                         <CardTitle className="text-lg font-bold">{title}</CardTitle>
                                     </div>
-                                     <Badge variant={getStatusVariant(sub.status)} className="text-sm shrink-0">
-                                        {getStatusText(sub.status)}
-                                    </Badge>
+                                    <div className="flex items-center gap-2">
+                                        {sub.status === 'active' && (
+                                            <span className="relative flex h-3 w-3">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                                            </span>
+                                        )}
+                                        <Badge variant={getStatusVariant(sub.status)} className="text-sm shrink-0">
+                                            {getStatusText(sub.status)}
+                                        </Badge>
+                                    </div>
                                 </div>
                             </CardHeader>
-                            <CardContent className="space-y-3">
+                            <CardContent className="space-y-3 pt-2">
                                {details}
                             </CardContent>
                         </Card>
