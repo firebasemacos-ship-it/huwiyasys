@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import AdminSubPageLayout from '../layout';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, LoaderCircle, Trash2, Edit, Calendar as CalendarIcon } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, LoaderCircle, Trash2, Edit, CalendarIcon } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -38,7 +38,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, updateDoc, DocumentData, query, orderBy, getDoc, setDoc } from 'firebase/firestore';
+import { collection, doc, updateDoc, DocumentData, query, orderBy, getDoc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
@@ -48,8 +48,8 @@ interface Subscription {
   id: string; // Using UUID for local identification in array
   planName: string;
   status: 'active' | 'cancelled' | 'expired';
-  endDate: Date;
-  createdAt: Date;
+  endDate: any; // Can be a Date object or Firestore Timestamp
+  createdAt: any;
 }
 
 interface UserData extends DocumentData {
@@ -75,7 +75,24 @@ function SubscriptionDialog({
 
     const [planName, setPlanName] = useState(subscription?.planName || '');
     const [status, setStatus] = useState<'active' | 'cancelled' | 'expired'>(subscription?.status || 'active');
-    const [endDate, setEndDate] = useState<Date | undefined>(subscription?.endDate);
+    
+    // Safely convert Firestore Timestamp to Date for the Calendar component
+    const initialDate = useMemo(() => {
+        if (!subscription?.endDate) return undefined;
+        // Firestore timestamps have a toDate() method
+        if (typeof subscription.endDate.toDate === 'function') {
+            return subscription.endDate.toDate();
+        }
+        // If it's already a Date object
+        if (subscription.endDate instanceof Date) {
+            return subscription.endDate;
+        }
+        // Fallback for string or number representations if necessary
+        const d = new Date(subscription.endDate);
+        return isNaN(d.getTime()) ? undefined : d;
+    }, [subscription?.endDate]);
+
+    const [endDate, setEndDate] = useState<Date | undefined>(initialDate);
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSubmit = async () => {
@@ -92,7 +109,7 @@ function SubscriptionDialog({
             const userDoc = await getDoc(userDocRef);
             const currentData = userDoc.data() as UserData;
             const currentSubscriptions = currentData.subscriptions || [];
-            let updatedSubscriptions: Subscription[];
+            let updatedSubscriptions: any[];
 
             if (subscription) { // Editing existing subscription
                 updatedSubscriptions = currentSubscriptions.map(sub => 
@@ -101,7 +118,7 @@ function SubscriptionDialog({
                     : sub
                 );
             } else { // Adding new subscription
-                const newSubscription: Subscription = {
+                const newSubscription = {
                     id: uuidv4(),
                     planName,
                     status,
@@ -256,6 +273,15 @@ export default function SubscriptionsPage() {
         }
     };
 
+    const getSafeDate = (endDate: any) => {
+        if (!endDate) return null;
+        if (typeof endDate.toDate === 'function') {
+          return endDate.toDate();
+        }
+        const d = new Date(endDate);
+        return isNaN(d.getTime()) ? null : d;
+    }
+
 
   return (
     <AdminSubPageLayout title="إدارة الاشتراكات">
@@ -283,27 +309,30 @@ export default function SubscriptionsPage() {
                                     <TableCell className="align-top py-4">
                                         {user.subscriptions && user.subscriptions.length > 0 ? (
                                             <div className="flex flex-col gap-2">
-                                                {user.subscriptions.map(sub => (
-                                                    <div key={sub.id} className="flex items-center justify-between gap-4 p-2 rounded-md bg-muted/50">
-                                                        <div>
-                                                            <p className="font-semibold">{sub.planName}</p>
-                                                            <p className="text-xs text-muted-foreground">
-                                                                ينتهي في: {format(sub.endDate, 'PPP')}
-                                                            </p>
+                                                {user.subscriptions.map(sub => {
+                                                    const formattedDate = getSafeDate(sub.endDate);
+                                                    return (
+                                                        <div key={sub.id} className="flex items-center justify-between gap-4 p-2 rounded-md bg-muted/50">
+                                                            <div>
+                                                                <p className="font-semibold">{sub.planName}</p>
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    ينتهي في: {formattedDate ? format(formattedDate, 'PPP') : 'تاريخ غير صالح'}
+                                                                </p>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <Badge variant={getStatusVariant(sub.status)}>
+                                                                    {getStatusText(sub.status)}
+                                                                </Badge>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditSubscription(user, sub)}>
+                                                                    <Edit className="h-4 w-4" />
+                                                                </Button>
+                                                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => confirmDelete(user, sub)}>
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </Button>
+                                                            </div>
                                                         </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <Badge variant={getStatusVariant(sub.status)}>
-                                                                {getStatusText(sub.status)}
-                                                            </Badge>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditSubscription(user, sub)}>
-                                                                <Edit className="h-4 w-4" />
-                                                            </Button>
-                                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => confirmDelete(user, sub)}>
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                                    )
+                                                })}
                                             </div>
                                         ) : (
                                             <p className="text-muted-foreground py-2">لا توجد اشتراكات.</p>

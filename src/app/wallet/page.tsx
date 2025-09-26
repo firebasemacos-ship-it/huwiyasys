@@ -314,9 +314,13 @@ export default function WalletPage() {
   }
   
   const copyToClipboard = (text: string | undefined) => {
-    if(!text) return;
-    navigator.clipboard.writeText(text);
-    toast({ title: 'تم النسخ!', description: 'تم نسخ رقم البطاقة إلى الحافظة.' });
+    if(!text || !navigator.clipboard) return;
+    navigator.clipboard.writeText(text).then(() => {
+        toast({ title: 'تم النسخ!', description: 'تم نسخ رقم البطاقة إلى الحافظة.' });
+    }).catch(err => {
+        // Silently ignore errors in non-secure contexts (like dev environments)
+        console.warn('Could not copy text to clipboard:', err);
+    });
   };
 
   const { Icon, message } = useMemo(() => {
