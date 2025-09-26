@@ -4,56 +4,49 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return request.auth != null && request.auth.uid == userId;
     }
 
-    function isSuperAdmin() {
-      return request.auth.email == 'zaki@zetabait.app';
-    }
-
-    function isSignedIn() {
-      return request.auth != null;
+    function isAdmin() {
+      return request.auth != null && exists(/databases/$(database)/documents/managers/$(request.auth.uid));
     }
     
-    function isManager() {
-      return exists(/databases/$(database)/documents/managers/$(request.auth.uid));
+    function isUpdatingOwnBalance(userId, amount) {
+      return isOwner(userId) && request.resource.data.wallet.balance == resource.data.wallet.balance + amount;
     }
 
     match /users/{userId} {
-      allow read: if isSignedIn();
-      // Allow user to update their own document, or allow a super admin to do so.
-      // Additionally, allow a signed-in user to update ONLY the wallet.balance of another user.
-      // This is a simplified rule for balance transfers and should ideally be handled by a Cloud Function for better security.
-      allow write: if (isOwner(userId) || isSuperAdmin()) || 
-                   (isSignedIn() && request.resource.data.keys().hasOnly(['wallet']) && request.resource.data.wallet.keys().hasOnly(['balance']));
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isOwner(userId) || isAdmin();
+    }
+    
+    match /users/{userId}/transactions/{transactionId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) || isAdmin();
+      allow write, delete: if isAdmin();
     }
     
     match /managers/{managerId} {
-      allow read, write: if isOwner(managerId) || isSuperAdmin();
-    }
-
-    match /products/{productId} {
-      allow read: if isSignedIn();
-      allow write: if isManager();
-    }
-
-    match /categories/{categoryId} {
-      allow read: if isSignedIn();
-      allow write: if isManager();
+        allow read, write: if isAdmin();
     }
     
-    match /banners/{bannerId} {
-        allow read: if isSignedIn();
-        allow write: if isManager();
+    match /products/{productId} {
+        allow read: if request.auth != null;
+        allow write: if isAdmin();
     }
-
-    match /users/{userId}/transactions/{transactionId} {
-      allow read, create: if isOwner(userId);
-      allow update, delete: if false; // Transactions are immutable
+    
+     match /categories/{categoryId} {
+        allow read: if request.auth != null;
+        allow write: if isAdmin();
     }
 
     match /cardLinkRequests/{requestId} {
-        allow read, write: if isSignedIn();
+      allow read, write: if request.auth != null; // Simplified for now
+    }
+    
+    match /banners/{bannerId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
     }
   }
 }
