@@ -242,8 +242,8 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit}>
             <CardHeader className="text-center">
                 <div className="mb-4 flex justify-center">
-                    <div className="cursor-pointer" onClick={handleLogoClick}>
-                      <Logo className="h-56 w-56 text-primary" />
+                    <div className="cursor-pointer w-56 h-56" onClick={handleLogoClick}>
+                      <Logo className="w-full h-full text-primary" />
                     </div>
                 </div>
                 <CardTitle className="text-2xl">مرحباً بك</CardTitle>

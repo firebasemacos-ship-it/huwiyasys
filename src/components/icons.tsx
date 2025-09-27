@@ -1,15 +1,16 @@
 import Image from "next/image";
 
-export function Logo(props: React.ComponentProps<typeof Image>) {
+export function Logo(props: Omit<React.ComponentProps<typeof Image>, 'height' | 'width' | 'src' | 'alt'>) {
   return (
-    <Image
-      src="https://i.ibb.co/Qjm6DjjL/logo-hq.png"
-      alt="Logo"
-      width={48}
-      height={48}
-      priority
-      {...props}
-    />
+    <div {...props} style={{position: 'relative', ...props.style}}>
+        <Image
+          src="https://i.ibb.co/Qjm6DjjL/logo-hq.png"
+          alt="Logo"
+          fill
+          style={{objectFit: 'contain'}}
+          priority
+        />
+    </div>
   );
 }
 

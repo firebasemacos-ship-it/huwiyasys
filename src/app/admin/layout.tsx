@@ -132,5 +132,3 @@ export default function AdminSubPageLayout({ children, title }: { children: Reac
     </div>
   );
 }
-
-    
