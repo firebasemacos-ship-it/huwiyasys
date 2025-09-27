@@ -132,6 +132,20 @@ function SubscriptionDialog({
     const [endDate, setEndDate] = useState<Date | undefined>(safeToDate(subscription?.endDate));
 
     const [isLoading, setIsLoading] = useState(false);
+    
+    const handleCategoryChange = (newCategory: SubscriptionCategory) => {
+        setCategory(newCategory);
+        // Reset all specific fields to avoid data contamination when switching category
+        setDomainName('');
+        setProvider('');
+        setDomainPlan('');
+        setStartDate(undefined);
+        setProjectName('');
+        setDesignPlan('');
+        setSystemName('');
+        setSalesPlan('');
+        // We can keep endDate as it is common
+    };
 
     const handleSubmit = async () => {
         if (!category || !firestore) {
@@ -274,7 +288,7 @@ function SubscriptionDialog({
             <div className="grid gap-4 py-4">
                  <div className="space-y-2">
                     <Label htmlFor="category">فئة الاشتراك</Label>
-                    <Select value={category} onValueChange={(val) => setCategory(val as SubscriptionCategory)} disabled={!!subscription}>
+                    <Select value={category} onValueChange={(val) => handleCategoryChange(val as SubscriptionCategory)}>
                         <SelectTrigger id="category">
                             <SelectValue placeholder="اختر فئة" />
                         </SelectTrigger>
