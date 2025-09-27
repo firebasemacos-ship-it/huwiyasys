@@ -284,10 +284,8 @@ export default function LoginPage() {
         </form>
       </Card>
       <div className="absolute bottom-4 text-center">
-          <p className="text-sm text-muted-foreground">نظام Zetabait</p>
+          <p className="text-sm text-muted-foreground">نظام Zetabait من شركة هوية</p>
       </div>
     </div>
   );
 }
-
-    
