@@ -2,11 +2,11 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription as CardDescriptionUI } from '@/components/ui/card';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { Home, Ticket, Search, ShoppingCart, Wallet, Plus, Minus, Trash2, ArrowLeft, LoaderCircle, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Home, Ticket, Search, ShoppingCart, Wallet, Plus, Minus, Trash2, ArrowLeft, LoaderCircle, CheckCircle2, XCircle, Clock, Download, Printer } from 'lucide-react';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -14,11 +14,13 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, DocumentData, runTransaction, collection, query, where, getDocs, serverTimestamp, increment, addDoc, getDoc, updateDoc, onSnapshot, arrayUnion } from 'firebase/firestore';
+import { doc, DocumentData, runTransaction, collection, query, where, getDocs, serverTimestamp, increment, addDoc, getDoc, updateDoc, onSnapshot, arrayUnion, DocumentReference } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCart } from '@/hooks/use-cart';
 import { v4 as uuidv4 } from 'uuid';
+import QRCode from "react-qr-code";
+import { Logo } from '@/components/icons';
 
 
 const getImage = (id: string | undefined) => {
@@ -38,10 +40,17 @@ type WalletInfo = {
 
 type UserProfile = {
     displayName: string;
+    contractNumber: string;
     wallet: WalletInfo;
     linkedWallets?: WalletInfo[];
 };
 
+type InvoiceData = {
+    orderId: string;
+    userName: string;
+    contractNumber: string;
+    paymentCard: string;
+}
 
 function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymentSuccess: () => void, cartItems: any[], totalAmount: number }) {
     const { toast } = useToast();
@@ -59,6 +68,8 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
     const [paymentStatus, setPaymentStatus] = useState<'idle' | 'processing' | 'success' | 'awaiting_approval' | 'rejected'>('idle');
     const [paymentRequestId, setPaymentRequestId] = useState<string | null>(null);
 
+    const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
+
     const [newCardNumber, setNewCardNumber] = useState('');
     const [newCardExpiry, setNewCardExpiry] = useState('');
     const [newCardCvv, setNewCardCvv] = useState('');
@@ -71,6 +82,12 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
         const unsubscribe = onSnapshot(requestRef, (snapshot) => {
             const data = snapshot.data();
             if (data?.status === 'processed') {
+                setInvoiceData({
+                    orderId: data.orderData.orderId,
+                    userName: data.orderData.userName,
+                    contractNumber: data.orderData.contractNumber,
+                    paymentCard: data.orderData.paymentMethod
+                });
                 setPaymentStatus('success');
                 unsubscribe();
             } else if (data?.status === 'rejected') {
@@ -106,10 +123,12 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
             cardType = 'linked';
         }
 
+        const orderName = cartItems.map(item => item.name).join(', ');
+
         // Direct payment for primary card or new card
         if (cardType === 'primary' || cardType === 'new') {
             try {
-                await runTransaction(firestore, async (transaction) => {
+                const orderRef = await runTransaction(firestore, async (transaction) => {
                     const usersRef = collection(firestore, 'users');
                     const cardQuery = query(usersRef, where("wallet.cardNumber", "==", finalPaymentCardNumber));
                     const cardOwnerSnapshot = await getDocs(cardQuery);
@@ -142,7 +161,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                     const ownerTransactionRef = doc(collection(firestore, `users/${cardOwnerId}/transactions`));
                     transaction.set(ownerTransactionRef, {
                         type: 'شراء', amount: -totalAmount, date: serverTimestamp(),
-                        description: cardOwnerId === user.uid ? `شراء منتجات من التطبيق` : `شراء منتجات من قبل المستخدم ${userData.displayName}`
+                        description: cardOwnerId === user.uid ? `شراء: ${orderName}` : `شراء ${orderName} من قبل ${userData.displayName}`
                     });
                     if (cardOwnerId !== user.uid) {
                         const buyerTransactionRef = doc(collection(firestore, `users/${user.uid}/transactions`));
@@ -151,26 +170,33 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                         });
                     }
                     
-                    const orderRef = doc(collection(firestore, 'orders'));
-                    transaction.set(orderRef, {
+                    const newOrderRef = doc(collection(firestore, 'orders'));
+                    transaction.set(newOrderRef, {
                         userId: user.uid, userName: userData.displayName, items: cartDataForOrder, totalAmount: totalAmount,
                         status: 'pending', paymentMethod: `**** ${finalPaymentCardNumber.slice(-4)}`, createdAt: serverTimestamp(),
                     });
 
-                    // Add order subscription to user
-                    const orderName = cartItems.map(item => item.name).join(', ');
                     const orderSubscription = {
                         id: uuidv4(),
                         category: 'order',
                         status: 'reviewing',
                         orderName: orderName,
-                        orderId: orderRef.id,
+                        orderId: newOrderRef.id,
                         totalAmount: totalAmount,
                         itemCount: cartItems.reduce((acc, item) => acc + item.quantity, 0),
                         createdAt: new Date(),
                     };
                     transaction.update(buyerRef, { subscriptions: arrayUnion(orderSubscription) });
+                    return newOrderRef;
                 });
+                
+                setInvoiceData({
+                    orderId: orderRef.id,
+                    userName: userData.displayName,
+                    contractNumber: userData.contractNumber,
+                    paymentCard: `**** ${finalPaymentCardNumber.slice(-4)}`
+                });
+
                 setPaymentStatus('success');
             } catch (error: any) {
                 console.error("Payment error:", error);
@@ -186,8 +212,8 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                     throw new Error("لم يتم العثور على مالك البطاقة المرتبطة.");
                 }
                 const ownerDoc = ownerSnapshot.docs[0];
+                const newOrderId = doc(collection(firestore, 'orders')).id; // Pre-generate order ID
                 
-                const orderName = cartItems.map(item => item.name).join(', ');
                 const paymentRequest = {
                     requesterId: user.uid,
                     requesterName: userData.displayName,
@@ -195,8 +221,13 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                     amount: totalAmount,
                     status: 'pending',
                     createdAt: serverTimestamp(),
-                    orderData: { // Snapshot of the order
-                        userId: user.uid, userName: userData.displayName, items: cartDataForOrder, totalAmount: totalAmount,
+                    orderData: {
+                        orderId: newOrderId,
+                        userId: user.uid, 
+                        userName: userData.displayName,
+                        contractNumber: userData.contractNumber,
+                        items: cartDataForOrder, 
+                        totalAmount: totalAmount,
                         paymentMethod: `**** ${finalPaymentCardNumber.slice(-4)}`,
                         orderName: orderName,
                     }
@@ -217,17 +248,83 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
     const resetAndClose = () => {
         setPaymentStatus('idle');
         setPaymentRequestId(null);
+        setInvoiceData(null);
         onPaymentSuccess(); // This closes the dialog and clears the cart
     }
+    
+    const invoiceRef = useRef<HTMLDivElement>(null);
+    
+    const handlePrint = () => {
+        const printWindow = window.open('', '', 'height=800,width=600');
+        if (printWindow && invoiceRef.current) {
+            printWindow.document.write('<html><head><title>فاتورة</title>');
+            // Include styles
+            const styles = Array.from(document.styleSheets)
+                .map(styleSheet => {
+                    try {
+                        return Array.from(styleSheet.cssRules)
+                            .map(rule => rule.cssText)
+                            .join('');
+                    } catch (e) {
+                        return '';
+                    }
+                }).join('');
+            printWindow.document.write(`<style>${styles} .dark { background: white; color: black; } .print-only-card-bg { background-color: white !important; } .print-only-text-black { color: black !important; }</style>`);
+            printWindow.document.write('</head><body dir="rtl">');
+            printWindow.document.write(invoiceRef.current.innerHTML);
+            printWindow.document.write('</body></html>');
+            printWindow.document.close();
+            setTimeout(() => { // Timeout to ensure content is loaded
+                 printWindow.print();
+                 printWindow.close();
+            }, 500);
+        }
+    };
 
-    if (paymentStatus === 'success') {
+
+    if (paymentStatus === 'success' && invoiceData) {
         return (
-             <DialogContent dir="rtl">
-                <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+             <DialogContent dir="rtl" className="max-w-md">
+                <div className="flex flex-col items-center justify-center gap-4 py-8 text-center">
                     <CheckCircle2 className="h-16 w-16 text-green-500" />
                     <DialogTitle className="text-2xl">تم الدفع بنجاح</DialogTitle>
                     <DialogDescription>شكراً لك! تم استلام طلبك وهو الآن قيد المراجعة.</DialogDescription>
-                    <Button className="mt-4" onClick={resetAndClose}>إغلاق</Button>
+
+                     <div ref={invoiceRef} className="w-full mt-4">
+                        <Card className="w-full max-w-sm mx-auto text-right dark:bg-slate-800 print-only-card-bg">
+                            <CardHeader className="text-center space-y-2 pb-2">
+                                <Logo className="h-12 w-12 mx-auto" />
+                                <CardTitle className="dark:text-white print-only-text-black">فاتورة إلكترونية</CardTitle>
+                                <CardDescriptionUI className="dark:text-slate-300 print-only-text-black">Electronic Invoice</CardDescriptionUI>
+                            </CardHeader>
+                            <CardContent className="space-y-4 pt-4 dark:text-white print-only-text-black">
+                                <div className="flex justify-between items-center">
+                                    <div className="text-sm space-y-2">
+                                        <p><strong>الاسم:</strong> {invoiceData.userName}</p>
+                                        <p><strong>رقم العقد:</strong> {invoiceData.contractNumber}</p>
+                                        <p><strong>البطاقة:</strong> {invoiceData.paymentCard}</p>
+                                        <p><strong>رقم الهاتف:</strong> {'-'} </p>
+                                    </div>
+                                    <div className="p-1.5 bg-white rounded-md">
+                                        <QRCode value={invoiceData.orderId} size={80} />
+                                    </div>
+                                </div>
+                                <Separator className="my-2 bg-slate-500" />
+                                <div className="text-center">
+                                    <p className="text-sm">رقم الفاتورة</p>
+                                    <p className="font-mono tracking-widest text-lg">{invoiceData.orderId.slice(0, 10)}...</p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                     </div>
+
+                    <div className="flex gap-2 w-full mt-4">
+                        <Button className="flex-1" variant="outline" onClick={handlePrint}>
+                            <Printer className="ml-2 h-4 w-4" />
+                            طباعة
+                        </Button>
+                        <Button className="flex-1" onClick={resetAndClose}>إغلاق</Button>
+                    </div>
                 </div>
             </DialogContent>
         )

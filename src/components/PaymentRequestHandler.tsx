@@ -84,11 +84,11 @@ export function PaymentRequestHandler() {
                 type: 'شراء',
                 amount: -activeRequest.amount,
                 date: serverTimestamp(),
-                description: `شراء منتجات من قبل المستخدم ${activeRequest.requesterName}`
+                description: `شراء ${activeRequest.orderData.orderName} من قبل ${activeRequest.requesterName}`
             });
 
             // 3. Create the final order
-            const orderRef = doc(collection(firestore, 'orders'));
+            const orderRef = doc(firestore, 'orders', activeRequest.orderData.orderId);
             transaction.set(orderRef, { ...activeRequest.orderData, status: 'pending', createdAt: serverTimestamp() });
             
             // 4. Mark the request as processed
