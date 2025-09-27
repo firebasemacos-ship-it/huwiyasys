@@ -165,7 +165,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                         orderId: orderRef.id,
                         totalAmount: totalAmount,
                         itemCount: cartItems.reduce((acc, item) => acc + item.quantity, 0),
-                        createdAt: serverTimestamp(),
+                        createdAt: new Date(),
                     };
                     transaction.update(buyerRef, { subscriptions: arrayUnion(orderSubscription) });
                 });

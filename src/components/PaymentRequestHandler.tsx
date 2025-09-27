@@ -102,7 +102,7 @@ export function PaymentRequestHandler() {
                 orderId: orderRef.id,
                 totalAmount: activeRequest.amount,
                 itemCount: activeRequest.orderData.items.reduce((acc: number, item: any) => acc + item.quantity, 0),
-                createdAt: serverTimestamp(),
+                createdAt: new Date(),
             };
             transaction.update(requesterDocRef, { subscriptions: arrayUnion(orderSubscription) });
 
