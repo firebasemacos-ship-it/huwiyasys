@@ -243,7 +243,7 @@ export default function LoginPage() {
             <CardHeader className="text-center">
                 <div className="mb-4 flex justify-center">
                     <div className="cursor-pointer" onClick={handleLogoClick}>
-                      <Logo className="h-16 w-16 text-primary" />
+                      <Logo className="h-24 w-24 text-primary" />
                     </div>
                 </div>
                 <CardTitle className="text-2xl">مرحباً بك</CardTitle>
@@ -284,10 +284,8 @@ export default function LoginPage() {
         </form>
       </Card>
       <div className="absolute bottom-4 text-center">
-          <p className="text-sm text-muted-foreground">نظام zetabait من هوية</p>
+          <p className="text-sm text-muted-foreground">نظام Zetabait من شركة هوية للتسويق الرقمي</p>
       </div>
     </div>
   );
 }
-
-    
