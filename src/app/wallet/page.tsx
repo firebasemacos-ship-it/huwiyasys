@@ -367,6 +367,11 @@ export default function WalletPage() {
   const { data: userData, isLoading: isUserDataLoading } = useDoc<UserProfile>(userDocRef);
   const { data: transactions, isLoading: areTransactionsLoading } = useCollection<Transaction>(transactionsQuery);
 
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
 
   const [isRechargeDialogOpen, setRechargeDialogOpen] = useState(false);
   const [isAddCardDialogOpen, setAddCardDialogOpen] = useState(false);
@@ -583,7 +588,7 @@ export default function WalletPage() {
                             <Card className="relative h-full w-full overflow-hidden rounded-xl bg-primary text-primary-foreground shadow-lg">
                                 <CardContent className="flex h-full flex-col justify-between p-6">
                                     <div className="flex items-start justify-between">
-                                         <div className="w-12 h-9 bg-yellow-400 rounded-md flex items-center justify-center border-2 border-yellow-500">
+                                        <div className="w-12 h-9 bg-yellow-400 rounded-md flex items-center justify-center border-2 border-yellow-500">
                                             <div className="w-8 h-5 bg-yellow-600 rounded-sm"></div>
                                         </div>
                                         <CardLogo className="h-20 w-20" />
@@ -691,40 +696,43 @@ export default function WalletPage() {
             </DialogContent>
           </Dialog>
 
-          <div className="my-6 grid grid-cols-2 sm:grid-cols-3 gap-4">
-            <Dialog open={isAddCardDialogOpen} onOpenChange={setAddCardDialogOpen}>
-                <DialogTrigger asChild>
-                    <Card className="overflow-hidden rounded-xl cursor-pointer hover:bg-muted/50 transition-colors">
-                        <CardContent className="flex flex-col items-center justify-center p-4 text-center h-full">
-                            <CreditCard className="mb-2 h-8 w-8 text-primary" />
-                            <p className="text-sm font-semibold">طرق الدفع</p>
+          {isClient && (
+            <div className="my-6 grid grid-cols-3 gap-4">
+                <Dialog open={isAddCardDialogOpen} onOpenChange={setAddCardDialogOpen}>
+                    <DialogTrigger asChild>
+                        <Card className="overflow-hidden rounded-xl cursor-pointer hover:bg-muted/50 transition-colors">
+                            <CardContent className="flex flex-col items-center justify-center p-4 text-center h-full">
+                                <CreditCard className="mb-2 h-8 w-8 text-primary" />
+                                <p className="text-sm font-semibold">طرق الدفع</p>
+                            </CardContent>
+                        </Card>
+                    </DialogTrigger>
+                    {isAddCardDialogOpen && <AddCardDialog onClose={() => setAddCardDialogOpen(false)} />}
+                </Dialog>
+    
+                <Dialog open={isTransferDialogOpen} onOpenChange={setTransferDialogOpen}>
+                    <DialogTrigger asChild>
+                        <Card className="overflow-hidden rounded-xl cursor-pointer hover:bg-muted/50 transition-colors">
+                            <CardContent className="flex flex-col items-center justify-center p-4 text-center h-full">
+                                <Send className="mb-2 h-8 w-8 text-primary" />
+                                <p className="text-sm font-semibold">تحويل الرصيد</p>
+                            </CardContent>
+                        </Card>
+                    </DialogTrigger>
+                    {isTransferDialogOpen && userData && <TransferBalanceDialog userProfile={userData} onClose={() => setTransferDialogOpen(false)} />}
+                </Dialog>
+    
+                <Link href="/subscriptions">
+                    <Card className="overflow-hidden rounded-xl cursor-pointer hover:bg-muted/50 transition-colors h-full">
+                        <CardContent className="flex flex-col items-center justify-center p-4 text-center">
+                            <Ticket className="mb-2 h-8 w-8 text-primary" />
+                            <p className="text-sm font-semibold">اشتراكاتي</p>
                         </CardContent>
                     </Card>
-                </DialogTrigger>
-                {isAddCardDialogOpen && <AddCardDialog onClose={() => setAddCardDialogOpen(false)} />}
-            </Dialog>
+                </Link>
+            </div>
+          )}
 
-            <Dialog open={isTransferDialogOpen} onOpenChange={setTransferDialogOpen}>
-                <DialogTrigger asChild>
-                    <Card className="overflow-hidden rounded-xl cursor-pointer hover:bg-muted/50 transition-colors">
-                        <CardContent className="flex flex-col items-center justify-center p-4 text-center h-full">
-                            <Send className="mb-2 h-8 w-8 text-primary" />
-                            <p className="text-sm font-semibold">تحويل الرصيد</p>
-                        </CardContent>
-                    </Card>
-                </DialogTrigger>
-                {isTransferDialogOpen && userData && <TransferBalanceDialog userProfile={userData} onClose={() => setTransferDialogOpen(false)} />}
-            </Dialog>
-
-            <Link href="/subscriptions" className="col-span-2 sm:col-span-1">
-                <Card className="overflow-hidden rounded-xl cursor-pointer hover:bg-muted/50 transition-colors h-full">
-                    <CardContent className="flex flex-col items-center justify-center p-4 text-center">
-                        <Ticket className="mb-2 h-8 w-8 text-primary" />
-                        <p className="text-sm font-semibold">اشتراكاتي</p>
-                    </CardContent>
-                </Card>
-            </Link>
-          </div>
 
           <Card className="overflow-hidden rounded-xl">
             <CardHeader>
