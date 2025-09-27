@@ -335,7 +335,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
 
                 <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                        <span className="text-muted-foreground">المجموع الكلي</span>
+                        <span className="text-muted-foreground">المجموع</span>
                         <span className="font-semibold">{totalAmount.toFixed(2)} دينار ليبي</span>
                     </div>
                 </div>
@@ -362,8 +362,7 @@ export default function CartPage() {
   }, []);
 
   const subtotal = useMemo(() => cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0), [cartItems]);
-  const deliveryFee = 10;
-  const total = subtotal + deliveryFee;
+  const total = subtotal;
 
   const handlePaymentSuccess = () => {
     setCheckoutOpen(false);
@@ -439,12 +438,8 @@ export default function CartPage() {
                         <span>المجموع الفرعي</span>
                         <span>{subtotal.toFixed(2)} دينار ليبي</span>
                     </div>
-                    <div className="flex justify-between">
-                        <span>رسوم التوصيل</span>
-                        <span>{deliveryFee.toFixed(2)} دينار ليبي</span>
-                    </div>
                     <div className="flex justify-between text-base font-bold">
-                        <span>المجموع الكلي</span>
+                        <span>المجموع</span>
                         <span>{total.toFixed(2)} دينار ليبي</span>
                     </div>
                 </div>
