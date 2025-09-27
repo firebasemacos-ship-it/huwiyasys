@@ -14,13 +14,11 @@ export function Logo(props: Omit<React.ComponentProps<typeof Image>, 'height' | 
   );
 }
 
-export function CardLogo(props: React.ComponentProps<typeof Image>) {
+export function CardLogo(props: Omit<React.ComponentProps<typeof Image>, 'src' | 'alt'>) {
   return (
-    <Image
+     <Image
       src="https://i.ibb.co/TBGhJqp1/cart-logo.png"
       alt="Card Logo"
-      width={48}
-      height={48}
       priority
       {...props}
     />
