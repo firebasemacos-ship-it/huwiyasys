@@ -208,7 +208,7 @@ export default function ShopPage() {
                             >
                               <CarouselContent className="-mr-4">
                                 {category.products.map(product => (
-                                  <CarouselItem key={product.id} className="basis-1/2 md:basis-1/3 lg:basis-1/4 pr-4 group">
+                                  <CarouselItem key={product.id} className="basis-[45%] md:basis-1/3 lg:basis-1/4 pr-4 group">
                                     <Link href={`/product/${product.id}`} className="block h-full">
                                       <Card className="overflow-hidden h-full flex flex-col transition-all duration-300 group-hover:shadow-primary/20 group-hover:shadow-lg">
                                         <div className="relative w-full aspect-[4/3] bg-muted overflow-hidden">
