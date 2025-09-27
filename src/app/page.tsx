@@ -23,7 +23,7 @@ function SplashScreen() {
         2. Move your `splash.gif` into that `public` folder.
         3. Change the `src` below back to "/splash.gif".
       */}
-      <Image src="https://i.gifer.com/origin/34/34338d26023e5515f6cc8969aa027bca.gif" alt="Loading..." width={200} height={200} unoptimized />
+      <Image src="/splash.gif" alt="Loading..." width={200} height={200} unoptimized />
     </div>
   );
 }
