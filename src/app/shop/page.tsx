@@ -135,7 +135,7 @@ export default function ShopPage() {
            <div className="container mx-auto py-6">
                 <section className="mb-8">
                      {isLoadingBanners ? (
-                        <Skeleton className="aspect-[1989/944] w-full rounded-xl" />
+                        <Skeleton className="aspect-video w-full rounded-xl" />
                     ) : (
                         <Carousel
                             plugins={[Autoplay({ delay: 5000 })]}
@@ -145,7 +145,7 @@ export default function ShopPage() {
                             <CarouselContent>
                                 {banners?.map((banner) => (
                                 <CarouselItem key={banner.id}>
-                                    <div className="overflow-hidden rounded-xl aspect-[1989/944] [&_iframe]:(w-full_h-full) [&_img]:(w-full_h-full_object-cover)">
+                                    <div className="overflow-hidden rounded-xl [&_iframe]:h-full [&_iframe]:w-full">
                                         <div dangerouslySetInnerHTML={{ __html: banner.htmlContent }} />
                                     </div>
                                 </CarouselItem>
