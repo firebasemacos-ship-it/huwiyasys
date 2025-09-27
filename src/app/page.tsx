@@ -18,13 +18,9 @@ import Image from 'next/image';
 function SplashScreen() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
-      {/* 
-        To use your own splash.gif:
-        1. Create a `public` folder in the root of your project.
-        2. Move your `splash.gif` into that `public` folder.
-        3. Change the `src` below back to "/splash.gif".
-      */}
-      <Image src="/splash.gif" alt="Loading..." width={200} height={200} unoptimized />
+        <div style={{position: 'relative', paddingBottom: '56.25%', height: '0', width: '100%'}}>
+            <iframe id="js_video_iframe" src="https://jumpshare.com/embed/IFjOJy4oQty99bRlX2Ws" frameBorder="0" webkitallowfullscreen="true" mozallowfullscreen="true" allowFullScreen={true} style={{position: 'absolute', top: '0', left: '0', width: '100%', height: '100%'}}></iframe>
+        </div>
     </div>
   );
 }
