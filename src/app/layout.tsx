@@ -19,7 +19,7 @@ const cairo = Cairo({
 
 
 export const metadata: Metadata = {
-  title: "Mobile Mate",
+  title: "Zetabait",
   description: "Your personal assistant for managing and discovering mobile apps.",
 };
 
@@ -60,3 +60,5 @@ export default function RootLayout({
     </html>
   );
 }
+
+    

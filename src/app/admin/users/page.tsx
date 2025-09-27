@@ -129,7 +129,7 @@ export default function UsersPage() {
 
         setIsLoading(true);
         const password = generatePassword();
-        const email = `${newContractNumber}@huwiyasys.app`;
+        const email = `${newContractNumber}@zetabait.app`;
 
         try {
             // This is a simplified approach for demonstration. 
@@ -339,5 +339,7 @@ export default function UsersPage() {
     </AdminSubPageLayout>
   );
 }
+
+    
 
     

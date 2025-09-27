@@ -158,7 +158,7 @@ export default function LoginPage() {
         setIsLoading(false);
         return;
     }
-    const email = `${contractNumber}@huwiyasys.app`;
+    const email = `${contractNumber}@zetabait.app`;
     
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -289,3 +289,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    
