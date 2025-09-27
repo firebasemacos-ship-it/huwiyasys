@@ -61,7 +61,7 @@ export default function AdminSubPageLayout({ children, title }: { children: Reac
         <div className="flex h-full max-h-screen flex-col gap-2">
           <div className="flex h-14 items-center border-b border-white/10 px-4 lg:h-[60px] lg:px-6">
             <Link href="/admin" className="flex items-center gap-3 font-semibold text-primary">
-              <Logo className="h-8 w-8" />
+              <Logo className="h-10 w-10" />
               <span className="text-lg">لوحة التحكم</span>
             </Link>
           </div>
@@ -99,7 +99,7 @@ export default function AdminSubPageLayout({ children, title }: { children: Reac
             <SheetContent side="right" className="flex flex-col bg-black/50 backdrop-blur-xl border-l-white/10">
               <nav className="grid gap-2 text-lg font-medium">
                 <Link href="/admin" className="flex items-center gap-3 text-lg font-semibold mb-4 text-primary">
-                  <Logo className="h-8 w-8" />
+                  <Logo className="h-10 w-10" />
                   <span>لوحة التحكم</span>
                 </Link>
                 <Link href="/admin" className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground">

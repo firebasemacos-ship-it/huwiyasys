@@ -234,7 +234,7 @@ export default function LoginPage() {
 
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4" dir="rtl">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/40 p-4" dir="rtl">
         <Button variant="ghost" size="icon" className="absolute top-4 right-4" onClick={handleFullScreen}>
             <Maximize className="h-6 w-6" />
         </Button>
@@ -243,7 +243,7 @@ export default function LoginPage() {
             <CardHeader className="text-center">
                 <div className="mb-4 flex justify-center">
                     <div className="cursor-pointer" onClick={handleLogoClick}>
-                      <Logo className="h-12 w-12 text-primary" />
+                      <Logo className="h-16 w-16 text-primary" />
                     </div>
                 </div>
                 <CardTitle className="text-2xl">مرحباً بك</CardTitle>
@@ -283,6 +283,9 @@ export default function LoginPage() {
             </CardFooter>
         </form>
       </Card>
+      <div className="absolute bottom-4 text-center">
+          <p className="text-sm text-muted-foreground">نظام zetabait من هوية</p>
+      </div>
     </div>
   );
 }

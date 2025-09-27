@@ -294,7 +294,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                      <div ref={invoiceRef} className="w-full mt-4">
                         <Card className="w-full max-w-sm mx-auto text-right dark:bg-slate-800 print-only-card-bg">
                             <CardHeader className="text-center space-y-2 pb-2">
-                                <Logo className="h-12 w-12 mx-auto" />
+                                <Logo className="h-16 w-16 mx-auto" />
                                 <CardTitle className="dark:text-white print-only-text-black">فاتورة إلكترونية</CardTitle>
                                 <CardDescriptionUI className="dark:text-slate-300 print-only-text-black">Electronic Invoice</CardDescriptionUI>
                             </CardHeader>
