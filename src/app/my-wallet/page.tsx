@@ -697,7 +697,7 @@ export default function WalletPage() {
   }
   
   const handleVerificationClick = () => {
-    if (userData?.verificationStatus === 'unverified' || !userData?.verificationStatus) {
+    if (userData?.verificationStatus !== 'verified') {
         setVerificationDialogOpen(true);
     }
   }
@@ -727,8 +727,11 @@ export default function WalletPage() {
                     >
                         {/* Card Front */}
                         <div className="absolute w-full h-full" style={{ backfaceVisibility: 'hidden' }}>
-                            <Card className="relative h-full w-full overflow-hidden rounded-xl bg-gradient-to-br from-primary/90 to-primary/70 text-primary-foreground shadow-lg">
-                                <CardContent className="relative flex h-full flex-col justify-between p-6">
+                            <Card className="relative h-full w-full overflow-hidden rounded-xl bg-gradient-to-br from-primary/90 to-blue-500 text-white shadow-lg">
+                                <div className="absolute inset-0 z-0 opacity-10">
+                                    <CardLogo className="w-full h-full" fill style={{objectFit: 'cover'}} />
+                                </div>
+                                <CardContent className="relative flex h-full flex-col justify-between p-6 z-10">
                                     <div className="flex items-start justify-between">
                                        <div className="w-12 h-9 bg-yellow-400 rounded-md flex items-center justify-center border-2 border-yellow-500">
                                             <div className="w-8 h-5 bg-yellow-600 rounded-sm"></div>
@@ -741,7 +744,7 @@ export default function WalletPage() {
                                         <Button 
                                             variant="ghost" 
                                             size="icon" 
-                                            className="h-8 w-8 shrink-0"
+                                            className="h-8 w-8 shrink-0 hover:bg-white/20"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 copyToClipboard(userData?.wallet?.cardNumber);
@@ -758,7 +761,7 @@ export default function WalletPage() {
                                                 <TooltipProvider>
                                                     <Tooltip>
                                                         <TooltipTrigger>
-                                                            <CheckCircle className="h-4 w-4 text-sky-400" />
+                                                            <CheckCircle className="h-4 w-4 text-white" />
                                                         </TooltipTrigger>
                                                         <TooltipContent>
                                                             <p>تم التحقق من العميل</p>
@@ -769,7 +772,7 @@ export default function WalletPage() {
                                                  <TooltipProvider>
                                                     <Tooltip>
                                                         <TooltipTrigger onClick={(e) => {e.stopPropagation(); handleVerificationClick()}}>
-                                                            <ShieldQuestion className="h-4 w-4 text-amber-400 cursor-pointer" />
+                                                            <ShieldQuestion className="h-4 w-4 text-white cursor-pointer" />
                                                         </TooltipTrigger>
                                                         <TooltipContent>
                                                             <p>الحساب غير موثق - اضغط للتوثيق</p>
@@ -789,7 +792,7 @@ export default function WalletPage() {
 
                         {/* Card Back */}
                         <div className="absolute w-full h-full" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
-                            <Card className="relative h-full w-full overflow-hidden rounded-xl bg-gradient-to-br from-primary/90 to-primary/70 text-primary-foreground shadow-lg">
+                            <Card className="relative h-full w-full overflow-hidden rounded-xl bg-gradient-to-br from-primary/90 to-blue-500 text-primary-foreground shadow-lg">
                                 <div className="h-full flex flex-col justify-between p-4">
                                     <div className="h-12 bg-black mt-4"></div>
                                     <div className="flex justify-end items-center gap-4 px-4 py-2 bg-slate-200 rounded-md">
@@ -798,11 +801,11 @@ export default function WalletPage() {
                                     </div>
                                     <div className="flex items-end justify-between">
                                          <div>
-                                            <p className="text-sm opacity-80">الرصيد الحالي</p>
-                                            <p className="text-3xl font-bold leading-tight">{displayBalance.toFixed(2)}</p>
-                                            <p className="text-sm font-medium opacity-90">دينار ليبي</p>
+                                            <p className="text-sm opacity-80 text-white">الرصيد الحالي</p>
+                                            <p className="text-3xl font-bold leading-tight text-white">{displayBalance.toFixed(2)}</p>
+                                            <p className="text-sm font-medium opacity-90 text-white">دينار ليبي</p>
                                         </div>
-                                        <div className="text-xs opacity-70 text-left p-2">
+                                        <div className="text-xs opacity-70 text-left p-2 text-white/80">
                                             <p>انقر للعودة</p>
                                         </div>
                                     </div>
@@ -811,6 +814,12 @@ export default function WalletPage() {
                         </div>
                     </div>
                 </div>
+            )}
+            
+            {userData && userData.verificationStatus !== 'verified' && (
+                <Button variant="destructive" className="w-full mb-6" onClick={handleVerificationClick}>
+                    أكمل التحقق من حسابك
+                </Button>
             )}
           
           <Dialog open={isRechargeDialogOpen} onOpenChange={(isOpen) => {

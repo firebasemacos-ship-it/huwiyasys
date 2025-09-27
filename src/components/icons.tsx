@@ -1,6 +1,6 @@
 import Image from "next/image";
 
-export function Logo(props: Omit<React.ComponentProps<typeof Image>, 'height' | 'width' | 'src' | 'alt'>) {
+export function Logo(props: Omit<React.ComponentProps<"div">, 'children'>) {
   return (
     <div {...props} style={{position: 'relative', ...props.style}}>
         <Image
@@ -17,7 +17,7 @@ export function Logo(props: Omit<React.ComponentProps<typeof Image>, 'height' | 
 export function CardLogo(props: Omit<React.ComponentProps<typeof Image>, 'src' | 'alt'>) {
   return (
      <Image
-      src="https://i.ibb.co/TBGhJqp1/cart-logo.png"
+      src="https://i.ibb.co/QqjQT0T/1.png"
       alt="Card Logo"
       priority
       {...props}
