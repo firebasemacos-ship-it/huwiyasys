@@ -45,6 +45,16 @@ type UserProfile = {
     linkedWallets?: WalletInfo[];
 };
 
+type Offer = DocumentData & {
+    id: string;
+    type: 'discount_coupon';
+    productId?: string;
+    discountPercentage?: number;
+    couponCode?: string;
+    isUsed?: boolean;
+};
+
+
 type InvoiceData = {
     orderId: string;
     userName: string;
@@ -52,7 +62,7 @@ type InvoiceData = {
     paymentCard: string;
 }
 
-function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymentSuccess: () => void, cartItems: any[], totalAmount: number }) {
+function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount, discountAmount, appliedCoupon }: { onPaymentSuccess: () => void, cartItems: any[], totalAmount: number, discountAmount: number, appliedCoupon: Offer | null }) {
     const { toast } = useToast();
     const { user } = useUser();
     const firestore = useFirestore();
@@ -108,6 +118,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
         }
         setPaymentStatus('processing');
         
+        const finalAmount = totalAmount - discountAmount;
         const cartDataForOrder = cartItems.map(item => ({ id: item.id, name: item.name, price: item.price, quantity: item.quantity }));
         let finalPaymentCardNumber: string;
         let cardType: 'primary' | 'linked' | 'new';
@@ -151,16 +162,16 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                     if (cardOwnerData.wallet.status !== 'active') {
                         throw new Error(`بطاقة ${cardOwnerData.displayName} معلقة حاليًا.`);
                     }
-                    if (cardOwnerData.wallet.balance < totalAmount) {
+                    if (cardOwnerData.wallet.balance < finalAmount) {
                         throw new Error(`الرصيد في بطاقة ${cardOwnerData.displayName} غير كافٍ.`);
                     }
                     
                     const buyerRef = doc(firestore, 'users', user.uid);
 
-                    transaction.update(cardOwnerRef, { "wallet.balance": increment(-totalAmount) });
+                    transaction.update(cardOwnerRef, { "wallet.balance": increment(-finalAmount) });
                     const ownerTransactionRef = doc(collection(firestore, `users/${cardOwnerId}/transactions`));
                     transaction.set(ownerTransactionRef, {
-                        type: 'شراء', amount: -totalAmount, date: serverTimestamp(),
+                        type: 'شراء', amount: -finalAmount, date: serverTimestamp(),
                         description: cardOwnerId === user.uid ? `شراء: ${orderName}` : `شراء ${orderName} من قبل ${userData.displayName}`
                     });
                     if (cardOwnerId !== user.uid) {
@@ -169,10 +180,15 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                             type: 'شراء', amount: 0, date: serverTimestamp(), description: `تم الدفع باستخدام بطاقة ${cardOwnerData.displayName}`
                         });
                     }
+
+                    if (appliedCoupon) {
+                        const couponRef = doc(firestore, 'offers', appliedCoupon.id);
+                        transaction.update(couponRef, { isUsed: true, usedBy: user.uid });
+                    }
                     
                     const newOrderRef = doc(collection(firestore, 'orders'));
                     transaction.set(newOrderRef, {
-                        userId: user.uid, userName: userData.displayName, items: cartDataForOrder, totalAmount: totalAmount,
+                        userId: user.uid, userName: userData.displayName, items: cartDataForOrder, totalAmount: finalAmount,
                         status: 'pending', paymentMethod: `**** ${finalPaymentCardNumber.slice(-4)}`, createdAt: serverTimestamp(),
                     });
 
@@ -182,7 +198,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                         status: 'reviewing',
                         orderName: orderName,
                         orderId: newOrderRef.id,
-                        totalAmount: totalAmount,
+                        totalAmount: finalAmount,
                         itemCount: cartItems.reduce((acc, item) => acc + item.quantity, 0),
                         createdAt: new Date(),
                     };
@@ -218,7 +234,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                     requesterId: user.uid,
                     requesterName: userData.displayName,
                     ownerId: ownerDoc.id,
-                    amount: totalAmount,
+                    amount: finalAmount,
                     status: 'pending',
                     createdAt: serverTimestamp(),
                     orderData: {
@@ -227,9 +243,10 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                         userName: userData.displayName,
                         contractNumber: userData.contractNumber,
                         items: cartDataForOrder, 
-                        totalAmount: totalAmount,
+                        totalAmount: finalAmount,
                         paymentMethod: `**** ${finalPaymentCardNumber.slice(-4)}`,
                         orderName: orderName,
+                        appliedCouponId: appliedCoupon?.id || null,
                     }
                 };
 
@@ -389,6 +406,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                                     <span>البطاقة الأساسية (الافتراضية)</span>
                                     <span className="text-sm text-muted-foreground font-mono">**** **** **** {userData.wallet.cardNumber.slice(-4)}</span>
                                 </div>
+                                <div className="mr-auto text-sm text-muted-foreground">الرصيد: {userData.wallet.balance.toFixed(2)} د.ل</div>
                             </Label>
                         ) : <p className="text-sm text-destructive p-4 border border-dashed rounded-md">لم يتم العثور على بطاقة أساسية. الرجاء إضافة بطاقة جديدة.</p>
                         }
@@ -436,15 +454,19 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                 <Separator className="my-6" />
 
                 <div className="space-y-2 text-sm">
-                    {userData?.wallet && (
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">الرصيد المتاح</span>
-                            <span className="font-semibold">{userData.wallet.balance.toFixed(2)} دينار ليبي</span>
+                    <div className="flex justify-between">
+                        <span className="text-muted-foreground">المجموع الفرعي</span>
+                        <span className="font-semibold">{totalAmount.toFixed(2)} دينار ليبي</span>
+                    </div>
+                     {discountAmount > 0 && (
+                        <div className="flex justify-between text-green-500">
+                            <span className="text-muted-foreground">الخصم</span>
+                            <span className="font-semibold">- {discountAmount.toFixed(2)} دينار ليبي</span>
                         </div>
                     )}
-                    <div className="flex justify-between">
-                        <span className="text-muted-foreground">المجموع</span>
-                        <span className="font-semibold">{totalAmount.toFixed(2)} دينار ليبي</span>
+                     <div className="flex justify-between text-base font-bold">
+                        <span>المجموع النهائي</span>
+                        <span>{(totalAmount - discountAmount).toFixed(2)} دينار ليبي</span>
                     </div>
                 </div>
             </div>
@@ -460,21 +482,99 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
 
 export default function CartPage() {
   const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
+  const { toast } = useToast();
   const { items: cartItems, updateQuantity, removeItem, clearCart } = useCart();
-  const [isCheckoutOpen, setCheckoutOpen] = useState(false);
   
-  // Hydration fix:
+  const [isCheckoutOpen, setCheckoutOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<Offer | null>(null);
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+
+
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  const total = useMemo(() => cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0), [cartItems]);
+  const subtotal = useMemo(() => cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0), [cartItems]);
+
+  useEffect(() => {
+    // Recalculate discount if cart changes
+    if (appliedCoupon) {
+      const itemInCart = cartItems.find(item => item.id === appliedCoupon.productId);
+      if (itemInCart && appliedCoupon.discountPercentage) {
+        const discount = (itemInCart.price * itemInCart.quantity) * (appliedCoupon.discountPercentage / 100);
+        setDiscountAmount(discount);
+      } else {
+        // Coupon is no longer valid for the items in cart
+        setAppliedCoupon(null);
+        setDiscountAmount(0);
+        setCouponCode('');
+        toast({
+            variant: "destructive",
+            title: "تمت إزالة الكوبون",
+            description: "المنتج المرتبط بالكوبون لم يعد في السلة.",
+        });
+      }
+    }
+  }, [cartItems, appliedCoupon, toast]);
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+        toast({ variant: 'destructive', title: "حقل فارغ", description: "الرجاء إدخال كود الخصم." });
+        return;
+    }
+     if (!firestore) return;
+    
+    setIsApplyingCoupon(true);
+    try {
+        const offersRef = collection(firestore, 'offers');
+        const q = query(offersRef, where("couponCode", "==", couponCode.trim()), where("type", "==", "discount_coupon"));
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+            throw new Error("كود الخصم غير صالح.");
+        }
+
+        const couponDoc = snapshot.docs[0];
+        const couponData = { id: couponDoc.id, ...couponDoc.data() } as Offer;
+
+        if (couponData.isUsed) {
+            throw new Error("هذا الكوبون تم استخدامه بالفعل.");
+        }
+
+        const itemInCart = cartItems.find(item => item.id === couponData.productId);
+        if (!itemInCart) {
+            throw new Error(`هذا الكوبون صالح فقط لمنتج "${couponData.productName}".`);
+        }
+
+        const discount = (itemInCart.price * itemInCart.quantity) * (couponData.discountPercentage! / 100);
+        setDiscountAmount(discount);
+        setAppliedCoupon(couponData);
+        toast({ title: "تم تطبيق الخصم!", className: "bg-green-500 text-white" });
+
+    } catch (error: any) {
+        setDiscountAmount(0);
+        setAppliedCoupon(null);
+        toast({ variant: 'destructive', title: "فشل تطبيق الخصم", description: error.message });
+    } finally {
+        setIsApplyingCoupon(false);
+    }
+  }
+
 
   const handlePaymentSuccess = () => {
     setCheckoutOpen(false);
     clearCart();
+    setAppliedCoupon(null);
+    setDiscountAmount(0);
+    setCouponCode('');
   };
+
+  const finalTotal = subtotal - discountAmount;
 
 
   return (
@@ -527,6 +627,22 @@ export default function CartPage() {
                   </CardContent>
                 </Card>
               ))}
+                <Card>
+                    <CardContent className="p-4">
+                         <div className="flex gap-2">
+                            <Input 
+                                placeholder="أدخل كود الخصم" 
+                                value={couponCode}
+                                onChange={e => setCouponCode(e.target.value)}
+                                disabled={!!appliedCoupon}
+                            />
+                            <Button onClick={handleApplyCoupon} disabled={isApplyingCoupon || !!appliedCoupon}>
+                                {isApplyingCoupon ? <LoaderCircle className="animate-spin h-4 w-4"/> : (appliedCoupon ? <CheckCircle2 className="h-4 w-4"/> : 'تطبيق')}
+                            </Button>
+                         </div>
+                         {appliedCoupon && <p className="text-green-500 text-xs mt-2">تم تطبيق كوبون "{appliedCoupon.couponCode}" بنجاح.</p>}
+                    </CardContent>
+                </Card>
             </div>
           ) : (
             <div className="flex h-full flex-col items-center justify-center text-center">
@@ -541,9 +657,20 @@ export default function CartPage() {
         {isClient && cartItems.length > 0 && (
             <div className="fixed bottom-24 z-30 w-full border-t border-white/10 bg-background/30 p-4 shadow-t-strong backdrop-blur-lg">
                 <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                        <span>المجموع الفرعي</span>
+                        <span>{subtotal.toFixed(2)} دينار ليبي</span>
+                    </div>
+                    {discountAmount > 0 && (
+                        <div className="flex justify-between text-green-500">
+                             <span>الخصم</span>
+                            <span>- {discountAmount.toFixed(2)} دينار ليبي</span>
+                        </div>
+                    )}
+                    <Separator />
                     <div className="flex justify-between text-base font-bold">
-                        <span>المجموع</span>
-                        <span>{total.toFixed(2)} دينار ليبي</span>
+                        <span>المجموع النهائي</span>
+                        <span>{finalTotal.toFixed(2)} دينار ليبي</span>
                     </div>
                 </div>
                 <Dialog open={isCheckoutOpen} onOpenChange={setCheckoutOpen}>
@@ -552,7 +679,7 @@ export default function CartPage() {
                             إتمام الطلب
                         </Button>
                     </DialogTrigger>
-                    {isCheckoutOpen && <CheckoutDialog cartItems={cartItems} totalAmount={total} onPaymentSuccess={handlePaymentSuccess} />}
+                    {isCheckoutOpen && <CheckoutDialog cartItems={cartItems} totalAmount={subtotal} discountAmount={discountAmount} appliedCoupon={appliedCoupon} onPaymentSuccess={handlePaymentSuccess} />}
                 </Dialog>
             </div>
         )}

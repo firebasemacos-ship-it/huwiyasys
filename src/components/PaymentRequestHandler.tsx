@@ -86,15 +86,21 @@ export function PaymentRequestHandler() {
                 date: serverTimestamp(),
                 description: `شراء ${activeRequest.orderData.orderName} من قبل ${activeRequest.requesterName}`
             });
-
-            // 3. Create the final order
-            const orderRef = doc(firestore, 'orders', activeRequest.orderData.orderId);
-            transaction.set(orderRef, { ...activeRequest.orderData, status: 'pending', createdAt: serverTimestamp() });
             
-            // 4. Mark the request as processed
+            // 3. If a coupon was used, mark it as used
+            if (activeRequest.orderData.appliedCouponId) {
+                const couponRef = doc(firestore, 'offers', activeRequest.orderData.appliedCouponId);
+                transaction.update(couponRef, { isUsed: true, usedBy: activeRequest.requesterId });
+            }
+
+            // 4. Create the final order
+            const orderRef = doc(firestore, 'orders', activeRequest.orderData.orderId);
+            transaction.set(orderRef, { ...activeRequest.orderData, status: 'pending', createdAt: serverTimestamp(), appliedCouponId: null });
+            
+            // 5. Mark the request as processed
             transaction.update(requestDocRef, { status: 'processed' });
 
-            // 5. Add order subscription to requester
+            // 6. Add order subscription to requester
             const orderSubscription = {
                 id: uuidv4(),
                 category: 'order',
