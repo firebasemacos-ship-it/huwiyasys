@@ -691,7 +691,7 @@ export default function WalletPage() {
             </DialogContent>
           </Dialog>
 
-          <div className="my-6 grid grid-cols-3 gap-4">
+          <div className="my-6 grid grid-cols-2 sm:grid-cols-3 gap-4">
             <Dialog open={isAddCardDialogOpen} onOpenChange={setAddCardDialogOpen}>
                 <DialogTrigger asChild>
                     <Card className="overflow-hidden rounded-xl cursor-pointer hover:bg-muted/50 transition-colors">
@@ -716,7 +716,7 @@ export default function WalletPage() {
                 {isTransferDialogOpen && userData && <TransferBalanceDialog userProfile={userData} onClose={() => setTransferDialogOpen(false)} />}
             </Dialog>
 
-            <Link href="/subscriptions">
+            <Link href="/subscriptions" className="col-span-2 sm:col-span-1">
                 <Card className="overflow-hidden rounded-xl cursor-pointer hover:bg-muted/50 transition-colors h-full">
                     <CardContent className="flex flex-col items-center justify-center p-4 text-center">
                         <Ticket className="mb-2 h-8 w-8 text-primary" />
@@ -823,3 +823,6 @@ export default function WalletPage() {
 
 
 
+
+
+    
