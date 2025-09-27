@@ -32,7 +32,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -40,28 +40,41 @@ import { collection, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, Documen
 
 interface Banner extends DocumentData {
   id: string;
-  htmlContent: string;
+  youtubeUrl: string;
   status: 'active' | 'draft';
+}
+
+function getYouTubeVideoId(url: string) {
+    if (!url) return null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
 }
 
 function BannerDialog({ banner, onSave, onClose }: { banner?: Banner | null, onSave: () => void, onClose: () => void }) {
     const firestore = useFirestore();
     const { toast } = useToast();
 
-    const [htmlContent, setHtmlContent] = useState(banner?.htmlContent || '');
+    const [youtubeUrl, setYoutubeUrl] = useState(banner?.youtubeUrl || '');
     const [status, setStatus] = useState<'active' | 'draft'>(banner?.status || 'active');
     
     const [isLoading, setIsLoading] = useState(false);
+    
+    const videoId = getYouTubeVideoId(youtubeUrl);
 
     const handleSubmit = async () => {
-        if (!htmlContent || !firestore) {
-            toast({ variant: 'destructive', title: "بيانات ناقصة", description: "الرجاء إدخال كود الـ HTML للبنر." });
+        if (!youtubeUrl || !firestore) {
+            toast({ variant: 'destructive', title: "بيانات ناقصة", description: "الرجاء إدخال رابط فيديو يوتيوب." });
+            return;
+        }
+        if (!getYouTubeVideoId(youtubeUrl)) {
+            toast({ variant: 'destructive', title: "رابط غير صالح", description: "الرجاء إدخال رابط فيديو يوتيوب صحيح." });
             return;
         }
         setIsLoading(true);
 
         const bannerData = {
-            htmlContent,
+            youtubeUrl,
             status,
             updatedAt: serverTimestamp(),
         };
@@ -97,14 +110,14 @@ function BannerDialog({ banner, onSave, onClose }: { banner?: Banner | null, onS
             </DialogHeader>
             <div className="grid gap-4 py-4">
                 <div className="space-y-2">
-                    <Label htmlFor="banner-html">كود الـ HTML للبنر</Label>
-                    <Textarea 
-                        id="banner-html" 
-                        value={htmlContent} 
-                        onChange={(e) => setHtmlContent(e.target.value)} 
-                        className="min-h-[200px] font-mono text-left"
+                    <Label htmlFor="banner-youtube-url">رابط فيديو يوتيوب</Label>
+                    <Input 
+                        id="banner-youtube-url" 
+                        value={youtubeUrl} 
+                        onChange={(e) => setYoutubeUrl(e.target.value)} 
+                        className="font-mono text-left"
                         dir="ltr"
-                        placeholder="<div>...</div>"
+                        placeholder="https://www.youtube.com/watch?v=..."
                     />
                 </div>
                 <div className="space-y-2">
@@ -119,10 +132,18 @@ function BannerDialog({ banner, onSave, onClose }: { banner?: Banner | null, onS
                         </SelectContent>
                     </Select>
                 </div>
-                 {htmlContent && (
+                 {videoId && (
                     <div className="space-y-2">
                         <Label>معاينة</Label>
-                        <div className="p-4 border rounded-md" dangerouslySetInnerHTML={{ __html: htmlContent }} />
+                        <div className="p-4 border rounded-md aspect-video">
+                           <iframe
+                                src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0`}
+                                frameBorder="0"
+                                allow="autoplay; encrypted-media"
+                                allowFullScreen
+                                className="w-full h-full"
+                            ></iframe>
+                        </div>
                     </div>
                  )}
             </div>
@@ -201,7 +222,7 @@ export default function BannersPage() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>محتوى البنر (HTML)</TableHead>
+                                <TableHead>رابط الفيديو</TableHead>
                                 <TableHead>الحالة</TableHead>
                                 <TableHead><span className="sr-only">الإجراءات</span></TableHead>
                             </TableRow>
@@ -213,7 +234,7 @@ export default function BannersPage() {
                                 banners.map((banner) => (
                                     <TableRow key={banner.id}>
                                         <TableCell className="font-mono text-xs max-w-md truncate">
-                                           <div className="p-2 border rounded-md text-left" dangerouslySetInnerHTML={{ __html: banner.htmlContent }} />
+                                          <a href={banner.youtubeUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">{banner.youtubeUrl}</a>
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant={banner.status === 'active' ? 'default' : 'outline'}>
@@ -268,3 +289,4 @@ export default function BannersPage() {
         </AdminSubPageLayout>
     );
 }
+    

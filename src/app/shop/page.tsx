@@ -55,13 +55,20 @@ interface Category extends DocumentData {
 
 interface Banner extends DocumentData {
     id: string;
-    htmlContent: string;
+    youtubeUrl: string;
     status: 'active' | 'draft';
 }
 
 interface CategoryWithProducts extends Category {
     products: Product[];
 }
+
+const getYouTubeVideoId = (url: string) => {
+    if (!url) return null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+};
 
 
 export default function ShopPage() {
@@ -143,13 +150,24 @@ export default function ShopPage() {
                             className="w-full"
                         >
                             <CarouselContent>
-                                {banners?.map((banner) => (
-                                <CarouselItem key={banner.id}>
-                                    <div className="overflow-hidden rounded-xl [&_iframe]:h-full [&_iframe]:w-full">
-                                        <div dangerouslySetInnerHTML={{ __html: banner.htmlContent }} />
-                                    </div>
-                                </CarouselItem>
-                                ))}
+                                {banners?.map((banner) => {
+                                    const videoId = getYouTubeVideoId(banner.youtubeUrl);
+                                    if (!videoId) return null;
+                                    
+                                    return (
+                                        <CarouselItem key={banner.id}>
+                                            <div className="overflow-hidden rounded-xl aspect-video w-full">
+                                                <iframe
+                                                    src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&showinfo=0&autohide=1`}
+                                                    frameBorder="0"
+                                                    allow="autoplay; encrypted-media"
+                                                    allowFullScreen
+                                                    className="w-full h-full"
+                                                ></iframe>
+                                            </div>
+                                        </CarouselItem>
+                                    );
+                                })}
                             </CarouselContent>
                         </Carousel>
                     )}
@@ -265,3 +283,5 @@ export default function ShopPage() {
     </div>
   );
 }
+
+    
