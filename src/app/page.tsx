@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { LoaderCircle } from 'lucide-react';
+import { LoaderCircle, Maximize } from 'lucide-react';
 import Image from 'next/image';
 
 function SplashScreen() {
@@ -123,12 +123,21 @@ export default function LoginPage() {
     setLogoClickCount(prev => prev + 1);
   }
 
+  const handleFullScreen = () => {
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen();
+    }
+  }
+
   if (showSplash) {
     return <SplashScreen />;
   }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4" dir="rtl">
+        <Button variant="ghost" size="icon" className="absolute top-4 right-4" onClick={handleFullScreen}>
+            <Maximize className="h-6 w-6" />
+        </Button>
       <Card className="w-full max-w-sm">
         <form onSubmit={handleSubmit}>
             <CardHeader className="text-center">
