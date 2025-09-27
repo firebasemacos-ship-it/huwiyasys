@@ -6,7 +6,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription as CardDescriptionUI } from '@/components/ui/card';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { Home, Ticket, Search, ShoppingCart, Wallet, Plus, Minus, Trash2, ArrowLeft, LoaderCircle, CheckCircle2, XCircle, Clock, Download, Printer } from 'lucide-react';
+import { Home, Ticket, BadgePercent, ShoppingCart, Wallet, Plus, Minus, Trash2, ArrowLeft, LoaderCircle, CheckCircle2, XCircle, Clock, Download, Printer } from 'lucide-react';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -570,8 +570,8 @@ export default function CartPage() {
               href="/search"
               className="flex flex-col items-center text-xs text-muted-foreground"
             >
-              <Search className="mb-1 h-6 w-6" />
-              البحث
+              <BadgePercent className="mb-1 h-6 w-6" />
+              العروض
             </a>
             <a
               href="/cart"

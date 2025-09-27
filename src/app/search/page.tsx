@@ -2,27 +2,22 @@
 'use client';
 
 import { Input } from '@/components/ui/input';
-import { Search as SearchIcon, Home, ShoppingCart, Wallet, Ticket } from 'lucide-react';
+import { BadgePercent, Home, ShoppingCart, Wallet, Ticket } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
-export default function SearchPage() {
+export default function OffersPage() {
   return (
     <div className="dark bg-background text-foreground" dir="rtl">
       <div className="flex min-h-screen flex-col">
-        <header className="sticky top-0 z-40 w-full border-b bg-background/30 p-4 backdrop-blur-lg">
-          <div className="relative">
-            <Input
-              type="search"
-              placeholder="ابحث عن منتجات"
-              className="w-full rounded-full bg-muted pr-10"
-            />
-            <SearchIcon className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-          </div>
+        <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b bg-background/30 p-4 backdrop-blur-lg">
+           <h1 className="text-xl font-bold">العروض</h1>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 pb-24">
-          <div className="text-center">
-            <h2 className="text-lg font-semibold">ابحث عن منتجاتك المفضلة</h2>
-            <p className="text-muted-foreground">ابدأ بكتابة اسم المنتج الذي تبحث عنه.</p>
+          <div className="text-center flex flex-col items-center justify-center h-full">
+            <BadgePercent className="mb-4 h-20 w-20 text-muted-foreground" />
+            <h2 className="text-lg font-semibold">لا توجد عروض متاحة حالياً</h2>
+            <p className="text-muted-foreground">تحقق مرة أخرى قريباً!</p>
           </div>
         </main>
 
@@ -39,8 +34,8 @@ export default function SearchPage() {
               href="/search"
               className="flex flex-col items-center text-xs font-medium text-primary"
             >
-              <SearchIcon className="mb-1 h-6 w-6" />
-              البحث
+              <BadgePercent className="mb-1 h-6 w-6" />
+              العروض
             </a>
             <a
               href="/cart"
@@ -69,4 +64,3 @@ export default function SearchPage() {
     </div>
   );
 }
-

@@ -7,7 +7,7 @@ import {
   Home,
   MessageSquare,
   Ticket,
-  Search,
+  BadgePercent,
   ShoppingCart,
   Wallet,
   Plus,
@@ -255,8 +255,8 @@ export default function ShopPage() {
               href="/search"
               className="flex flex-col items-center text-xs text-muted-foreground"
             >
-              <Search className="mb-1 h-6 w-6" />
-              البحث
+              <BadgePercent className="mb-1 h-6 w-6" />
+              العروض
             </a>
             <a
               href="/cart"
@@ -285,7 +285,3 @@ export default function ShopPage() {
     </div>
   );
 }
-
-    
-
-    

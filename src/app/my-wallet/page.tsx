@@ -1,10 +1,11 @@
+
 'use client';
 export const dynamic = 'force-dynamic';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Home, Ticket, Search, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, PlusCircle, LoaderCircle, CheckCircle2, Wifi, BadgeHelp, Copy, Send } from 'lucide-react';
+import { Home, Ticket, BadgePercent, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, PlusCircle, LoaderCircle, CheckCircle2, Wifi, BadgeHelp, Copy, Send } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -797,8 +798,8 @@ export default function WalletPage() {
               href="/search"
               className="flex flex-col items-center text-xs text-muted-foreground"
             >
-              <Search className="mb-1 h-6 w-6" />
-              البحث
+              <BadgePercent className="mb-1 h-6 w-6" />
+              العروض
             </a>
             <a
               href="/cart"

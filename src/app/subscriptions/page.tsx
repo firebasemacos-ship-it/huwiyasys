@@ -3,7 +3,7 @@
 
 import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Home, Search, ShoppingCart, Ticket, Wallet as WalletIcon, ArrowLeft, XCircle, Globe, Palette, Package, CalendarDays, Server, Star, Hourglass, ShoppingBag, Trash2 } from 'lucide-react';
+import { Home, BadgePercent, ShoppingCart, Ticket, Wallet as WalletIcon, ArrowLeft, XCircle, Globe, Palette, Package, CalendarDays, Server, Star, Hourglass, ShoppingBag, Trash2 } from 'lucide-react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, DocumentData } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -298,8 +298,8 @@ export default function SubscriptionsPage() {
               href="/search"
               className="flex flex-col items-center text-xs text-muted-foreground"
             >
-              <Search className="mb-1 h-6 w-6" />
-              البحث
+              <BadgePercent className="mb-1 h-6 w-6" />
+              العروض
             </a>
             <a
               href="/cart"
