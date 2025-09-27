@@ -136,14 +136,15 @@ function BannerDialog({ banner, onSave, onClose }: { banner?: Banner | null, onS
                  {videoId && (
                     <div className="space-y-2">
                         <Label>معاينة</Label>
-                        <div className="p-4 border rounded-md aspect-video">
+                        <div className="p-4 border rounded-md aspect-video relative overflow-hidden">
                            <iframe
                                 src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&showinfo=0&modestbranding=1&rel=0&iv_load_policy=3`}
                                 frameBorder="0"
                                 allow="autoplay; encrypted-media"
                                 allowFullScreen
-                                className="w-full h-full"
+                                className="w-full h-full absolute top-0 left-0"
                             ></iframe>
+                            <div className="absolute inset-0 w-full h-full"></div>
                         </div>
                     </div>
                  )}
