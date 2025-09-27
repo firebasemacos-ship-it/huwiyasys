@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -498,7 +497,6 @@ export default function WalletPage() {
   
   const copyToClipboard = (text: string | undefined) => {
     if (!text) return;
-    // The Clipboard API is only available in secure contexts (HTTPS)
     if (!navigator.clipboard) {
         console.warn('Clipboard API not available. This is expected in non-secure contexts (like HTTP).');
         toast({
@@ -511,7 +509,6 @@ export default function WalletPage() {
     navigator.clipboard.writeText(text).then(() => {
         toast({ title: 'تم النسخ!', description: 'تم نسخ رقم البطاقة إلى الحافظة.' });
     }).catch(err => {
-        // Log the error for debugging but don't bother the user if it's a permission issue.
         console.error('Could not copy text: ', err);
         if (err.name !== 'NotAllowedError') {
              toast({
@@ -585,13 +582,13 @@ export default function WalletPage() {
                     >
                         {/* Card Front */}
                         <div className="absolute w-full h-full" style={{ backfaceVisibility: 'hidden' }}>
-                            <Card className="relative h-full w-full overflow-hidden rounded-xl bg-primary text-primary-foreground shadow-lg">
+                            <Card className="relative h-full w-full overflow-hidden rounded-xl bg-gradient-to-br from-primary/90 to-primary/70 text-primary-foreground shadow-lg">
                                 <CardContent className="flex h-full flex-col justify-between p-6">
                                     <div className="flex items-start justify-between">
-                                        <div className="w-12 h-9 bg-yellow-400 rounded-md flex items-center justify-center border-2 border-yellow-500">
+                                       <div className="w-12 h-9 bg-yellow-400 rounded-md flex items-center justify-center border-2 border-yellow-500">
                                             <div className="w-8 h-5 bg-yellow-600 rounded-sm"></div>
                                         </div>
-                                        <CardLogo className="h-20 w-20" />
+                                         <CardLogo className="h-20 w-20" />
                                     </div>
                                     <div className="text-left flex items-center gap-2">
                                         <p className="font-mono text-xl tracking-widest flex-1">
@@ -622,7 +619,7 @@ export default function WalletPage() {
 
                         {/* Card Back */}
                         <div className="absolute w-full h-full" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
-                            <Card className="relative h-full w-full overflow-hidden rounded-xl bg-primary text-primary-foreground shadow-lg">
+                            <Card className="relative h-full w-full overflow-hidden rounded-xl bg-gradient-to-br from-primary/90 to-primary/70 text-primary-foreground shadow-lg">
                                 <div className="h-full flex flex-col justify-between p-4">
                                     <div className="h-12 bg-black mt-4"></div>
                                     <div className="flex justify-end items-center gap-4 px-4 py-2 bg-slate-200 rounded-md">
@@ -697,10 +694,10 @@ export default function WalletPage() {
           </Dialog>
 
           {isClient && (
-            <div className="my-6 grid grid-cols-3 gap-4">
+            <div className="my-6 flex flex-wrap items-stretch justify-center gap-4">
                 <Dialog open={isAddCardDialogOpen} onOpenChange={setAddCardDialogOpen}>
                     <DialogTrigger asChild>
-                        <Card className="overflow-hidden rounded-xl cursor-pointer hover:bg-muted/50 transition-colors">
+                        <Card className="overflow-hidden rounded-xl cursor-pointer hover:bg-muted/50 transition-colors flex-1 basis-1/3 min-w-[120px]">
                             <CardContent className="flex flex-col items-center justify-center p-4 text-center h-full">
                                 <CreditCard className="mb-2 h-8 w-8 text-primary" />
                                 <p className="text-sm font-semibold">طرق الدفع</p>
@@ -712,7 +709,7 @@ export default function WalletPage() {
     
                 <Dialog open={isTransferDialogOpen} onOpenChange={setTransferDialogOpen}>
                     <DialogTrigger asChild>
-                        <Card className="overflow-hidden rounded-xl cursor-pointer hover:bg-muted/50 transition-colors">
+                        <Card className="overflow-hidden rounded-xl cursor-pointer hover:bg-muted/50 transition-colors flex-1 basis-1/3 min-w-[120px]">
                             <CardContent className="flex flex-col items-center justify-center p-4 text-center h-full">
                                 <Send className="mb-2 h-8 w-8 text-primary" />
                                 <p className="text-sm font-semibold">تحويل الرصيد</p>
@@ -722,9 +719,9 @@ export default function WalletPage() {
                     {isTransferDialogOpen && userData && <TransferBalanceDialog userProfile={userData} onClose={() => setTransferDialogOpen(false)} />}
                 </Dialog>
     
-                <Link href="/subscriptions">
+                <Link href="/subscriptions" className="flex-1 basis-1/3 min-w-[120px]">
                     <Card className="overflow-hidden rounded-xl cursor-pointer hover:bg-muted/50 transition-colors h-full">
-                        <CardContent className="flex flex-col items-center justify-center p-4 text-center">
+                        <CardContent className="flex flex-col items-center justify-center p-4 text-center h-full">
                             <Ticket className="mb-2 h-8 w-8 text-primary" />
                             <p className="text-sm font-semibold">اشتراكاتي</p>
                         </CardContent>
