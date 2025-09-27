@@ -618,8 +618,10 @@ export default function WalletPage() {
                         {/* Card Front */}
                         <div className="absolute w-full h-full" style={{ backfaceVisibility: 'hidden' }}>
                             <Card className="relative h-full w-full overflow-hidden rounded-xl bg-gradient-to-br from-primary/80 to-primary/60 text-primary-foreground shadow-lg">
-                                <div className="absolute -right-10 -bottom-8 h-40 w-40 opacity-10" style={{ position: 'relative' }}>
-                                    <CardLogo fill style={{ objectFit: 'contain' }} />
+                                <div className="absolute inset-0 w-full h-full">
+                                    <div className="absolute -right-10 -bottom-8 h-40 w-40 opacity-10">
+                                        <CardLogo fill style={{ objectFit: 'contain' }} />
+                                    </div>
                                 </div>
                                 <CardContent className="relative flex h-full flex-col justify-between p-6">
                                     <div className="flex items-start justify-between">
