@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -137,7 +138,7 @@ function BannerDialog({ banner, onSave, onClose }: { banner?: Banner | null, onS
                         <Label>معاينة</Label>
                         <div className="p-4 border rounded-md aspect-video">
                            <iframe
-                                src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0`}
+                                src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&showinfo=0&modestbranding=1&rel=0&iv_load_policy=3`}
                                 frameBorder="0"
                                 allow="autoplay; encrypted-media"
                                 allowFullScreen
@@ -289,4 +290,6 @@ export default function BannersPage() {
         </AdminSubPageLayout>
     );
 }
+    
+
     

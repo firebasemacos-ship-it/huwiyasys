@@ -1,4 +1,5 @@
 
+
 'use client';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -158,7 +159,7 @@ export default function ShopPage() {
                                         <CarouselItem key={banner.id}>
                                             <div className="overflow-hidden rounded-xl aspect-video w-full">
                                                 <iframe
-                                                    src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&showinfo=0&autohide=1`}
+                                                    src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&showinfo=0&modestbranding=1&rel=0&iv_load_policy=3`}
                                                     frameBorder="0"
                                                     allow="autoplay; encrypted-media"
                                                     allowFullScreen
@@ -283,5 +284,7 @@ export default function ShopPage() {
     </div>
   );
 }
+
+    
 
     
