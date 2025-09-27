@@ -13,7 +13,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, DocumentData, runTransaction, collection, query, where, getDocs, serverTimestamp, increment, addDoc, getDoc, updateDoc, onSnapshot, arrayUnion, DocumentReference } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -21,6 +21,7 @@ import { useCart } from '@/hooks/use-cart';
 import { v4 as uuidv4 } from 'uuid';
 import QRCode from "react-qr-code";
 import { Logo } from '@/components/icons';
+import { Badge } from '@/components/ui/badge';
 
 
 const getImage = (id: string | undefined) => {
@@ -46,12 +47,14 @@ type UserProfile = {
 };
 
 type Offer = DocumentData & {
-    id: string;
-    type: 'discount_coupon';
-    productId?: string;
-    discountPercentage?: number;
-    couponCode?: string;
-    isUsed?: boolean;
+  id: string;
+  type: 'discount_coupon';
+  productId?: string;
+  discountPercentage?: number;
+  couponCode?: string;
+  isUsed?: boolean;
+  targetType: 'all' | 'specific_user';
+  targetUserId?: string;
 };
 
 
@@ -494,11 +497,32 @@ export default function CartPage() {
   const [discountAmount, setDiscountAmount] = useState(0);
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
 
+  // New state for offer badge
+  const [newOfferCount, setNewOfferCount] = useState(0);
+  const offersQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(
+        collection(firestore, 'offers'), 
+        where('status', '==', 'active')
+    );
+  }, [firestore, user]);
+  const { data: allOffers } = useCollection<Offer>(offersQuery);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && allOffers && user) {
+        const viewedOffers = JSON.parse(localStorage.getItem('viewedOffers') || '{}');
+        const userOffers = allOffers.filter(offer => offer.targetType === 'all' || offer.targetUserId === user.uid);
+        const unreadCount = userOffers.filter(offer => !viewedOffers[offer.id]).length;
+        setNewOfferCount(unreadCount);
+    }
+  }, [allOffers, user]);
+
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
+  const totalCartItems = useMemo(() => cartItems.reduce((acc, item) => acc + item.quantity, 0), [cartItems]);
   const subtotal = useMemo(() => cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0), [cartItems]);
 
   useEffect(() => {
@@ -695,15 +719,21 @@ export default function CartPage() {
             </a>
             <a
               href="/search"
-              className="flex flex-col items-center text-xs text-muted-foreground"
+              className="flex flex-col items-center text-xs text-muted-foreground relative"
             >
+              {newOfferCount > 0 && (
+                <Badge variant="destructive" className="absolute -top-1 -right-2 h-4 w-4 justify-center p-0">{newOfferCount}</Badge>
+              )}
               <BadgePercent className="mb-1 h-6 w-6" />
               العروض
             </a>
             <a
               href="/cart"
-              className="flex flex-col items-center text-xs font-medium text-primary"
+              className="flex flex-col items-center text-xs font-medium text-primary relative"
             >
+              {totalCartItems > 0 && (
+                <Badge className="absolute -top-1 -right-2 h-4 w-4 justify-center p-0">{totalCartItems}</Badge>
+              )}
               <ShoppingCart className="mb-1 h-6 w-6" />
               السلة
             </a>
@@ -727,3 +757,5 @@ export default function CartPage() {
     </div>
   );
 }
+
+    

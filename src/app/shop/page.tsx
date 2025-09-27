@@ -22,15 +22,16 @@ import {
   CarouselPrevious,
 } from '@/components/ui/carousel';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { useCollection, useMemoFirebase } from '@/firebase';
+import { useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, where, getDocs, orderBy, DocumentData } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import Autoplay from "embla-carousel-autoplay";
 import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 
 const getImage = (id: string) => {
@@ -64,6 +65,12 @@ interface CategoryWithProducts extends Category {
     products: Product[];
 }
 
+interface Offer extends DocumentData {
+  id: string;
+  targetType: 'all' | 'specific_user';
+  targetUserId?: string;
+};
+
 const getYouTubeVideoId = (url: string) => {
     if (!url) return null;
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -74,9 +81,10 @@ const getYouTubeVideoId = (url: string) => {
 
 export default function ShopPage() {
   const firestore = useFirestore();
+  const { user } = useUser();
   const [categoriesWithProducts, setCategoriesWithProducts] = useState<CategoryWithProducts[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { addItem } = useCart();
+  const { items: cartItems, addItem } = useCart();
   const { toast } = useToast();
   
   const categoriesQuery = useMemoFirebase(() => {
@@ -91,6 +99,28 @@ export default function ShopPage() {
   
   const { data: categories, isLoading: isLoadingCategories } = useCollection<Category>(categoriesQuery);
   const { data: banners, isLoading: isLoadingBanners } = useCollection<Banner>(bannersQuery);
+  
+  // New state for offer badge
+  const [newOfferCount, setNewOfferCount] = useState(0);
+  const offersQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(
+        collection(firestore, 'offers'), 
+        where('status', '==', 'active')
+    );
+  }, [firestore, user]);
+  const { data: allOffers } = useCollection<Offer>(offersQuery);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && allOffers && user) {
+        const viewedOffers = JSON.parse(localStorage.getItem('viewedOffers') || '{}');
+        const userOffers = allOffers.filter(offer => offer.targetType === 'all' || offer.targetUserId === user.uid);
+        const unreadCount = userOffers.filter(offer => !viewedOffers[offer.id]).length;
+        setNewOfferCount(unreadCount);
+    }
+  }, [allOffers, user]);
+
+  const totalCartItems = useMemo(() => cartItems.reduce((acc, item) => acc + item.quantity, 0), [cartItems]);
 
   useEffect(() => {
     const fetchProductsForCategories = async () => {
@@ -253,15 +283,21 @@ export default function ShopPage() {
             </a>
             <a
               href="/search"
-              className="flex flex-col items-center text-xs text-muted-foreground"
+              className="flex flex-col items-center text-xs text-muted-foreground relative"
             >
+              {newOfferCount > 0 && (
+                <Badge variant="destructive" className="absolute -top-1 -right-2 h-4 w-4 justify-center p-0">{newOfferCount}</Badge>
+              )}
               <BadgePercent className="mb-1 h-6 w-6" />
               العروض
             </a>
             <a
               href="/cart"
-              className="flex flex-col items-center text-xs text-muted-foreground"
+              className="flex flex-col items-center text-xs text-muted-foreground relative"
             >
+              {totalCartItems > 0 && (
+                <Badge className="absolute -top-1 -right-2 h-4 w-4 justify-center p-0">{totalCartItems}</Badge>
+              )}
               <ShoppingCart className="mb-1 h-6 w-6" />
               السلة
             </a>
@@ -285,3 +321,5 @@ export default function ShopPage() {
     </div>
   );
 }
+
+    

@@ -1,15 +1,17 @@
 
+
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Home, BadgePercent, ShoppingCart, Ticket, Wallet as WalletIcon, ArrowLeft, XCircle, Globe, Palette, Package, CalendarDays, Server, Star, Hourglass, ShoppingBag, Trash2 } from 'lucide-react';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, DocumentData } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, isValid } from 'date-fns';
+import { useCart } from '@/hooks/use-cart';
 
 // Consistent Subscription Types from admin page
 type SubscriptionCategory = 'domain' | 'design' | 'sales_system' | 'order';
@@ -62,6 +64,12 @@ interface UserProfile extends DocumentData {
     subscriptions?: Subscription[];
 }
 
+interface Offer extends DocumentData {
+  id: string;
+  targetType: 'all' | 'specific_user';
+  targetUserId?: string;
+};
+
 // Helper to safely convert Firestore Timestamps or other date formats to a Date object.
 const safeToDate = (date: any): Date | undefined => {
     if (!date) return undefined;
@@ -93,6 +101,8 @@ const SubscriptionDetail = ({ label, value, icon }: { label: string, value: stri
 export default function SubscriptionsPage() {
     const { user, isUserLoading } = useUser();
     const firestore = useFirestore();
+    const { items: cartItems } = useCart();
+
 
     const userDocRef = useMemoFirebase(() => {
         if (!firestore || !user) return null;
@@ -100,6 +110,23 @@ export default function SubscriptionsPage() {
     }, [firestore, user]);
 
     const { data: userData, isLoading, error } = useDoc<UserProfile>(userDocRef);
+
+      // New state for offer badge
+    const [newOfferCount, setNewOfferCount] = useState(0);
+    const offersQuery = useMemoFirebase(() => {
+        if (!firestore || !user) return null;
+        return query(collection(firestore, 'offers'), where('status', '==', 'active'));
+    }, [firestore, user]);
+    const { data: allOffers } = useCollection<Offer>(offersQuery);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && allOffers && user) {
+            const viewedOffers = JSON.parse(localStorage.getItem('viewedOffers') || '{}');
+            const userOffers = allOffers.filter(offer => offer.targetType === 'all' || offer.targetUserId === user.uid);
+            const unreadCount = userOffers.filter(offer => !viewedOffers[offer.id]).length;
+            setNewOfferCount(unreadCount);
+        }
+    }, [allOffers, user]);
     
     // Sort subscriptions by creation date, descending.
     const subscriptions = useMemo(() => {
@@ -110,6 +137,9 @@ export default function SubscriptionsPage() {
             return dateB.getTime() - dateA.getTime();
         });
     }, [userData?.subscriptions]);
+
+    const totalCartItems = useMemo(() => cartItems.reduce((acc, item) => acc + item.quantity, 0), [cartItems]);
+
 
     const handleCancelRequest = (subscriptionId: string) => {
         // TODO: Implement the logic to update the subscription status to 'cancelled' in Firestore.
@@ -296,15 +326,21 @@ export default function SubscriptionsPage() {
             </a>
             <a
               href="/search"
-              className="flex flex-col items-center text-xs text-muted-foreground"
+              className="flex flex-col items-center text-xs text-muted-foreground relative"
             >
+              {newOfferCount > 0 && (
+                <Badge variant="destructive" className="absolute -top-1 -right-2 h-4 w-4 justify-center p-0">{newOfferCount}</Badge>
+              )}
               <BadgePercent className="mb-1 h-6 w-6" />
               العروض
             </a>
             <a
               href="/cart"
-              className="flex flex-col items-center text-xs text-muted-foreground"
+              className="flex flex-col items-center text-xs text-muted-foreground relative"
             >
+             {totalCartItems > 0 && (
+                <Badge className="absolute -top-1 -right-2 h-4 w-4 justify-center p-0">{totalCartItems}</Badge>
+              )}
               <ShoppingCart className="mb-1 h-6 w-6" />
               السلة
             </a>
@@ -328,3 +364,5 @@ export default function SubscriptionsPage() {
     </div>
   );
 }
+
+    

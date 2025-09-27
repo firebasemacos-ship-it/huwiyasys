@@ -1,4 +1,5 @@
 
+
 'use client';
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +21,8 @@ import { CardLinkRequestHandler } from '@/components/CardLinkRequestHandler';
 import { AcceptedRequestProcessor } from '@/components/AcceptedRequestProcessor';
 import { useDebounce } from 'use-debounce';
 import Link from 'next/link';
+import { useCart } from '@/hooks/use-cart';
+import { Badge } from '@/components/ui/badge';
 
 
 type Wallet = {
@@ -44,6 +47,12 @@ type Transaction = {
     date: any; // Firestore timestamp
     description?: string;
 }
+
+type Offer = DocumentData & {
+  id: string;
+  targetType: 'all' | 'specific_user';
+  targetUserId?: string;
+};
 
 function AddCardDialog({ onClose }: { onClose: () => void }) {
     const firestore = useFirestore();
@@ -354,6 +363,8 @@ export default function WalletPage() {
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const { items: cartItems } = useCart();
+
 
   const userDocRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -384,6 +395,28 @@ export default function WalletPage() {
 
   const [displayBalance, setDisplayBalance] = useState(0);
   const [isCardFlipped, setIsCardFlipped] = useState(false);
+
+  // New state for offer badge
+  const [newOfferCount, setNewOfferCount] = useState(0);
+  const offersQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(
+        collection(firestore, 'offers'), 
+        where('status', '==', 'active')
+    );
+  }, [firestore, user]);
+  const { data: allOffers } = useCollection<Offer>(offersQuery);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && allOffers && user) {
+        const viewedOffers = JSON.parse(localStorage.getItem('viewedOffers') || '{}');
+        const userOffers = allOffers.filter(offer => offer.targetType === 'all' || offer.targetUserId === user.uid);
+        const unreadCount = userOffers.filter(offer => !viewedOffers[offer.id]).length;
+        setNewOfferCount(unreadCount);
+    }
+  }, [allOffers, user]);
+
+  const totalCartItems = useMemo(() => cartItems.reduce((acc, item) => acc + item.quantity, 0), [cartItems]);
 
   const currentBalance = userData?.wallet?.balance ?? 0;
   const animationFrameId = useRef<number | null>(null);
@@ -797,15 +830,21 @@ export default function WalletPage() {
             </a>
             <a
               href="/search"
-              className="flex flex-col items-center text-xs text-muted-foreground"
+              className="flex flex-col items-center text-xs text-muted-foreground relative"
             >
+              {newOfferCount > 0 && (
+                <Badge variant="destructive" className="absolute -top-1 -right-2 h-4 w-4 justify-center p-0">{newOfferCount}</Badge>
+              )}
               <BadgePercent className="mb-1 h-6 w-6" />
               العروض
             </a>
             <a
               href="/cart"
-              className="flex flex-col items-center text-xs text-muted-foreground"
+              className="flex flex-col items-center text-xs text-muted-foreground relative"
             >
+              {totalCartItems > 0 && (
+                <Badge className="absolute -top-1 -right-2 h-4 w-4 justify-center p-0">{totalCartItems}</Badge>
+              )}
               <ShoppingCart className="mb-1 h-6 w-6" />
               السلة
             </a>
@@ -830,3 +869,6 @@ export default function WalletPage() {
   );
 }
 
+
+
+    

@@ -1,7 +1,8 @@
 
+
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Home, Ticket, BadgePercent, ShoppingCart, Wallet, LoaderCircle, Gift, Copy, CheckCircle2 } from 'lucide-react';
@@ -9,7 +10,8 @@ import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebas
 import { collection, query, where, DocumentData, doc, updateDoc, arrayUnion, runTransaction, serverTimestamp, increment } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-
+import { Badge } from '@/components/ui/badge';
+import { useCart } from '@/hooks/use-cart';
 
 interface Offer extends DocumentData {
   id: string;
@@ -31,16 +33,16 @@ export default function OffersPage() {
     const firestore = useFirestore();
     const { user } = useUser();
     const { toast } = useToast();
+    const { items: cartItems } = useCart();
+
 
     const [redeemingStates, setRedeemingStates] = useState<Record<string, boolean>>({});
 
     const offersQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
-        // Query for offers targeted to 'all' or specifically to the current user
         return query(
             collection(firestore, 'offers'), 
-            where('status', '==', 'active'),
-            where('targetType', 'in', ['all', 'specific_user'])
+            where('status', '==', 'active')
         );
     }, [firestore, user]);
 
@@ -50,7 +52,19 @@ export default function OffersPage() {
         if (!allOffers || !user) return [];
         return allOffers.filter(offer => offer.targetType === 'all' || offer.targetUserId === user.uid);
     }, [allOffers, user]);
+    
+    // Clear the new offers badge when the user visits this page
+    useEffect(() => {
+        if (typeof window !== 'undefined' && offers && offers.length > 0) {
+            const viewedOffers = JSON.parse(localStorage.getItem('viewedOffers') || '{}');
+            offers.forEach(offer => {
+                viewedOffers[offer.id] = true;
+            });
+            localStorage.setItem('viewedOffers', JSON.stringify(viewedOffers));
+        }
+    }, [offers]);
 
+    const totalCartItems = useMemo(() => cartItems.reduce((acc, item) => acc + item.quantity, 0), [cartItems]);
 
     const handleRedeemGift = async (offer: Offer) => {
         if (!user || !firestore || offer.type !== 'cash_gift') return;
@@ -183,15 +197,18 @@ export default function OffersPage() {
             </a>
             <a
               href="/search"
-              className="flex flex-col items-center text-xs font-medium text-primary"
+              className="flex flex-col items-center text-xs font-medium text-primary relative"
             >
               <BadgePercent className="mb-1 h-6 w-6" />
               العروض
             </a>
             <a
               href="/cart"
-              className="flex flex-col items-center text-xs text-muted-foreground"
+              className="flex flex-col items-center text-xs text-muted-foreground relative"
             >
+              {totalCartItems > 0 && (
+                    <Badge className="absolute -top-1 -right-2 h-4 w-4 justify-center p-0">{totalCartItems}</Badge>
+                )}
               <ShoppingCart className="mb-1 h-6 w-6" />
               السلة
             </a>
@@ -215,3 +232,5 @@ export default function OffersPage() {
     </div>
   );
 }
+
+    
