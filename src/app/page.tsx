@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -18,7 +17,7 @@ import Image from 'next/image';
 function SplashScreen() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
-        <div style={{position: 'relative', paddingBottom: '56.25%', height: '0', width: '100%'}}>
+        <div style={{position: 'absolute', top: 0, left: 0, width: '100%', height: '100%'}}>
             <iframe id="js_video_iframe" src="https://jumpshare.com/embed/IFjOJy4oQty99bRlX2Ws" frameBorder="0" webkitallowfullscreen="true" mozallowfullscreen="true" allowFullScreen={true} style={{position: 'absolute', top: '0', left: '0', width: '100%', height: '100%'}}></iframe>
         </div>
     </div>
