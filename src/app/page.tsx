@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -9,10 +10,10 @@ import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/icons';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { LoaderCircle, Maximize } from 'lucide-react';
-import Image from 'next/image';
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { doc, getDoc, collection, query, where, getDocs, runTransaction, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { LoaderCircle, Maximize, KeyRound } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 function SplashScreen() {
   return (
@@ -23,6 +24,93 @@ function SplashScreen() {
     </div>
   );
 }
+
+function ActivationDialog({ user, onActivationSuccess }: { user: any; onActivationSuccess: () => void; }) {
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    const [activationCode, setActivationCode] = useState('');
+    const [isActivating, setIsActivating] = useState(false);
+
+    const handleActivation = async () => {
+        if (!activationCode) {
+            toast({ variant: 'destructive', title: "حقل فارغ", description: "الرجاء إدخال كود التفعيل." });
+            return;
+        }
+        setIsActivating(true);
+
+        try {
+            await runTransaction(firestore, async (transaction) => {
+                const codesRef = collection(firestore, 'activationCodes');
+                const q = query(codesRef, where("code", "==", activationCode));
+                const codeSnapshot = await getDocs(q);
+
+                if (codeSnapshot.empty) {
+                    throw new Error("كود التفعيل غير صالح.");
+                }
+
+                const codeDoc = codeSnapshot.docs[0];
+                const codeData = codeDoc.data();
+
+                if (codeData.isUsed) {
+                    throw new Error("هذا الكود تم استخدامه بالفعل.");
+                }
+
+                // Mark code as used
+                transaction.update(codeDoc.ref, {
+                    isUsed: true,
+                    usedBy: user.uid,
+                    usedAt: serverTimestamp()
+                });
+
+                // Activate user account
+                const userRef = doc(firestore, 'users', user.uid);
+                transaction.update(userRef, { isActivated: true });
+            });
+
+            toast({ title: "تم تفعيل الحساب بنجاح!", description: "جاري توجيهك للمتجر..." });
+            onActivationSuccess();
+
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: "فشل التفعيل", description: error.message });
+        } finally {
+            setIsActivating(false);
+        }
+    };
+
+    return (
+        <Dialog open={true}>
+            <DialogContent dir="rtl" className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle className="text-center text-2xl">تفعيل الحساب</DialogTitle>
+                    <DialogDescription className="text-center">
+                        لاستخدام التطبيق، الرجاء إدخال كود التفعيل الخاص بك.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-col items-center justify-center gap-4 py-6 text-center">
+                     <div className="flex h-24 w-24 items-center justify-center rounded-full bg-muted">
+                       <KeyRound className="h-12 w-12 text-primary" />
+                    </div>
+                     <div className="w-full space-y-2">
+                        <Label htmlFor="activation-code" className="sr-only">كود التفعيل</Label>
+                        <Input
+                            id="activation-code"
+                            placeholder="XXXX-XXXX-XXXX-XXXX"
+                            className="text-center font-mono tracking-widest"
+                            value={activationCode}
+                            onChange={(e) => setActivationCode(e.target.value)}
+                        />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="submit" className="w-full" onClick={handleActivation} disabled={isActivating}>
+                        {isActivating ? <LoaderCircle className="ml-2 h-4 w-4 animate-spin" /> : 'تفعيل'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,6 +123,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [logoClickCount, setLogoClickCount] = useState(0);
+
+  const [needsActivation, setNeedsActivation] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -78,7 +169,11 @@ export default function LoginPage() {
 
       if (userDoc.exists()) {
         const userData = userDoc.data();
-        if (userData.wallet?.status === 'suspended') {
+        
+        if (userData.isActivated === false) {
+            setCurrentUser(user);
+            setNeedsActivation(true);
+        } else if (userData.wallet?.status === 'suspended') {
             await auth.signOut();
             toast({
                 variant: 'destructive',
@@ -133,6 +228,11 @@ export default function LoginPage() {
     return <SplashScreen />;
   }
 
+  if (needsActivation && currentUser) {
+      return <ActivationDialog user={currentUser} onActivationSuccess={() => router.push('/shop')} />;
+  }
+
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4" dir="rtl">
         <Button variant="ghost" size="icon" className="absolute top-4 right-4" onClick={handleFullScreen}>
@@ -186,3 +286,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    

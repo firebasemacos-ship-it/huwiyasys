@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -53,6 +54,7 @@ type UserData = {
     wallet?: Wallet;
     createdAt?: any;
     isAdmin?: boolean;
+    isActivated?: boolean;
 };
 
 export default function UsersPage() {
@@ -145,6 +147,7 @@ export default function UsersPage() {
                 tempPassword: password,
                 createdAt: serverTimestamp(),
                 isAdmin: false,
+                isActivated: false,
                 wallet: {
                     balance: 0,
                     cardNumber: generateCardNumber(),
@@ -257,7 +260,7 @@ export default function UsersPage() {
                     <TableRow>
                         <TableHead>الاسم</TableHead>
                         <TableHead>رقم العقد / البريد</TableHead>
-                        <TableHead>حالة البطاقة</TableHead>
+                        <TableHead>حالة الحساب</TableHead>
                         <TableHead>كلمة المرور المؤقتة</TableHead>
                         <TableHead>
                         <span className="sr-only">الإجراءات</span>
@@ -275,12 +278,10 @@ export default function UsersPage() {
                                 <TableCell className="font-medium">{user.displayName}</TableCell>
                                 <TableCell>{user.email}</TableCell>
                                 <TableCell>
-                                   {user.wallet ? (
-                                     <Badge variant={user.wallet?.status === 'active' ? 'default' : 'destructive'}>
-                                        {user.wallet?.status === 'active' ? 'نشطة' : 'معلقة'}
-                                    </Badge>
+                                   {user.isActivated ? (
+                                     <Badge variant={'default'}>مفعل</Badge>
                                    ) : (
-                                    <Badge variant="outline">لا توجد</Badge>
+                                    <Badge variant="destructive">غير مفعل</Badge>
                                    )}
                                 </TableCell>
                                 <TableCell>
@@ -338,3 +339,5 @@ export default function UsersPage() {
     </AdminSubPageLayout>
   );
 }
+
+    

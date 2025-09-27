@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, ReactNode } from 'react';
@@ -6,7 +7,7 @@ import Link from 'next/link';
 import { useUser } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { getAuth, signOut } from 'firebase/auth';
-import { LayoutDashboard, LogOut, Menu, Box, Users, ShoppingBag, CreditCard, Image as ImageIcon, Settings, Ticket } from 'lucide-react';
+import { LayoutDashboard, LogOut, Menu, Box, Users, ShoppingBag, CreditCard, ImageIcon, Settings, Ticket, KeyRound } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Logo } from '@/components/icons';
 import { LoaderCircle } from 'lucide-react';
@@ -17,6 +18,7 @@ const dashboardItems = [
     { href: '/admin/orders', title: 'الطلبات', icon: ShoppingBag },
     { href: '/admin/cards', title: 'البطاقات', icon: CreditCard },
     { href: '/admin/recharge-cards', title: 'كروت الشحن', icon: Ticket },
+    { href: '/admin/activation-codes', title: 'أكواد التفعيل', icon: KeyRound },
     { href: '/admin/subscriptions', title: 'الاشتراكات', icon: Ticket },
     { href: '/admin/banners', title: 'البنرات الإعلانية', icon: ImageIcon },
     { href: '/admin/settings', title: 'الإعدادات', icon: Settings },
@@ -130,3 +132,5 @@ export default function AdminSubPageLayout({ children, title }: { children: Reac
     </div>
   );
 }
+
+    

@@ -28,6 +28,11 @@
           "type": "boolean",
           "description": "Flag to indicate if the user is an administrator."
         },
+        "isActivated": {
+          "type": "boolean",
+          "default": false,
+          "description": "Flag to indicate if the user's account has been activated."
+        },
         "contractNumber": {
           "type": "string",
           "description": "The user's unique contract number."
@@ -114,6 +119,41 @@
         "createdAt",
         "contractNumber",
         "wallet"
+      ]
+    },
+     "ActivationCode": {
+      "title": "Activation Code",
+      "description": "Represents a one-time activation code for new users.",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "The unique activation code."
+        },
+        "isUsed": {
+          "type": "boolean",
+          "default": false,
+          "description": "Flag to indicate if the code has been used."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the code was created."
+        },
+        "usedBy": {
+          "type": "string",
+          "description": "The UID of the user who used the code."
+        },
+        "usedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the code was used."
+        }
+      },
+      "required": [
+        "code",
+        "isUsed",
+        "createdAt"
       ]
     },
     "BaseSubscription": {
@@ -556,6 +596,12 @@
         "$ref": "#/entities/RechargeCard"
       },
       "description": "Stores generated recharge cards."
+    },
+    "/activationCodes/{codeId}": {
+      "schema": {
+        "$ref": "#/entities/ActivationCode"
+      },
+      "description": "Stores one-time user activation codes."
     },
     "/orders/{orderId}": {
         "schema": {
