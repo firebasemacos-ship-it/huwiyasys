@@ -156,6 +156,40 @@
         "createdAt"
       ]
     },
+    "Offer": {
+      "title": "Offer",
+      "description": "Represents a promotional offer, either a cash gift or a discount coupon.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "The title of the offer." },
+        "type": { "type": "string", "enum": ["cash_gift", "discount_coupon"] },
+        "status": { "type": "string", "enum": ["active", "inactive"], "default": "active" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "type", "status", "createdAt"],
+      "oneOf": [
+        {
+          "properties": {
+            "type": { "const": "cash_gift" },
+            "amount": { "type": "number", "description": "The cash value of the gift." },
+            "redeemedBy": { "type": "array", "items": { "type": "string" }, "description": "List of user UIDs who have redeemed this gift." }
+          },
+          "required": ["amount"]
+        },
+        {
+          "properties": {
+            "type": { "const": "discount_coupon" },
+            "productId": { "type": "string", "description": "The ID of the product this coupon applies to." },
+            "productName": { "type": "string", "description": "The name of the product." },
+            "discountPercentage": { "type": "number", "description": "The discount percentage (e.g., 10 for 10%)." },
+            "couponCode": { "type": "string", "description": "The auto-generated coupon code." },
+            "isUsed": { "type": "boolean", "default": false },
+            "usedBy": { "type": "string" }
+          },
+          "required": ["productId", "productName", "discountPercentage", "couponCode"]
+        }
+      ]
+    },
     "BaseSubscription": {
         "title": "Base Subscription",
         "type": "object",
@@ -603,6 +637,12 @@
       },
       "description": "Stores one-time user activation codes."
     },
+    "/offers/{offerId}": {
+      "schema": {
+        "$ref": "#/entities/Offer"
+      },
+      "description": "Stores promotional offers for the app."
+    },
     "/orders/{orderId}": {
         "schema": {
             "$ref": "#/entities/Order"
@@ -611,4 +651,6 @@
     }
   }
 }
+    
+
     
