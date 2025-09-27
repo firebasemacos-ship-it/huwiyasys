@@ -283,6 +283,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
 
 
     if (paymentStatus === 'success' && invoiceData) {
+        const formattedInvoiceId = `ZETABAIT-${invoiceData.orderId.substring(0, 8).toUpperCase()}`;
         return (
              <DialogContent dir="rtl" className="max-w-md">
                 <div className="flex flex-col items-center justify-center gap-4 py-8 text-center">
@@ -312,7 +313,7 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                                 <Separator className="my-2 bg-slate-500" />
                                 <div className="text-center">
                                     <p className="text-sm">رقم الفاتورة</p>
-                                    <p className="font-mono tracking-widest text-lg">{invoiceData.orderId.slice(0, 10)}...</p>
+                                    <p className="font-mono tracking-widest text-lg">{formattedInvoiceId}</p>
                                 </div>
                             </CardContent>
                         </Card>
@@ -435,6 +436,12 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                 <Separator className="my-6" />
 
                 <div className="space-y-2 text-sm">
+                    {userData?.wallet && (
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">الرصيد المتاح</span>
+                            <span className="font-semibold">{userData.wallet.balance.toFixed(2)} دينار ليبي</span>
+                        </div>
+                    )}
                     <div className="flex justify-between">
                         <span className="text-muted-foreground">المجموع</span>
                         <span className="font-semibold">{totalAmount.toFixed(2)} دينار ليبي</span>
