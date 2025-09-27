@@ -4,7 +4,7 @@ export function Logo(props: Omit<React.ComponentProps<"div">, 'children'>) {
   return (
     <div {...props} style={{position: 'relative', ...props.style}}>
         <Image
-          src="https://i.ibb.co/Qjm6DjjL/logo-hq.png"
+          src="https://i.ibb.co/1GyQhqsB/zetabait.png"
           alt="Logo"
           fill
           style={{objectFit: 'contain'}}
