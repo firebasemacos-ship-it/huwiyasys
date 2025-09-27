@@ -1,10 +1,10 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import AdminSubPageLayout from '../layout';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, MoreHorizontal, LoaderCircle, Trash2, Edit, Copy, Gift, Ticket } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, LoaderCircle, Trash2, Edit, Copy, Gift, Ticket, Users, Globe } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -37,11 +37,16 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, DocumentData, query, orderBy, where } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, DocumentData, query, orderBy, where, getDocs } from 'firebase/firestore';
 
 interface Product extends DocumentData {
   id: string;
   name: string;
+}
+
+interface User extends DocumentData {
+    id: string;
+    displayName: string;
 }
 
 interface Offer extends DocumentData {
@@ -49,6 +54,9 @@ interface Offer extends DocumentData {
   title: string;
   type: 'cash_gift' | 'discount_coupon';
   status: 'active' | 'inactive';
+  targetType: 'all' | 'specific_user';
+  targetUserId?: string;
+  targetUserName?: string;
   createdAt: any;
   // cash_gift specific
   amount?: number;
@@ -69,6 +77,8 @@ function OfferDialog({ offer, onSave, onClose }: { offer?: Offer | null, onSave:
     const [title, setTitle] = useState(offer?.title || '');
     const [type, setType] = useState<'cash_gift' | 'discount_coupon' | ''>(offer?.type || '');
     const [status, setStatus] = useState<'active' | 'inactive'>(offer?.status || 'active');
+    const [targetType, setTargetType] = useState<'all' | 'specific_user'>(offer?.targetType || 'all');
+    const [targetUserId, setTargetUserId] = useState(offer?.targetUserId || '');
 
     // Cash Gift fields
     const [amount, setAmount] = useState(offer?.amount || 0);
@@ -77,9 +87,12 @@ function OfferDialog({ offer, onSave, onClose }: { offer?: Offer | null, onSave:
     const [productId, setProductId] = useState(offer?.productId || '');
     const [discountPercentage, setDiscountPercentage] = useState(offer?.discountPercentage || 10);
     
-    // Products for dropdown
+    // Data for dropdowns
     const productsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'products'), where('status', '==', 'active')) : null, [firestore]);
     const { data: products, isLoading: isLoadingProducts } = useCollection<Product>(productsQuery);
+    
+    const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users'), orderBy('displayName')) : null, [firestore]);
+    const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
 
     const [isLoading, setIsLoading] = useState(false);
     
@@ -92,12 +105,21 @@ function OfferDialog({ offer, onSave, onClose }: { offer?: Offer | null, onSave:
             toast({ variant: 'destructive', title: "بيانات ناقصة", description: "الرجاء ملء جميع الحقول المطلوبة." });
             return;
         }
+        if (targetType === 'specific_user' && !targetUserId) {
+            toast({ variant: 'destructive', title: "بيانات ناقصة", description: "الرجاء اختيار مستخدم معين." });
+            return;
+        }
         setIsLoading(true);
+
+        const selectedUser = users?.find(u => u.id === targetUserId);
 
         let offerData: Partial<Offer> = {
             title,
             type,
             status,
+            targetType,
+            targetUserId: targetType === 'specific_user' ? targetUserId : '',
+            targetUserName: targetType === 'specific_user' ? selectedUser?.displayName : '',
             updatedAt: serverTimestamp(),
         };
 
@@ -193,6 +215,34 @@ function OfferDialog({ offer, onSave, onClose }: { offer?: Offer | null, onSave:
                         </div>
                     </div>
                 )}
+                
+                <div className="space-y-2">
+                    <Label htmlFor="offer-target">الجمهور المستهدف</Label>
+                    <Select value={targetType} onValueChange={(val) => setTargetType(val as any)}>
+                        <SelectTrigger id="offer-target">
+                            <SelectValue placeholder="اختر الجمهور" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">الجميع</SelectItem>
+                            <SelectItem value="specific_user">مستخدم معين</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                {targetType === 'specific_user' && (
+                    <div className="space-y-2">
+                        <Label htmlFor="offer-user">المستخدم</Label>
+                        <Select value={targetUserId} onValueChange={setTargetUserId} disabled={isLoadingUsers}>
+                             <SelectTrigger id="offer-user">
+                                <SelectValue placeholder={isLoadingUsers ? "جاري تحميل المستخدمين..." : "اختر المستخدم"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {users?.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
+
                  <div className="space-y-2">
                     <Label htmlFor="offer-status">الحالة</Label>
                     <Select value={status} onValueChange={(val) => setStatus(val as any)}>
@@ -279,6 +329,7 @@ export default function OffersPage() {
                             <TableRow>
                                 <TableHead>العنوان</TableHead>
                                 <TableHead>النوع</TableHead>
+                                <TableHead>الجمهور</TableHead>
                                 <TableHead>التفاصيل</TableHead>
                                 <TableHead>الحالة</TableHead>
                                 <TableHead><span className="sr-only">الإجراءات</span></TableHead>
@@ -286,7 +337,7 @@ export default function OffersPage() {
                         </TableHeader>
                         <TableBody>
                             {isLoading ? (
-                                <TableRow><TableCell colSpan={5} className="h-24 text-center">جاري تحميل العروض...</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={6} className="h-24 text-center">جاري تحميل العروض...</TableCell></TableRow>
                             ) : offers?.length ? (
                                 offers.map((offer) => (
                                     <TableRow key={offer.id}>
@@ -296,6 +347,12 @@ export default function OffersPage() {
                                                 {offer.type === 'cash_gift' ? <Gift className="h-4 w-4"/> : <Ticket className="h-4 w-4"/>}
                                                 <span>{offer.type === 'cash_gift' ? 'هدية مالية' : 'كوبون خصم'}</span>
                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className='flex items-center gap-2'>
+                                                {offer.targetType === 'all' ? <Globe className="h-4 w-4"/> : <Users className="h-4 w-4"/>}
+                                                <span>{offer.targetType === 'all' ? 'الجميع' : offer.targetUserName}</span>
+                                            </div>
                                         </TableCell>
                                         <TableCell>
                                             {offer.type === 'cash_gift' ? (
@@ -332,7 +389,7 @@ export default function OffersPage() {
                                     </TableRow>
                                 ))
                             ) : (
-                                <TableRow><TableCell colSpan={5} className="h-24 text-center">لا توجد عروض لعرضها.</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={6} className="h-24 text-center">لا توجد عروض لعرضها.</TableCell></TableRow>
                             )}
                         </TableBody>
                     </Table>
@@ -362,5 +419,3 @@ export default function OffersPage() {
         </AdminSubPageLayout>
     );
 }
-
-    

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Home, Ticket, BadgePercent, ShoppingCart, Wallet, LoaderCircle, Gift, Copy, CheckCircle2 } from 'lucide-react';
@@ -16,6 +16,8 @@ interface Offer extends DocumentData {
   title: string;
   type: 'cash_gift' | 'discount_coupon';
   status: 'active' | 'inactive';
+  targetType: 'all' | 'specific_user';
+  targetUserId?: string;
   // cash_gift specific
   amount?: number;
   redeemedBy?: string[];
@@ -33,11 +35,22 @@ export default function OffersPage() {
     const [redeemingStates, setRedeemingStates] = useState<Record<string, boolean>>({});
 
     const offersQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
-        return query(collection(firestore, 'offers'), where('status', '==', 'active'));
-    }, [firestore]);
+        if (!firestore || !user) return null;
+        // Query for offers targeted to 'all' or specifically to the current user
+        return query(
+            collection(firestore, 'offers'), 
+            where('status', '==', 'active'),
+            where('targetType', 'in', ['all', 'specific_user'])
+        );
+    }, [firestore, user]);
 
-    const { data: offers, isLoading } = useCollection<Offer>(offersQuery);
+    const { data: allOffers, isLoading } = useCollection<Offer>(offersQuery);
+
+    const offers = useMemo(() => {
+        if (!allOffers || !user) return [];
+        return allOffers.filter(offer => offer.targetType === 'all' || offer.targetUserId === user.uid);
+    }, [allOffers, user]);
+
 
     const handleRedeemGift = async (offer: Offer) => {
         if (!user || !firestore || offer.type !== 'cash_gift') return;
@@ -202,5 +215,3 @@ export default function OffersPage() {
     </div>
   );
 }
-
-    

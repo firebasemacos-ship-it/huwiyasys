@@ -164,9 +164,12 @@
         "title": { "type": "string", "description": "The title of the offer." },
         "type": { "type": "string", "enum": ["cash_gift", "discount_coupon"] },
         "status": { "type": "string", "enum": ["active", "inactive"], "default": "active" },
+        "targetType": { "type": "string", "enum": ["all", "specific_user"], "default": "all" },
+        "targetUserId": { "type": "string", "description": "UID of the target user if targetType is 'specific_user'." },
+        "targetUserName": { "type": "string", "description": "Name of the target user." },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["title", "type", "status", "createdAt"],
+      "required": ["title", "type", "status", "targetType", "createdAt"],
       "oneOf": [
         {
           "properties": {
@@ -651,6 +654,4 @@
     }
   }
 }
-    
-
     
