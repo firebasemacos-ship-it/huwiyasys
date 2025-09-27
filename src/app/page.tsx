@@ -17,7 +17,13 @@ import Image from 'next/image';
 function SplashScreen() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
-      <Image src="/splash.gif" alt="Loading..." width={200} height={200} unoptimized />
+      {/* 
+        To use your own splash.gif:
+        1. Create a `public` folder in the root of your project.
+        2. Move your `splash.gif` into that `public` folder.
+        3. Change the `src` below back to "/splash.gif".
+      */}
+      <Image src="https://i.gifer.com/origin/34/34338d26023e5515f6cc8969aa027bca.gif" alt="Loading..." width={200} height={200} unoptimized />
     </div>
   );
 }
