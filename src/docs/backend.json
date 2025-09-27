@@ -378,25 +378,12 @@
     },
     "Banner": {
       "title": "Banner",
-      "description": "Represents a promotional banner.",
+      "description": "Represents a promotional banner that contains custom HTML.",
       "type": "object",
       "properties": {
-        "title": {
+        "htmlContent": {
           "type": "string",
-          "description": "The main title of the banner."
-        },
-        "description": {
-          "type": "string",
-          "description": "A short description for the banner."
-        },
-        "imageUrl": {
-          "type": "string",
-          "format": "uri",
-          "description": "URL of the banner image."
-        },
-        "link": {
-          "type": "string",
-          "description": "The destination URL when the banner is clicked."
+          "description": "The full HTML content of the banner."
         },
         "status": {
           "type": "string",
@@ -408,8 +395,7 @@
         }
       },
       "required": [
-        "title",
-        "imageUrl",
+        "htmlContent",
         "status"
       ]
     },

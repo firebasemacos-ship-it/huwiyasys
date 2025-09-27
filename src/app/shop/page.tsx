@@ -55,9 +55,8 @@ interface Category extends DocumentData {
 
 interface Banner extends DocumentData {
     id: string;
-    title: string;
-    imageUrl: string;
-    link?: string;
+    htmlContent: string;
+    status: 'active' | 'draft';
 }
 
 interface CategoryWithProducts extends Category {
@@ -146,19 +145,7 @@ export default function ShopPage() {
                             <CarouselContent>
                                 {banners?.map((banner) => (
                                 <CarouselItem key={banner.id}>
-                                    <Link href={banner.link || '#'}>
-                                        <Card className="overflow-hidden">
-                                            <CardContent className="p-0">
-                                            <Image
-                                                src={banner.imageUrl}
-                                                alt={banner.title}
-                                                width={1200}
-                                                height={600}
-                                                className="w-full object-cover aspect-[2/1]"
-                                            />
-                                            </CardContent>
-                                        </Card>
-                                    </Link>
+                                    <div dangerouslySetInnerHTML={{ __html: banner.htmlContent }} />
                                 </CarouselItem>
                                 ))}
                             </CarouselContent>

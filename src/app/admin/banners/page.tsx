@@ -31,49 +31,38 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, DocumentData, query, orderBy } from 'firebase/firestore';
-import Image from 'next/image';
 
 interface Banner extends DocumentData {
   id: string;
-  title: string;
-  description?: string;
-  imageUrl: string;
+  htmlContent: string;
   status: 'active' | 'draft';
-  link?: string;
 }
 
 function BannerDialog({ banner, onSave, onClose }: { banner?: Banner | null, onSave: () => void, onClose: () => void }) {
     const firestore = useFirestore();
     const { toast } = useToast();
 
-    const [title, setTitle] = useState(banner?.title || '');
-    const [description, setDescription] = useState(banner?.description || '');
-    const [imageUrl, setImageUrl] = useState(banner?.imageUrl || '');
+    const [htmlContent, setHtmlContent] = useState(banner?.htmlContent || '');
     const [status, setStatus] = useState<'active' | 'draft'>(banner?.status || 'active');
-    const [link, setLink] = useState(banner?.link || '');
     
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSubmit = async () => {
-        if (!title || !imageUrl || !firestore) {
-            toast({ variant: 'destructive', title: "بيانات ناقصة", description: "الرجاء إدخال العنوان ورابط الصورة على الأقل." });
+        if (!htmlContent || !firestore) {
+            toast({ variant: 'destructive', title: "بيانات ناقصة", description: "الرجاء إدخال كود الـ HTML للبنر." });
             return;
         }
         setIsLoading(true);
 
         const bannerData = {
-            title,
-            description,
-            imageUrl,
+            htmlContent,
             status,
-            link,
             updatedAt: serverTimestamp(),
         };
 
@@ -102,26 +91,21 @@ function BannerDialog({ banner, onSave, onClose }: { banner?: Banner | null, onS
     };
     
     return (
-         <DialogContent dir="rtl" className="sm:max-w-[425px]">
+         <DialogContent dir="rtl" className="sm:max-w-2xl">
             <DialogHeader>
                 <DialogTitle>{banner ? 'تعديل البنر' : 'إضافة بنر جديد'}</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
                 <div className="space-y-2">
-                    <Label htmlFor="banner-title">العنوان</Label>
-                    <Input id="banner-title" value={title} onChange={(e) => setTitle(e.target.value)} />
-                </div>
-                 <div className="space-y-2">
-                    <Label htmlFor="banner-description">الوصف (اختياري)</Label>
-                    <Textarea id="banner-description" value={description} onChange={(e) => setDescription(e.target.value)} />
-                </div>
-                 <div className="space-y-2">
-                    <Label htmlFor="banner-image-url">رابط صورة البنر</Label>
-                    <Input id="banner-image-url" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://example.com/image.png" />
-                </div>
-                 <div className="space-y-2">
-                    <Label htmlFor="banner-link">الرابط (اختياري)</Label>
-                    <Input id="banner-link" value={link} onChange={(e) => setLink(e.target.value)} placeholder="/products/some-id" />
+                    <Label htmlFor="banner-html">كود الـ HTML للبنر</Label>
+                    <Textarea 
+                        id="banner-html" 
+                        value={htmlContent} 
+                        onChange={(e) => setHtmlContent(e.target.value)} 
+                        className="min-h-[200px] font-mono text-left"
+                        dir="ltr"
+                        placeholder="<div>...</div>"
+                    />
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="banner-status">الحالة</Label>
@@ -135,10 +119,10 @@ function BannerDialog({ banner, onSave, onClose }: { banner?: Banner | null, onS
                         </SelectContent>
                     </Select>
                 </div>
-                 {imageUrl && (
+                 {htmlContent && (
                     <div className="space-y-2">
-                        <Label>معاينة الصورة</Label>
-                        <Image src={imageUrl} alt={title} width={120} height={60} className="rounded-md object-cover aspect-[2/1]" />
+                        <Label>معاينة</Label>
+                        <div className="p-4 border rounded-md" dangerouslySetInnerHTML={{ __html: htmlContent }} />
                     </div>
                  )}
             </div>
@@ -156,15 +140,11 @@ export default function BannersPage() {
     const firestore = useFirestore();
     const { toast } = useToast();
 
-    // Dialog states
     const [isBannerDialogOpen, setBannerDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    
-    // Data states
     const [selectedBanner, setSelectedBanner] = useState<Banner | null>(null);
     const [bannerToDelete, setBannerToDelete] = useState<Banner | null>(null);
     
-    // Firestore data hooks
     const bannersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'banners'), orderBy('createdAt', 'desc')) : null, [firestore]);
     const { data: banners, isLoading, error: bannersError } = useCollection<Banner>(bannersQuery);
 
@@ -178,7 +158,6 @@ export default function BannersPage() {
         // Data is real-time, no manual refresh needed.
     };
 
-    // Handlers
     const handleAddBanner = () => {
         setSelectedBanner(null);
         setBannerDialogOpen(true);
@@ -222,35 +201,25 @@ export default function BannersPage() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="hidden w-[100px] sm:table-cell">صورة</TableHead>
-                                <TableHead>العنوان</TableHead>
+                                <TableHead>محتوى البنر (HTML)</TableHead>
                                 <TableHead>الحالة</TableHead>
-                                <TableHead>الوصف</TableHead>
                                 <TableHead><span className="sr-only">الإجراءات</span></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {isLoading ? (
-                                <TableRow><TableCell colSpan={5} className="h-24 text-center">جاري تحميل البنرات...</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={3} className="h-24 text-center">جاري تحميل البنرات...</TableCell></TableRow>
                             ) : banners?.length ? (
                                 banners.map((banner) => (
                                     <TableRow key={banner.id}>
-                                        <TableCell className="hidden sm:table-cell">
-                                            <Image
-                                                alt={banner.title}
-                                                className="aspect-[2/1] rounded-md object-cover"
-                                                height="50"
-                                                src={banner.imageUrl}
-                                                width="100"
-                                            />
+                                        <TableCell className="font-mono text-xs max-w-md truncate">
+                                           <div className="p-2 border rounded-md text-left" dangerouslySetInnerHTML={{ __html: banner.htmlContent }} />
                                         </TableCell>
-                                        <TableCell className="font-medium">{banner.title}</TableCell>
                                         <TableCell>
                                             <Badge variant={banner.status === 'active' ? 'default' : 'outline'}>
                                                 {banner.status === 'active' ? 'نشط' : 'مسودة'}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="hidden md:table-cell max-w-sm truncate">{banner.description}</TableCell>
                                         <TableCell className="text-left">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
@@ -269,14 +238,13 @@ export default function BannersPage() {
                                     </TableRow>
                                 ))
                             ) : (
-                                <TableRow><TableCell colSpan={5} className="h-24 text-center">لا توجد بنرات لعرضها.</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={3} className="h-24 text-center">لا توجد بنرات لعرضها.</TableCell></TableRow>
                             )}
                         </TableBody>
                     </Table>
                 </CardContent>
             </Card>
 
-            {/* Dialogs */}
             <Dialog open={isBannerDialogOpen} onOpenChange={setBannerDialogOpen}>
                 {isBannerDialogOpen && <BannerDialog banner={selectedBanner} onSave={refreshData} onClose={() => setBannerDialogOpen(false)} />}
             </Dialog>
@@ -300,5 +268,3 @@ export default function BannersPage() {
         </AdminSubPageLayout>
     );
 }
-
-    
