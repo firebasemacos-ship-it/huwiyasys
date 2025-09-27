@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,6 +12,15 @@ import { useAuth, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { LoaderCircle } from 'lucide-react';
+import Image from 'next/image';
+
+function SplashScreen() {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
+      <Image src="/splash.gif" alt="Loading..." width={200} height={200} unoptimized />
+    </div>
+  );
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,10 +28,19 @@ export default function LoginPage() {
   const auth = useAuth();
   const firestore = useFirestore();
 
+  const [showSplash, setShowSplash] = useState(true);
   const [contractNumber, setContractNumber] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [logoClickCount, setLogoClickCount] = useState(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 3000); // Show splash for 3 seconds
+
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (logoClickCount === 3) {
@@ -102,6 +119,10 @@ export default function LoginPage() {
 
   const handleLogoClick = () => {
     setLogoClickCount(prev => prev + 1);
+  }
+
+  if (showSplash) {
+    return <SplashScreen />;
   }
 
   return (
