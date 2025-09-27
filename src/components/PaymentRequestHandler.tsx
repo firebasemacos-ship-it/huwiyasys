@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -98,7 +99,7 @@ export function PaymentRequestHandler() {
                 id: uuidv4(),
                 category: 'order',
                 status: 'reviewing',
-                orderName: `طلب منتجات متنوعة`,
+                orderName: activeRequest.orderData.orderName || 'طلب منتجات متنوعة',
                 orderId: orderRef.id,
                 totalAmount: activeRequest.amount,
                 itemCount: activeRequest.orderData.items.reduce((acc: number, item: any) => acc + item.quantity, 0),

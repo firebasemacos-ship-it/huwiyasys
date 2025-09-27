@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -157,11 +158,12 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                     });
 
                     // Add order subscription to user
+                    const orderName = cartItems.map(item => item.name).join(', ');
                     const orderSubscription = {
                         id: uuidv4(),
                         category: 'order',
                         status: 'reviewing',
-                        orderName: `طلب منتجات متنوعة`,
+                        orderName: orderName,
                         orderId: orderRef.id,
                         totalAmount: totalAmount,
                         itemCount: cartItems.reduce((acc, item) => acc + item.quantity, 0),
@@ -184,7 +186,8 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                     throw new Error("لم يتم العثور على مالك البطاقة المرتبطة.");
                 }
                 const ownerDoc = ownerSnapshot.docs[0];
-
+                
+                const orderName = cartItems.map(item => item.name).join(', ');
                 const paymentRequest = {
                     requesterId: user.uid,
                     requesterName: userData.displayName,
@@ -194,7 +197,8 @@ function CheckoutDialog({ onPaymentSuccess, cartItems, totalAmount }: { onPaymen
                     createdAt: serverTimestamp(),
                     orderData: { // Snapshot of the order
                         userId: user.uid, userName: userData.displayName, items: cartDataForOrder, totalAmount: totalAmount,
-                        paymentMethod: `**** ${finalPaymentCardNumber.slice(-4)}`
+                        paymentMethod: `**** ${finalPaymentCardNumber.slice(-4)}`,
+                        orderName: orderName,
                     }
                 };
 
@@ -361,8 +365,7 @@ export default function CartPage() {
     setIsClient(true);
   }, []);
 
-  const subtotal = useMemo(() => cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0), [cartItems]);
-  const total = subtotal;
+  const total = useMemo(() => cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0), [cartItems]);
 
   const handlePaymentSuccess = () => {
     setCheckoutOpen(false);
@@ -434,10 +437,6 @@ export default function CartPage() {
         {isClient && cartItems.length > 0 && (
             <div className="fixed bottom-24 z-30 w-full border-t border-white/10 bg-background/30 p-4 shadow-t-strong backdrop-blur-lg">
                 <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                        <span>المجموع الفرعي</span>
-                        <span>{subtotal.toFixed(2)} دينار ليبي</span>
-                    </div>
                     <div className="flex justify-between text-base font-bold">
                         <span>المجموع</span>
                         <span>{total.toFixed(2)} دينار ليبي</span>
