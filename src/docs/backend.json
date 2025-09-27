@@ -41,6 +41,24 @@
           "type": "string",
           "description": "A temporary password for the user's first login."
         },
+        "phone": {
+            "type": "string",
+            "description": "User's phone number."
+        },
+        "address": {
+            "type": "string",
+            "description": "User's physical address."
+        },
+        "age": {
+            "type": "number",
+            "description": "User's age."
+        },
+        "verificationStatus": {
+            "type": "string",
+            "enum": ["unverified", "pending", "verified"],
+            "default": "unverified",
+            "description": "The verification status of the user's account."
+        },
         "wallet": {
           "type": "object",
           "description": "User's primary internal wallet information.",

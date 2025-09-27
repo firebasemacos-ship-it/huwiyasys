@@ -6,8 +6,9 @@ export const dynamic = 'force-dynamic';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Home, Ticket, BadgePercent, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, PlusCircle, LoaderCircle, CheckCircle2, Wifi, BadgeHelp, Copy, Send } from 'lucide-react';
+import { Home, Ticket, BadgePercent, ShoppingCart, Wallet as WalletIcon, ArrowLeft, CreditCard, PlusCircle, LoaderCircle, CheckCircle2, Wifi, BadgeHelp, Copy, Send, CheckCircle, ShieldQuestion } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -38,6 +39,10 @@ type UserProfile = DocumentData & {
     displayName: string;
     wallet: Wallet;
     linkedWallets?: Wallet[];
+    verificationStatus?: 'unverified' | 'pending' | 'verified';
+    phone?: string;
+    address?: string;
+    age?: number;
 }
 
 type Transaction = {
@@ -359,6 +364,104 @@ function TransferBalanceDialog({ userProfile, onClose }: { userProfile: UserProf
     );
 }
 
+
+function VerificationDialog({ user, userDocRef, onClose }: { user: UserProfile, userDocRef: DocumentData, onClose: () => void }) {
+    const firestore = useFirestore();
+    const { toast } = useToast();
+
+    const [phone, setPhone] = useState(user.phone || '');
+    const [address, setAddress] = useState(user.address || '');
+    const [age, setAge] = useState(user.age || '');
+    
+    const [verificationStep, setVerificationStep] = useState<'form' | 'checking' | 'matching' | 'verified'>('form');
+
+    const handleSubmit = async () => {
+        if (!phone || !address || !age) {
+            toast({ variant: 'destructive', title: "بيانات ناقصة", description: "الرجاء ملء جميع الحقول." });
+            return;
+        }
+
+        if (!firestore) return;
+
+        setVerificationStep('checking');
+        await updateDoc(userDocRef, { 
+            phone, 
+            address, 
+            age: Number(age),
+            verificationStatus: 'pending'
+        });
+
+        setTimeout(() => setVerificationStep('matching'), 1500);
+        setTimeout(() => {
+            updateDoc(userDocRef, { verificationStatus: 'verified' });
+            setVerificationStep('verified');
+        }, 3000);
+        setTimeout(onClose, 4500);
+    };
+
+    const renderContent = () => {
+        switch (verificationStep) {
+            case 'checking':
+                return (
+                    <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+                        <LoaderCircle className="h-16 w-16 animate-spin text-primary" />
+                        <DialogTitle className="text-2xl">جاري التحقق من البيانات</DialogTitle>
+                    </div>
+                );
+            case 'matching':
+                return (
+                    <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+                        <LoaderCircle className="h-16 w-16 animate-spin text-primary" />
+                        <DialogTitle className="text-2xl">جاري المطابقة</DialogTitle>
+                    </div>
+                );
+            case 'verified':
+                 return (
+                    <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+                        <CheckCircle2 className="h-16 w-16 text-green-500" />
+                        <DialogTitle className="text-2xl">تم التحقق بنجاح</DialogTitle>
+                        <DialogDescription>شكراً لك، تم التحقق من حسابك.</DialogDescription>
+                    </div>
+                );
+            case 'form':
+            default:
+                return (
+                    <>
+                        <DialogHeader>
+                            <DialogTitle>إكمال بيانات الملف الشخصي</DialogTitle>
+                            <DialogDescription>الرجاء إكمال البيانات التالية لتوثيق حسابك.</DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="phone">رقم الهاتف</Label>
+                                <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="address">العنوان</Label>
+                                <Input id="address" value={address} onChange={(e) => setAddress(e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="age">العمر</Label>
+                                <Input id="age" value={age} onChange={(e) => setAge(e.target.value)} type="number" />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button onClick={handleSubmit} className="w-full">
+                                إرسال للتحقق
+                            </Button>
+                        </DialogFooter>
+                    </>
+                );
+        }
+    }
+    
+    return (
+        <DialogContent dir="rtl">
+            {renderContent()}
+        </DialogContent>
+    );
+}
+
 export default function WalletPage() {
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
@@ -388,6 +491,7 @@ export default function WalletPage() {
   const [isRechargeDialogOpen, setRechargeDialogOpen] = useState(false);
   const [isAddCardDialogOpen, setAddCardDialogOpen] = useState(false);
   const [isTransferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [isVerificationDialogOpen, setVerificationDialogOpen] = useState(false);
 
 
   const [rechargeCode, setRechargeCode] = useState('');
@@ -591,6 +695,12 @@ export default function WalletPage() {
       }
       return <BadgeHelp className="h-6 w-6 text-muted-foreground" />;
   }
+  
+  const handleVerificationClick = () => {
+    if (userData?.verificationStatus === 'unverified' || !userData?.verificationStatus) {
+        setVerificationDialogOpen(true);
+    }
+  }
 
 
   return (
@@ -617,14 +727,11 @@ export default function WalletPage() {
                     >
                         {/* Card Front */}
                         <div className="absolute w-full h-full" style={{ backfaceVisibility: 'hidden' }}>
-                            <Card className="relative h-full w-full overflow-hidden rounded-xl bg-gradient-to-br from-primary/80 to-primary/60 text-primary-foreground shadow-lg">
+                            <Card className="relative h-full w-full overflow-hidden rounded-xl bg-gradient-to-br from-primary/90 to-primary/70 text-primary-foreground shadow-lg">
                                 <CardContent className="relative flex h-full flex-col justify-between p-6">
                                     <div className="flex items-start justify-between">
                                        <div className="w-12 h-9 bg-yellow-400 rounded-md flex items-center justify-center border-2 border-yellow-500">
                                             <div className="w-8 h-5 bg-yellow-600 rounded-sm"></div>
-                                        </div>
-                                         <div className="relative h-8 w-8">
-                                            <CardLogo fill style={{ objectFit: 'contain' }} />
                                         </div>
                                     </div>
                                     <div className="text-left flex items-center gap-2">
@@ -644,7 +751,33 @@ export default function WalletPage() {
                                         </Button>
                                     </div>
                                     <div className="flex items-end justify-between">
-                                        <p className="text-lg font-semibold">{userData?.displayName || 'المستخدم'}</p>
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="text-lg font-semibold">{userData?.displayName || 'المستخدم'}</p>
+                                            
+                                            {userData?.verificationStatus === 'verified' ? (
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger>
+                                                            <CheckCircle className="h-4 w-4 text-sky-400" />
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>تم التحقق من العميل</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            ) : (
+                                                 <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger onClick={(e) => {e.stopPropagation(); handleVerificationClick()}}>
+                                                            <ShieldQuestion className="h-4 w-4 text-amber-400 cursor-pointer" />
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>الحساب غير موثق - اضغط للتوثيق</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            )}
+                                        </div>
                                         <div>
                                             <p className="text-xs opacity-80 text-right">EXPIRES</p>
                                             <p className="text-sm font-semibold">{userData?.wallet?.expiryDate || '08/30'}</p>
@@ -656,7 +789,7 @@ export default function WalletPage() {
 
                         {/* Card Back */}
                         <div className="absolute w-full h-full" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
-                            <Card className="relative h-full w-full overflow-hidden rounded-xl bg-gradient-to-br from-primary/80 to-primary/60 text-primary-foreground shadow-lg">
+                            <Card className="relative h-full w-full overflow-hidden rounded-xl bg-gradient-to-br from-primary/90 to-primary/70 text-primary-foreground shadow-lg">
                                 <div className="h-full flex flex-col justify-between p-4">
                                     <div className="h-12 bg-black mt-4"></div>
                                     <div className="flex justify-end items-center gap-4 px-4 py-2 bg-slate-200 rounded-md">
@@ -819,6 +952,10 @@ export default function WalletPage() {
             </CardContent>
           </Card>
         </main>
+
+        <Dialog open={isVerificationDialogOpen} onOpenChange={setVerificationDialogOpen}>
+            {isVerificationDialogOpen && userData && userDocRef && <VerificationDialog user={userData} userDocRef={userDocRef} onClose={() => setVerificationDialogOpen(false)} />}
+        </Dialog>
 
         <footer className="fixed bottom-0 z-40 w-full border-t border-white/10 bg-background/30 backdrop-blur-lg">
           <nav className="flex items-center justify-around p-2">
