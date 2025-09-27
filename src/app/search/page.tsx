@@ -50,11 +50,11 @@ export default function SearchPage() {
               السلة
             </a>
             <a
-              href="/wallet"
+              href="/my-wallet"
               className="flex flex-col items-center text-xs text-muted-foreground"
             >
               <Wallet className="mb-1 h-6 w-6" />
-              باي
+              محفظتي
             </a>
             <a
               href="/subscriptions"

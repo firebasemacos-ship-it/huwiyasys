@@ -295,11 +295,11 @@ export default function SubscriptionsPage() {
               السلة
             </a>
             <a
-              href="/wallet"
+              href="/my-wallet"
               className="flex flex-col items-center text-xs text-muted-foreground"
             >
               <WalletIcon className="mb-1 h-6 w-6" />
-              باي
+              محفظتي
             </a>
             <a
               href="/subscriptions"
