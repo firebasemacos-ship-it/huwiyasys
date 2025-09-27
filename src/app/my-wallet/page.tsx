@@ -585,12 +585,13 @@ export default function WalletPage() {
                         {/* Card Front */}
                         <div className="absolute w-full h-full" style={{ backfaceVisibility: 'hidden' }}>
                             <Card className="relative h-full w-full overflow-hidden rounded-xl bg-gradient-to-br from-primary/90 to-primary/70 text-primary-foreground shadow-lg">
-                                <CardContent className="flex h-full flex-col justify-between p-6">
+                                 <CardLogo className="absolute -right-10 -bottom-8 h-40 w-40 opacity-10" />
+                                <CardContent className="relative flex h-full flex-col justify-between p-6">
                                     <div className="flex items-start justify-between">
                                        <div className="w-12 h-9 bg-yellow-400 rounded-md flex items-center justify-center border-2 border-yellow-500">
                                             <div className="w-8 h-5 bg-yellow-600 rounded-sm"></div>
                                         </div>
-                                         <CardLogo className="h-20 w-20" />
+                                         <CardLogo className="h-8 w-8" />
                                     </div>
                                     <div className="text-left flex items-center gap-2">
                                         <p className="font-mono text-xl tracking-widest flex-1">
@@ -828,3 +829,4 @@ export default function WalletPage() {
     </div>
   );
 }
+
