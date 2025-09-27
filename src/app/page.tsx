@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -43,7 +44,7 @@ export default function LoginPage() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowSplash(false);
-    }, 3000); // Show splash for 3 seconds
+    }, 5000); // Show splash for 5 seconds
 
     return () => clearTimeout(timer);
   }, []);
