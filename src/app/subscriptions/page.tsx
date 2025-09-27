@@ -3,7 +3,7 @@
 
 import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Home, Search, ShoppingCart, Ticket, Wallet as WalletIcon, ArrowLeft, XCircle, Globe, Palette, Package, CalendarDays, Server, Star, Hourglass, ShoppingBag } from 'lucide-react';
+import { Home, Search, ShoppingCart, Ticket, Wallet as WalletIcon, ArrowLeft, XCircle, Globe, Palette, Package, CalendarDays, Server, Star, Hourglass, ShoppingBag, Trash2 } from 'lucide-react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, DocumentData } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -101,15 +101,21 @@ export default function SubscriptionsPage() {
 
     const { data: userData, isLoading, error } = useDoc<UserProfile>(userDocRef);
     
-    // Sort subscriptions by end date, descending.
+    // Sort subscriptions by creation date, descending.
     const subscriptions = useMemo(() => {
         if (!userData?.subscriptions) return [];
         return [...userData.subscriptions].sort((a, b) => {
-            const dateA = safeToDate((a as any).endDate || a.createdAt) || new Date(0);
-            const dateB = safeToDate((b as any).endDate || b.createdAt) || new Date(0);
+            const dateA = safeToDate(a.createdAt) || new Date(0);
+            const dateB = safeToDate(b.createdAt) || new Date(0);
             return dateB.getTime() - dateA.getTime();
         });
     }, [userData?.subscriptions]);
+
+    const handleCancelRequest = (subscriptionId: string) => {
+        // TODO: Implement the logic to update the subscription status to 'cancelled' in Firestore.
+        // This will likely involve updating the user's document.
+        console.log("Cancelling request for subscription ID:", subscriptionId);
+    };
 
     const getStatusVariant = (status: Subscription['status']) => {
         switch (status) {
@@ -202,7 +208,7 @@ export default function SubscriptionsPage() {
     <div className="dark bg-background text-foreground" dir="rtl">
       <div className="flex min-h-screen flex-col">
         <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b bg-background/30 p-4 backdrop-blur-lg">
-          <h1 className="text-xl font-bold">اشتراكاتي</h1>
+          <h1 className="text-xl font-bold">اشتراكاتي وطلباتي</h1>
           <Button variant="ghost" size="icon" onClick={() => window.history.back()}>
             <ArrowLeft className="h-6 w-6" />
           </Button>
@@ -257,6 +263,14 @@ export default function SubscriptionsPage() {
                             </CardHeader>
                             <CardContent className="space-y-3 pt-2">
                                {details}
+                               {sub.status === 'reviewing' && (
+                                   <div className="flex justify-end pt-2">
+                                       <Button variant="destructive" size="sm" onClick={() => handleCancelRequest(sub.id)}>
+                                            <Trash2 className="ml-2 h-4 w-4" />
+                                            إلغاء الطلب
+                                       </Button>
+                                   </div>
+                               )}
                             </CardContent>
                         </Card>
                        )
@@ -265,8 +279,8 @@ export default function SubscriptionsPage() {
             ) : (
                 <div className="flex flex-col items-center justify-center gap-4 py-12 text-center h-full">
                     <Ticket className="h-20 w-20 text-muted-foreground" />
-                    <h2 className="text-xl font-semibold">لا توجد لديك اشتراكات</h2>
-                    <p className="text-muted-foreground">اكتشف العروض والخدمات للاشتراك بها.</p>
+                    <h2 className="text-xl font-semibold">لا توجد لديك اشتراكات أو طلبات</h2>
+                    <p className="text-muted-foreground">اكتشف العروض والخدمات للاشتراك بها أو قم بطلب جديد.</p>
                 </div>
             )}
         </main>
